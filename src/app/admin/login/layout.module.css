@@ -1,0 +1,129 @@
+/*
+ * layout.module.css — Admin login route layout
+ *
+ * Full-viewport vault. Brand top-left. Form dead-center.
+ * Uses a fine linen-weave noise texture for premium depth
+ * rather than flat dead space.
+ */
+
+/* ── Root ─────────────────────────────────────────────────── */
+.root {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  position: relative;
+  overflow: hidden;
+
+  /* Base: very light warm off-white */
+  background-color: #f0f1f4;
+
+  /*
+   * Two-layer texture:
+   * 1. Fine crosshatch noise (linen feel)
+   * 2. Subtle radial vignette — darkens the edges, draws focus center
+   */
+  background-image:
+    radial-gradient(
+      ellipse at 50% 50%,
+      transparent 55%,
+      rgba(20, 30, 55, 0.07) 100%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect width='6' height='6' fill='%23eef0f3'/%3E%3Cpath d='M0 0L6 6M6 0L0 6' stroke='%23dde0e8' stroke-width='0.4' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* Decorative corner accent — navy quarter-circle top-right */
+.root::before {
+  content: '';
+  position: fixed;
+  top: -120px;
+  right: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26,39,68,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Decorative accent — crimson glow bottom-left */
+.root::after {
+  content: '';
+  position: fixed;
+  bottom: -80px;
+  left: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(179,30,60,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Brand mark ───────────────────────────────────────────── */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 28px;
+  position: relative;
+  z-index: 10;
+  /* Fixed to top-left — doesn't reflow on mobile */
+  align-self: start;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.brandThe {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--color-crimson);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.brandName {
+  font-family: var(--font-serif);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* ── Center slot ──────────────────────────────────────────── */
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.footer {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(26, 39, 68, 0.25);
+  padding: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .brand {
+    padding: 16px 20px;
+  }
+
+  .brandName {
+    font-size: 0.8125rem;
+  }
+}
