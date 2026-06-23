@@ -1,0 +1,401 @@
+/*
+ * AuthForm.module.css
+ * Scoped styles for the Authentication Form component.
+ * Uses design tokens from globals.css via CSS variables.
+ */
+
+/* ── Card container ──────────────────────────────────────── */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  width: 100%;
+  max-width: 480px;
+
+  /* Subtle top accent bar */
+  border-top: 4px solid var(--color-crimson);
+}
+
+/* ── Tab switcher ────────────────────────────────────────── */
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1.5px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.tab {
+  padding: var(--space-4) var(--space-6);
+  background: transparent;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  letter-spacing: 0.01em;
+  position: relative;
+}
+
+.tab::after {
+  content: '';
+  position: absolute;
+  bottom: -1.5px;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: var(--color-crimson);
+  transform: scaleX(0);
+  transition: transform var(--transition-base);
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+  background: rgba(0,0,0,0.02);
+}
+
+.tabActive {
+  color: var(--color-navy);
+  font-weight: 700;
+  background: var(--color-surface);
+}
+
+.tabActive::after {
+  transform: scaleX(1);
+}
+
+/* ── Card header ─────────────────────────────────────────── */
+.cardHeader {
+  padding: var(--space-8) var(--space-8) 0;
+  text-align: center;
+}
+
+.cardTitle {
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 900;
+  color: var(--color-navy);
+  margin-bottom: var(--space-2);
+  line-height: 1.2;
+}
+
+/* The italic portion of the title */
+.cardTitle em {
+  font-style: italic;
+  color: var(--color-crimson);
+  font-weight: 900;
+}
+
+.cardSubtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  max-width: 340px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* ── Form ────────────────────────────────────────────────── */
+.form {
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Alert (inside form) ─────────────────────────────────── */
+/* Uses global .alert classes */
+
+/* ── Password field ──────────────────────────────────────── */
+.passwordLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.forgotLink {
+  font-size: 0.8125rem;
+  color: var(--color-crimson);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+.forgotLink:hover { color: var(--color-crimson-hover); text-decoration: underline; }
+
+.passwordWrapper {
+  position: relative;
+}
+
+.passwordInput {
+  padding-right: 3rem !important;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: var(--space-1);
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+.passwordToggle:hover { color: var(--color-navy); }
+
+/* ── Password strength meter ─────────────────────────────── */
+.strengthMeter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.strengthBars {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.strengthBar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  flex: 1;
+  transition: background var(--transition-base);
+}
+
+.strengthLevel1 { background: var(--color-error); }
+.strengthLevel2 { background: var(--color-warning); }
+.strengthLevel3 { background: var(--color-success); }
+
+.strengthLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  min-width: 3rem;
+  text-align: right;
+}
+
+/* ── Submit button ───────────────────────────────────────── */
+.submitBtn {
+  margin-top: var(--space-2);
+  padding: 1rem 2rem;
+  font-size: 1rem;
+}
+
+/* ── Mode toggle line ────────────────────────────────────── */
+.modeToggle {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.textLink {
+  background: none;
+  border: none;
+  color: var(--color-crimson);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+.textLink:hover { color: var(--color-crimson-hover); text-decoration: underline; }
+
+/* ── Trust footer ────────────────────────────────────────── */
+.trustFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-8);
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.trustItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.trustDot {
+  color: var(--color-border);
+  font-size: 0.75rem;
+}
+
+/* ── Pending verification state ──────────────────────────── */
+.pendingBadge {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) var(--space-8) 0;
+}
+
+.pendingIcon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #eff4ff 0%, #e8f0fe 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  box-shadow: 0 4px 20px rgba(59,130,246,0.2);
+}
+
+.pendingBody {
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+.pendingTitle {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--color-navy);
+  font-style: italic;
+}
+
+.pendingSubtitle {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  margin-bottom: calc(-1 * var(--space-3));
+}
+
+.pendingEmail {
+  font-weight: 700;
+  color: var(--color-navy);
+  font-size: 1rem;
+  background: var(--color-bg);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  word-break: break-all;
+}
+
+.pendingNote {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  max-width: 320px;
+  line-height: 1.6;
+}
+
+.pendingChecklist {
+  width: 100%;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: left;
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+}
+
+.pendingCheckItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.checkIcon {
+  color: var(--color-success);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pendingCheckItemPending {
+  color: var(--color-warning);
+}
+
+.pendingCheckItemLocked {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.pendingDot {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid var(--color-warning);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.lockIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.spamNote {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.backToLogin {
+  margin-top: var(--space-2);
+  padding: 0.75rem 2rem;
+  font-size: 0.9rem;
+}
+
+/* ── Mobile ──────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .card {
+    border-radius: 0;
+    border-top: 4px solid var(--color-crimson);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cardHeader {
+    padding: var(--space-6) var(--space-5) 0;
+  }
+
+  .form {
+    padding: var(--space-5) var(--space-5) var(--space-6);
+    flex: 1;
+  }
+
+  .pendingBody {
+    padding: var(--space-5) var(--space-5) var(--space-6);
+  }
+
+  .trustFooter {
+    padding: var(--space-4) var(--space-5);
+  }
+}

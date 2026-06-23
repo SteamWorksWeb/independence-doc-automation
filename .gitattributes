@@ -1,0 +1,11 @@
+# Normalize line endings to LF in the repo, auto-convert on checkout for Windows
+* text=auto eol=lf
+
+# Force binary treatment for lock files and media
+*.lock binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
