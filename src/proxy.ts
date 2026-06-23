@@ -1,7 +1,8 @@
 /**
- * src/middleware.ts
+ * src/proxy.ts
  *
- * Next.js Edge Middleware — Admin Route Protection
+ * Next.js 16 Proxy — Admin Route Protection
+ * (Migrated from src/middleware.ts per Next.js 16 convention)
  *
  * Matches:  /admin/:path*  (all admin routes)
  * Excludes: /admin/login   (the auth gateway itself)
@@ -33,8 +34,8 @@ export const config = {
   matcher: ["/admin/:path*"],
 };
 
-// ── Middleware handler ────────────────────────────────────────────────────────
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+// ── Proxy handler ─────────────────────────────────────────────────────────────
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   // ── 1. Pass-through the login page itself ────────────────────────────────
@@ -53,9 +54,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const secret = process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
-    // Misconfigured server — deny access, log on the Edge
     console.error(
-      "[middleware] ADMIN_JWT_SECRET is not set. " +
+      "[proxy] ADMIN_JWT_SECRET is not set. " +
         "Configure it in your environment variables."
     );
     return denyAccess(request, "config_error");
@@ -67,50 +67,38 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       cookie.value,
       new TextEncoder().encode(secret),
       {
-        // These options MUST match what admin-login/route.ts signs with
         issuer: "independence-law-admin",
         algorithms: ["HS256"],
       }
     );
 
     // ── 5. Assert role claim ──────────────────────────────────────────────
-    // A client JWT (signed with NEXTAUTH_SECRET, role: "client") would
-    // fail here even if someone found the admin cookie name.
     if (payload.role !== "admin") {
       console.warn(
-        `[middleware] Token with unexpected role "${payload.role}" rejected`
+        `[proxy] Token with unexpected role "${payload.role}" rejected`
       );
       return denyAccess(request, "wrong_role");
     }
 
     // ── 6. Request is authenticated — pass through ────────────────────────
-    // Optionally forward the admin email as a request header for use
-    // in server components (never exposed to client JS)
     const response = NextResponse.next();
     if (typeof payload.email === "string") {
       response.headers.set("x-admin-email", payload.email);
     }
     return response;
   } catch {
-    // jwtVerify throws on: expired, bad signature, wrong algorithm, malformed
     return denyAccess(request, "invalid_token");
   }
 }
 
 // ── Helper: clear cookie + redirect ──────────────────────────────────────────
 
-function denyAccess(
-  request: NextRequest,
-  reason: string
-): NextResponse {
-  // Log server-side only — client never sees the reason
-  console.warn(`[middleware] Access denied (${reason}): ${request.nextUrl.pathname}`);
+function denyAccess(request: NextRequest, reason: string): NextResponse {
+  console.warn(`[proxy] Access denied (${reason}): ${request.nextUrl.pathname}`);
 
   const loginUrl = new URL("/admin/login", request.url);
-
   const response = NextResponse.redirect(loginUrl);
 
-  // Aggressively clear any stale/tampered cookie
   response.cookies.set("admin_session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
