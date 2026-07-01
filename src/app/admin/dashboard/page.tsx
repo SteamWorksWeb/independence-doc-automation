@@ -22,6 +22,7 @@
 
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -181,6 +182,7 @@ export default async function ClientRosterPage() {
                   <th className={styles.th} scope="col">Joined Date</th>
                   <th className={styles.th} scope="col">Status</th>
                   <th className={styles.th} scope="col">Intake</th>
+                  <th className={styles.th} scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,12 +190,16 @@ export default async function ClientRosterPage() {
                   <tr key={client.id} className={styles.tr}>
                     <td className={`${styles.td} ${styles.tdIndex}`}>{index + 1}</td>
                     <td className={`${styles.td} ${styles.tdEmail}`}>
-                      <span className={styles.emailFull} title={client.email}>
-                        {client.email}
-                      </span>
-                      <span className={styles.emailObfuscated} aria-hidden>
-                        {obfuscateEmail(client.email)}
-                      </span>
+                      <Link
+                        href={`/admin/clients/${client.id}`}
+                        className={styles.emailLink}
+                        title={client.email}
+                      >
+                        <span className={styles.emailFull}>{client.email}</span>
+                        <span className={styles.emailObfuscated} aria-hidden>
+                          {obfuscateEmail(client.email)}
+                        </span>
+                      </Link>
                     </td>
                     <td className={`${styles.td} ${styles.tdDate}`}>
                       {formatDate(client.createdAt)}
@@ -203,6 +209,15 @@ export default async function ClientRosterPage() {
                     </td>
                     <td className={styles.td}>
                       <IntakeIndicator client={client} />
+                    </td>
+                    <td className={styles.td}>
+                      <Link
+                        href={`/admin/clients/${client.id}`}
+                        className={styles.viewLink}
+                        aria-label={`View profile for ${client.email}`}
+                      >
+                        View →
+                      </Link>
                     </td>
                   </tr>
                 ))}

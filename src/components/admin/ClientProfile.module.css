@@ -1,0 +1,430 @@
+/*
+ * ClientProfile.module.css
+ * Independence Law Firm — Client 360° Profile
+ *
+ * Covers:
+ *   - Page wrapper & header
+ *   - Breadcrumb nav
+ *   - Client identity card
+ *   - Status badge strip
+ *   - Tab bar (active / inactive / hover states)
+ *   - Tab panel layouts
+ *   - Definition list data grids
+ *   - Placeholder states (Documents, Messages)
+ *   - Responsive breakpoints
+ */
+
+/* ── Page wrapper ──────────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1100px;
+}
+
+/* ── Breadcrumb ────────────────────────────────────────────── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.breadcrumbLink {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.breadcrumbLink:hover {
+  color: var(--color-navy);
+  text-decoration: none;
+}
+
+.breadcrumbSep {
+  color: var(--color-border);
+}
+
+.breadcrumbCurrent {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  /* truncate long emails */
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Client identity card ──────────────────────────────────── */
+.profileCard {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  padding: 24px 28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.profileLeft {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.profileMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.profileEmail {
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.profileDetails {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profileDetail {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.profileRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* ── Status badges ─────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+  opacity: 0.85;
+}
+
+.badgeSuccess { background: var(--color-success-bg); color: var(--color-success); }
+.badgeWarning { background: var(--color-warning-bg); color: var(--color-warning); }
+.badgeMuted   { background: var(--color-bg-alt);     color: var(--color-text-muted); }
+
+/* ── Tab bar ───────────────────────────────────────────────── */
+.tabsCard {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.tabBar {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;
+}
+.tabBar::-webkit-scrollbar { display: none; }
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  position: relative;
+  top: 1px; /* overlap the card border-bottom */
+}
+
+.tabBtn:hover {
+  color: var(--color-navy);
+  background: rgba(26,39,68,0.04);
+}
+
+.tabBtnActive {
+  color: var(--color-navy);
+  border-bottom-color: var(--color-crimson);
+  font-weight: 600;
+  background: #ffffff;
+}
+
+.tabIcon {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+.tabBtnActive .tabIcon { opacity: 1; }
+
+/* ── Tab panels ────────────────────────────────────────────── */
+.tabPanel {
+  padding: 28px 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── Section within a tab ──────────────────────────────────── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionTitle {
+  font-family: var(--font-serif);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ── Definition list grid ──────────────────────────────────── */
+.dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0;
+}
+
+/* Each pair (dt+dd) becomes a logical cell */
+.dlRow {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  transition: background 150ms ease;
+}
+.dlRow:hover { background: var(--color-bg); }
+
+.dt {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.dd {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
+.ddMuted {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* ── Wide text areas (narrative fields) ────────────────────── */
+.narrativeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.narrativeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.narrativeLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.narrativeText {
+  font-size: 0.9375rem;
+  color: var(--color-text-primary);
+  line-height: 1.7;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  min-height: 100px;
+}
+
+.narrativeEmpty {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ── Boolean chip ──────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.chipYes { background: var(--color-success-bg); color: var(--color-success); }
+.chipNo  { background: var(--color-bg-alt);     color: var(--color-text-muted); }
+
+/* ── Currency value highlight ──────────────────────────────── */
+.currency {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+/* ── Placeholder panels (Documents & Messages) ─────────────── */
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 72px 24px;
+  gap: 14px;
+}
+
+.placeholderIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.placeholderTitle {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.placeholderBody {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+.placeholderBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  border: 1.5px dashed var(--color-border);
+  color: var(--color-text-muted);
+}
+
+/* ── Error & loading states ────────────────────────────────── */
+.errorCard {
+  background: var(--color-error-bg);
+  border: 1px solid rgba(192,57,43,0.2);
+  border-left: 4px solid var(--color-error);
+  border-radius: 8px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.errorTitle {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-error);
+}
+
+.errorBody {
+  font-size: 0.875rem;
+  color: var(--color-error);
+  opacity: 0.85;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+.backLink:hover { color: var(--color-crimson); text-decoration: none; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .narrativeGrid { grid-template-columns: 1fr; }
+  .profileCard   { flex-direction: column; }
+  .profileRight  { align-items: flex-start; }
+  .tabPanel      { padding: 20px 16px 24px; }
+}
+
+@media (max-width: 480px) {
+  .dl { grid-template-columns: 1fr 1fr; }
+  .profileLeft { flex-direction: column; align-items: flex-start; }
+}
