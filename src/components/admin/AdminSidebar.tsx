@@ -13,17 +13,27 @@
  *         (POST prevents CSRF via prefetch/link)
  */
 
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import styles from "./AdminSidebar.module.css";
 
 // ── Nav items (shell only — features added in future milestones) ──────────────
-const NAV_ITEMS = [
+
+interface NavItem {
+  id: string;
+  label: string;
+  icon: () => React.ReactElement;
+  href: string;
+  active: boolean;
+  soon?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: GridIcon, href: "/admin/dashboard", active: true },
   { id: "clients",   label: "Clients",   icon: UsersIcon, href: "/admin/clients",  active: false, soon: true },
   { id: "cases",     label: "Cases",     icon: FolderIcon, href: "/admin/cases",   active: false, soon: true },
   { id: "documents", label: "Documents", icon: FileIcon,  href: "/admin/documents", active: false, soon: true },
   { id: "settings",  label: "Settings",  icon: GearIcon,  href: "/admin/settings", active: false, soon: true },
-] as const;
+];
 
 // ── Sidebar component ─────────────────────────────────────────────────────────
 

@@ -313,6 +313,6 @@ export async function requestUploadUrl(opts: {
   contentType: string;
 }): Promise<S3PresignedUrl> {
   return apiPost<S3PresignedUrl>("/documents/upload-url", opts, {
-    next: { cache: "no-store" }, // presigned URLs must never be cached
+    next: { revalidate: 0 }, // presigned URLs must never be cached
   });
 }
