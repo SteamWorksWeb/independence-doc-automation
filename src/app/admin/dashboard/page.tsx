@@ -98,15 +98,15 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
   console.log(`[dashboard] admin_session cookie present: ${masked}`);
 
   // ── 2. Resolve the internal proxy URL ─────────────────────────────────
-  //    Server Components cannot use relative URLs in fetch(), so we need an
-  //    absolute URL pointing back to our own Next.js server. The proxy at
-  //    /api/admin/clients handles Bearer-token attachment to the backend.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-    "http://localhost:3000";
+  //    Server Components cannot use relative URLs in fetch(), so we derive
+  //    the absolute origin from the incoming request's Host header. This
+  //    works in all environments (local dev, Vercel, custom domains).
+  const headersList = await headers();
+  const host = headersList.get("host") || "localhost:3000";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const baseUrl = `${protocol}://${host}`;
 
-  const url = `${appUrl}/api/admin/clients`;
+  const url = `${baseUrl}/api/admin/clients`;
   console.log(`[dashboard] Fetching roster via internal proxy: ${url}`);
 
   // ── 3. Fetch through the proxy, manually forwarding cookies ───────────
