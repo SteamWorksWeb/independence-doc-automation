@@ -3,10 +3,11 @@
  *
  * Lawyer Command Center — Client Roster (Phase 1)
  *
- * This page is a React Server Component. It fetches the client list directly
- * from the AWS backend using the admin_session cookie read via next/headers.
- * Bypassing the Next.js proxy avoids cookie-forwarding issues that arise when
- * a server component makes an internal HTTP request to its own origin.
+ * This page is a React Server Component. It fetches the client list via the
+ * internal Next.js proxy at /api/admin/clients, which reads the admin_session
+ * cookie and forwards it as a Bearer token to the AWS backend. The Cookie
+ * header is passed explicitly since server-to-server fetches in Next.js do
+ * not auto-attach cookies.
  *
  * Status logic:
  *   - "Pending Email Verification" → isVerified === false
@@ -80,40 +81,60 @@ function obfuscateEmail(email: string): string {
   return `${visible}${dots}@${domain}`;
 }
 
-// ── Data fetching (server-side) ───────────────────────────────────────────────
-
 async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
-  // ── 1. Read the admin session cookie directly — no internal HTTP hop needed ──
+  // ── 1. Read the admin session cookie — verify it exists ────────────────
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
   if (!token) {
+    console.warn("[dashboard] No admin_session cookie found.");
     return { clients: null, error: "Unauthorized: No active admin session." };
   }
 
-  // ── 2. Resolve the AWS backend URL ────────────────────────────────────────
-  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
-  if (!backendBase) {
-    console.error("[dashboard] NEXT_PUBLIC_AWS_API_URL is not set.");
-    return { clients: null, error: "Server configuration error." };
-  }
+  // Diagnostic: confirm the token is present (mask middle chars for security)
+  const masked = token.length > 10
+    ? `${token.slice(0, 5)}…${token.slice(-5)}`
+    : "****";
+  console.log(`[dashboard] admin_session cookie present: ${masked}`);
 
-  const url = `${backendBase}/admin/clients`;
+  // ── 2. Resolve the internal proxy URL ─────────────────────────────────
+  //    Server Components cannot use relative URLs in fetch(), so we need an
+  //    absolute URL pointing back to our own Next.js server. The proxy at
+  //    /api/admin/clients handles Bearer-token attachment to the backend.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+    "http://localhost:3000";
 
-  // ── 3. Call the backend directly with the Bearer token ────────────────────
+  const url = `${appUrl}/api/admin/clients`;
+  console.log(`[dashboard] Fetching roster via internal proxy: ${url}`);
+
+  // ── 3. Fetch through the proxy, manually forwarding cookies ───────────
+  //    Server-to-server fetches within Next.js do NOT auto-attach cookies;
+  //    we must pass them explicitly in the Cookie header.
+  const cookieHeader = cookieStore.toString();
+  const fetchHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    Cookie: cookieHeader,
+  };
+  console.log("[dashboard] Outgoing headers:", {
+    "Content-Type": fetchHeaders["Content-Type"],
+    Cookie: cookieHeader ? `(${cookieHeader.length} chars)` : "(empty)",
+  });
+
   try {
     const res = await fetch(url, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: fetchHeaders,
       cache: "no-store",
     });
+
+    console.log(`[dashboard] Proxy responded: ${res.status}`);
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       const message = (body as { message?: string }).message ?? `Error ${res.status}`;
+      console.error(`[dashboard] Proxy error: ${message}`);
       return { clients: null, error: message };
     }
 
