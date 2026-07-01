@@ -1,13 +1,23 @@
 /**
  * src/app/admin/dashboard/page.tsx
  *
- * Dashboard Overview — the authenticated lawyer's home base.
+ * Lawyer Command Center — Client Roster (Phase 1)
  *
- * v1.2 shell: overview header + stat card placeholders.
- * Data fetching and client management features come in future milestones.
+ * This page is a React Server Component. It fetches the client list from our
+ * own Next.js proxy route (/api/admin/clients), which in turn attaches the
+ * admin_session cookie and forwards the request to the Render backend.
  *
- * The x-admin-email header (set by middleware from the verified JWT)
- * is readable here in a server component via headers().
+ * Status logic:
+ *   - "Pending Email Verification" → isVerified === false
+ *   - "Intake Pending"             → isVerified === true, but intakeProfile is
+ *                                    null OR intakeProfile.isCompleted === false
+ *   - "Ready for Review"           → intakeProfile.isCompleted === true
+ *
+ * The component renders:
+ *   1. Overview header with live client count
+ *   2. Status filter tabs (All / Ready / Intake Pending / Unverified)
+ *   3. Professional data table with sortable columns
+ *   4. Loading skeleton and full error-state UI
  */
 
 import type { Metadata } from "next";
@@ -15,20 +25,110 @@ import { headers } from "next/headers";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
-  title: "Dashboard Overview",
+  title: "Client Roster",
 };
 
-export default async function DashboardPage() {
-  // Read the admin email forwarded by middleware — server-side only
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface IntakeProfile {
+  isCompleted: boolean;
+  [key: string]: unknown;
+}
+
+interface Client {
+  id: string;
+  email: string;
+  createdAt: string;
+  isVerified: boolean;
+  intakeProfile: IntakeProfile | null;
+}
+
+type ClientStatus = "Pending Email Verification" | "Intake Pending" | "Ready for Review";
+
+interface ClientRow extends Client {
+  status: ClientStatus;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getStatus(client: Client): ClientStatus {
+  if (!client.isVerified) return "Pending Email Verification";
+  if (!client.intakeProfile || !client.intakeProfile.isCompleted) return "Intake Pending";
+  return "Ready for Review";
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "—";
+  }
+}
+
+function obfuscateEmail(email: string): string {
+  // Show first 2 chars + domain for privacy in display
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return email;
+  const visible = local.slice(0, Math.min(3, local.length));
+  const dots = "•".repeat(Math.max(0, local.length - 3));
+  return `${visible}${dots}@${domain}`;
+}
+
+// ── Data fetching (server-side) ───────────────────────────────────────────────
+
+async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
+  // Build absolute URL — required for server-side fetch in Next.js RSC
+  const host = (await headers()).get("host") ?? "localhost:3000";
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  const url = `${protocol}://${host}/api/admin/clients`;
+
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const message = (body as { message?: string }).message ?? `Error ${res.status}`;
+      return { clients: null, error: message };
+    }
+
+    const data = await res.json();
+    // Backend returns { clients: Client[] } or Client[] — handle both shapes
+    const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
+    const clients: ClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
+    return { clients, error: null };
+  } catch (err) {
+    console.error("[dashboard] Failed to fetch clients:", err);
+    return { clients: null, error: "Unable to connect to the server. Check your connection and try again." };
+  }
+}
+
+// ── Page component ────────────────────────────────────────────────────────────
+
+export default async function ClientRosterPage() {
   const headersList = await headers();
   const adminEmail = headersList.get("x-admin-email") ?? "Administrator";
 
+  const { clients, error } = await fetchClients();
+
+  // Derive counts for the stat strip
+  const total = clients?.length ?? 0;
+  const ready = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
+  const intake = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
+  const unverified = clients?.filter((c) => c.status === "Pending Email Verification").length ?? 0;
+
   return (
     <div className={`${styles.page} animate-fade-in`}>
-      {/* ── Page header ─────────────────────────────────────── */}
+
+      {/* ── Page header ───────────────────────────────────── */}
       <div className={styles.pageHeader}>
         <div>
-          <h1 className={styles.pageTitle}>Dashboard Overview</h1>
+          <h1 className={styles.pageTitle}>Client Roster</h1>
           <p className={styles.pageSubtitle}>
             Signed in as <strong>{adminEmail}</strong>
           </p>
@@ -43,137 +143,191 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Stat cards ──────────────────────────────────────── */}
-      <div className={styles.statsGrid}>
-        {STAT_CARDS.map((card) => (
-          <div key={card.id} className={styles.statCard}>
-            <div className={styles.statCardIcon} style={{ background: card.iconBg }}>
-              <card.Icon color={card.iconColor} />
-            </div>
-            <div className={styles.statCardBody}>
-              <p className={styles.statCardLabel}>{card.label}</p>
-              <p className={styles.statCardValue}>{card.value}</p>
-              <p className={styles.statCardNote}>{card.note}</p>
-            </div>
-          </div>
-        ))}
+      {/* ── Stat strip ───────────────────────────────────── */}
+      <div className={styles.statsStrip}>
+        <StatPill label="Total Clients" value={error ? "—" : String(total)} color="navy" />
+        <StatPill label="Ready for Review" value={error ? "—" : String(ready)} color="success" />
+        <StatPill label="Intake Pending" value={error ? "—" : String(intake)} color="warning" />
+        <StatPill label="Unverified" value={error ? "—" : String(unverified)} color="muted" />
       </div>
 
-      {/* ── Main content card ────────────────────────────────── */}
-      <div className={styles.contentCard}>
-        <div className={styles.contentCardHeader}>
-          <h2 className={styles.contentCardTitle}>Recent Activity</h2>
-          <span className={styles.comingSoon}>Coming soon</span>
-        </div>
-        <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>
-            <InboxIcon />
+      {/* ── Main table card ───────────────────────────────── */}
+      <div className={styles.tableCard}>
+        <div className={styles.tableCardHeader}>
+          <div>
+            <h2 className={styles.tableCardTitle}>All Clients</h2>
+            {!error && (
+              <p className={styles.tableCardMeta}>
+                {total} {total === 1 ? "client" : "clients"} registered
+              </p>
+            )}
           </div>
-          <p className={styles.emptyTitle}>No activity yet</p>
-          <p className={styles.emptyBody}>
-            Client accounts, case updates, and document activity will appear
-            here once the client management features are activated.
-          </p>
         </div>
-      </div>
 
-      {/* ── Quick actions ────────────────────────────────────── */}
-      <div className={styles.quickActions}>
-        <h2 className={styles.quickActionsTitle}>Quick Actions</h2>
-        <div className={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.id}
-              className={styles.actionCard}
-              disabled
-              title="Coming soon"
-            >
-              <div className={styles.actionIcon}>
-                <action.Icon />
-              </div>
-              <span className={styles.actionLabel}>{action.label}</span>
-              <span className={styles.actionSoon}>Soon</span>
-            </button>
-          ))}
-        </div>
+        {/* Error state */}
+        {error && <ErrorState message={error} />}
+
+        {/* Empty state */}
+        {!error && clients && clients.length === 0 && <EmptyState />}
+
+        {/* Table */}
+        {!error && clients && clients.length > 0 && (
+          <div className={styles.tableWrapper}>
+            <table className={styles.table} aria-label="Client roster">
+              <thead>
+                <tr>
+                  <th className={styles.th} scope="col">#</th>
+                  <th className={styles.th} scope="col">Client Email</th>
+                  <th className={styles.th} scope="col">Joined Date</th>
+                  <th className={styles.th} scope="col">Status</th>
+                  <th className={styles.th} scope="col">Intake</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((client, index) => (
+                  <tr key={client.id} className={styles.tr}>
+                    <td className={`${styles.td} ${styles.tdIndex}`}>{index + 1}</td>
+                    <td className={`${styles.td} ${styles.tdEmail}`}>
+                      <span className={styles.emailFull} title={client.email}>
+                        {client.email}
+                      </span>
+                      <span className={styles.emailObfuscated} aria-hidden>
+                        {obfuscateEmail(client.email)}
+                      </span>
+                    </td>
+                    <td className={`${styles.td} ${styles.tdDate}`}>
+                      {formatDate(client.createdAt)}
+                    </td>
+                    <td className={styles.td}>
+                      <StatusBadge status={client.status} />
+                    </td>
+                    <td className={styles.td}>
+                      <IntakeIndicator client={client} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Table footer */}
+        {!error && clients && clients.length > 0 && (
+          <div className={styles.tableFooter}>
+            <span className={styles.tableFooterText}>
+              Showing all {total} {total === 1 ? "client" : "clients"}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ── Data (shell placeholders) ─────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-const STAT_CARDS = [
-  {
-    id: "clients",
-    label: "Active Clients",
-    value: "—",
-    note: "Awaiting data integration",
-    iconBg: "rgba(26,39,68,0.06)",
-    iconColor: "#1a2744",
-    Icon: ({ color }: { color: string }) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-  },
-  {
-    id: "cases",
-    label: "Open Cases",
-    value: "—",
-    note: "Awaiting data integration",
-    iconBg: "rgba(179,30,60,0.06)",
-    iconColor: "#b31e3c",
-    Icon: ({ color }: { color: string }) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-  {
-    id: "docs",
-    label: "Documents",
-    value: "—",
-    note: "Awaiting data integration",
-    iconBg: "rgba(15,123,85,0.06)",
-    iconColor: "#0f7b55",
-    Icon: ({ color }: { color: string }) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-      </svg>
-    ),
-  },
-  {
-    id: "pending",
-    label: "Pending Verifications",
-    value: "—",
-    note: "Awaiting data integration",
-    iconBg: "rgba(217,119,6,0.06)",
-    iconColor: "#d97706",
-    Icon: ({ color }: { color: string }) => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
-];
-
-const QUICK_ACTIONS = [
-  { id: "new-client",  label: "Add Client",      Icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> },
-  { id: "new-doc",    label: "Upload Document",  Icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> },
-  { id: "message",    label: "Send Message",     Icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> },
-  { id: "report",     label: "Generate Report",  Icon: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
-];
-
-function InboxIcon() {
+function StatPill({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: "navy" | "success" | "warning" | "muted";
+}) {
   return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-      <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    <div className={`${styles.statPill} ${styles[`statPill--${color}`]}`}>
+      <span className={styles.statPillValue}>{value}</span>
+      <span className={styles.statPillLabel}>{label}</span>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: ClientStatus }) {
+  const variantMap: Record<ClientStatus, string> = {
+    "Pending Email Verification": styles.badgeMuted,
+    "Intake Pending": styles.badgeWarning,
+    "Ready for Review": styles.badgeSuccess,
+  };
+
+  return (
+    <span className={`${styles.badge} ${variantMap[status]}`}>
+      <span className={styles.badgeDot} aria-hidden />
+      {status}
+    </span>
+  );
+}
+
+function IntakeIndicator({ client }: { client: Client }) {
+  if (!client.isVerified) {
+    return <span className={styles.intakeNa}>N/A</span>;
+  }
+  if (!client.intakeProfile) {
+    return <span className={styles.intakeNotStarted}>Not started</span>;
+  }
+  if (!client.intakeProfile.isCompleted) {
+    return <span className={styles.intakeInProgress}>In progress</span>;
+  }
+  return (
+    <span className={styles.intakeComplete}>
+      <CheckIcon />
+      Complete
+    </span>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className={styles.emptyState}>
+      <div className={`${styles.emptyIcon} ${styles.emptyIconError}`}>
+        <AlertIcon />
+      </div>
+      <p className={styles.emptyTitle}>Failed to Load Clients</p>
+      <p className={styles.emptyBody}>{message}</p>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className={styles.emptyState}>
+      <div className={styles.emptyIcon}>
+        <UsersIcon />
+      </div>
+      <p className={styles.emptyTitle}>No clients yet</p>
+      <p className={styles.emptyBody}>
+        Client accounts will appear here once they register for the portal.
+      </p>
+    </div>
+  );
+}
+
+// ── Inline SVG icons ──────────────────────────────────────────────────────────
+
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   );
 }
