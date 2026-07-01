@@ -3,9 +3,10 @@
  *
  * Lawyer Command Center — Client Roster (Phase 1)
  *
- * This page is a React Server Component. It fetches the client list from our
- * own Next.js proxy route (/api/admin/clients), which in turn attaches the
- * admin_session cookie and forwards the request to the Render backend.
+ * This page is a React Server Component. It fetches the client list directly
+ * from the AWS backend using the admin_session cookie read via next/headers.
+ * Bypassing the Next.js proxy avoids cookie-forwarding issues that arise when
+ * a server component makes an internal HTTP request to its own origin.
  *
  * Status logic:
  *   - "Pending Email Verification" → isVerified === false
@@ -21,7 +22,7 @@
  */
 
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import styles from "./page.module.css";
 
@@ -82,13 +83,31 @@ function obfuscateEmail(email: string): string {
 // ── Data fetching (server-side) ───────────────────────────────────────────────
 
 async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
-  // Build absolute URL — required for server-side fetch in Next.js RSC
-  const host = (await headers()).get("host") ?? "localhost:3000";
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const url = `${protocol}://${host}/api/admin/clients`;
+  // ── 1. Read the admin session cookie directly — no internal HTTP hop needed ──
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
 
+  if (!token) {
+    return { clients: null, error: "Unauthorized: No active admin session." };
+  }
+
+  // ── 2. Resolve the AWS backend URL ────────────────────────────────────────
+  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
+  if (!backendBase) {
+    console.error("[dashboard] NEXT_PUBLIC_AWS_API_URL is not set.");
+    return { clients: null, error: "Server configuration error." };
+  }
+
+  const url = `${backendBase}/admin/clients`;
+
+  // ── 3. Call the backend directly with the Bearer token ────────────────────
   try {
     const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       cache: "no-store",
     });
 
