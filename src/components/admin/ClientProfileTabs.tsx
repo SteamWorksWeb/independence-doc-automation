@@ -8,7 +8,7 @@
  * Tabs:
  *   1. Personal & Financials  — demographic data, income, itemized DOJ expenses
  *   2. Debt & Hardship        — total debt, student loans, schools, narrative
- *   3. Documents              — placeholder (Document Vault Coming Soon)
+ *   3. Eligibility Engine     — Brunner Test automated eligibility analysis
  *   4. Messages               — placeholder (Secure Messaging Coming Soon)
  *
  * Props:
@@ -20,6 +20,7 @@
 
 import React, { useState } from "react";
 import styles from "./ClientProfile.module.css";
+import EligibilityEngine from "./EligibilityEngine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ const TABS: TabDef[] = [
   },
   {
     id: "documents",
-    label: "Documents",
+    label: "Eligibility Engine",
     icon: <FileIcon />,
   },
   {
@@ -271,7 +272,7 @@ export default function ClientProfileTabs({ client }: { client: ClientData }) {
         )}
       </div>
 
-      {/* Tab 3: Documents (placeholder) */}
+      {/* Tab 3: Eligibility Engine */}
       <div
         id="panel-documents"
         role="tabpanel"
@@ -279,18 +280,7 @@ export default function ClientProfileTabs({ client }: { client: ClientData }) {
         hidden={activeTab !== "documents"}
       >
         {activeTab === "documents" && (
-          <div className={styles.placeholder}>
-            <div className={styles.placeholderIcon}>
-              <FileIconLg />
-            </div>
-            <p className={styles.placeholderTitle}>Document Vault</p>
-            <p className={styles.placeholderBody}>
-              Secure document upload and management for this client will be available
-              here. Case files, exhibits, and signed agreements will be organized and
-              stored in the Document Vault.
-            </p>
-            <span className={styles.placeholderBadge}>Coming Soon</span>
-          </div>
+          <EligibilityEngine clientId={client.id} />
         )}
       </div>
 

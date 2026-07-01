@@ -1,0 +1,491 @@
+/* src/components/admin/Eligibility.module.css
+ *
+ * Premium enterprise-grade styling for the Brunner Test Eligibility Engine.
+ * Uses CSS custom properties aligned with the existing admin design system.
+ */
+
+/* ── Container ─────────────────────────────────────────────────────────────── */
+
+.container {
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ── Idle state ────────────────────────────────────────────────────────────── */
+
+.idleState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 60px 32px;
+  text-align: center;
+}
+
+.engineIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #1a1f36 0%, #252c48 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+}
+
+.idleTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.idleSubtitle {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0;
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+/* ── Run button ────────────────────────────────────────────────────────────── */
+
+.runBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.runBtn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 60%);
+  border-radius: inherit;
+}
+
+.runBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.55);
+  filter: brightness(1.08);
+}
+
+.runBtn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+}
+
+.runBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Loading state ─────────────────────────────────────────────────────────── */
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 80px 32px;
+}
+
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingLabel {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.loadingDots::after {
+  content: "";
+  animation: dots 1.4s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%   { content: ""; }
+  25%  { content: "."; }
+  50%  { content: ".."; }
+  75%  { content: "..."; }
+  100% { content: ""; }
+}
+
+/* ── Error state ───────────────────────────────────────────────────────────── */
+
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 48px 32px;
+  text-align: center;
+}
+
+.errorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.errorMessage {
+  font-size: 0.9375rem;
+  color: #94a3b8;
+  margin: 0;
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+/* ── Results report ────────────────────────────────────────────────────────── */
+
+.report {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.reportHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.reportTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.reportMeta {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.rerunBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 0.01em;
+}
+
+.rerunBtn:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+/* ── Score banner ──────────────────────────────────────────────────────────── */
+
+.scoreBanner {
+  border-radius: 16px;
+  padding: 28px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.scoreBanner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  background: radial-gradient(ellipse at 80% 50%, white, transparent 70%);
+}
+
+.scoreBannerHigh {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 8px 32px rgba(16, 185, 129, 0.12);
+}
+
+.scoreBannerMedium {
+  background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 8px 32px rgba(245, 158, 11, 0.12);
+}
+
+.scoreBannerLow {
+  background: linear-gradient(135deg, #4c0519 0%, #881337 100%);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.12);
+}
+
+.scoreBannerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scoreLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  color: #fff;
+}
+
+.scoreVerdict {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.scoreVerdictHigh   { color: #6ee7b7; }
+.scoreVerdictMedium { color: #fcd34d; }
+.scoreVerdictLow    { color: #fca5a5; }
+
+.scoreDescription {
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.5;
+  max-width: 360px;
+}
+
+.scorePill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  padding: 10px 20px;
+  border-radius: 50px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.scorePillHigh {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border: 2px solid rgba(16, 185, 129, 0.4);
+}
+
+.scorePillMedium {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 2px solid rgba(245, 158, 11, 0.4);
+}
+
+.scorePillLow {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 2px solid rgba(239, 68, 68, 0.4);
+}
+
+/* ── Prong grid ────────────────────────────────────────────────────────────── */
+
+.prongGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .prongGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.prongCard {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.2s ease;
+}
+
+.prongCard:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.prongCardMet {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.prongCardNotMet {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.prongHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prongName {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.prongStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.prongStatusMet {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.prongStatusNotMet {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.prongTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.prongDesc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Financials grid ───────────────────────────────────────────────────────── */
+
+.financialsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #475569;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.financialsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.financialCard {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.2s ease;
+}
+
+.financialCard:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.financialCardLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.financialCardValue {
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.financialCardValueNegative {
+  color: #f87171;
+}
+
+.financialCardValuePositive {
+  color: #34d399;
+}
