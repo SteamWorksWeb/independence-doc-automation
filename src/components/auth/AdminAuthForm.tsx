@@ -116,7 +116,8 @@ export default function AdminAuthForm() {
           // Intentionally generic — never reveal whether email or password was wrong
           setErrors({ general: "Access denied." });
         } else {
-          window.location.href = data.redirectTo ?? "/admin/dashboard";
+          // Hardcoded — never rely on data.redirectTo to avoid any missing-field foot-guns
+          window.location.href = "/admin/dashboard";
         }
       } catch {
         setErrors({ general: "Connection error. Try again." });

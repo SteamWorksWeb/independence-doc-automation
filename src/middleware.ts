@@ -67,62 +67,80 @@ async function handleAdminRoute(
   request: NextRequest,
   pathname: string
 ): Promise<NextResponse> {
-  // ── 1. Pass-through the login page itself ──────────────────────────────────
+  // ── 1. Check for an existing valid admin session ───────────────────────────
+  const cookie = request.cookies.get("admin_session");
+  const secret = process.env.ADMIN_JWT_SECRET;
+
+  let isAuthenticated = false;
+
+  if (cookie?.value && secret) {
+    try {
+      const { payload } = await jwtVerify(
+        cookie.value,
+        new TextEncoder().encode(secret),
+        {
+          issuer: "independence-law-admin",
+          algorithms: ["HS256"],
+        }
+      );
+      if (payload.role === "admin") {
+        isAuthenticated = true;
+      }
+    } catch {
+      // Token invalid — treat as unauthenticated
+    }
+  }
+
+  // ── 2. Authenticated admin on the login page or bare /admin root
+  //        → send them straight to /admin/dashboard (skip login)  ─────────────
+  if (isAuthenticated) {
+    if (
+      pathname === "/admin" ||
+      pathname === "/admin/" ||
+      pathname === "/admin/login" ||
+      pathname.startsWith("/admin/login/")
+    ) {
+      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+    }
+  }
+
+  // ── 3. Pass-through the login page for unauthenticated visitors ────────────
   if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
     return NextResponse.next();
   }
 
-  // ── 2. Pass-through Next.js API routes (proxy routes handle their own auth) ─
+  // ── 4. Bare /admin root with no valid session → redirect to login ──────────
+  if (pathname === "/admin" || pathname === "/admin/") {
+    return denyAdmin(request, "no_session_root");
+  }
+
+  // ── 5. Pass-through Next.js API routes (proxy routes handle their own auth) ─
   if (pathname.startsWith("/api/admin/")) {
     return NextResponse.next();
   }
 
-  // ── 3. Check for cookie presence ──────────────────────────────────────────
-  const cookie = request.cookies.get("admin_session");
-
-  if (!cookie?.value) {
-    return denyAdmin(request, "no_cookie");
+  // ── 6. All other /admin/* routes: require a valid session ──────────────────
+  if (!isAuthenticated) {
+    return denyAdmin(request, cookie?.value ? "invalid_token" : "no_cookie");
   }
 
-  // ── 4. Load ADMIN_JWT_SECRET ───────────────────────────────────────────────
-  const secret = process.env.ADMIN_JWT_SECRET;
-
-  if (!secret) {
-    console.error(
-      "[middleware] ADMIN_JWT_SECRET is not set. " +
-        "Configure it in your environment variables."
-    );
-    return denyAdmin(request, "config_error");
-  }
-
-  // ── 5. Cryptographically verify the JWT ───────────────────────────────────
+  // ── 7. Request is authenticated — pass through ─────────────────────────────
+  const response = NextResponse.next();
+  // Forward admin email as a header so server components can read it
   try {
-    const { payload } = await jwtVerify(
-      cookie.value,
-      new TextEncoder().encode(secret),
-      {
-        issuer: "independence-law-admin",
-        algorithms: ["HS256"],
-      }
-    );
-
-    // ── 6. Assert role claim ─────────────────────────────────────────────────
-    if (payload.role !== "admin") {
-      console.warn(
-        `[middleware] Token with unexpected role "${payload.role}" rejected`
+    if (cookie?.value && secret) {
+      const { payload } = await jwtVerify(
+        cookie.value,
+        new TextEncoder().encode(secret),
+        { issuer: "independence-law-admin", algorithms: ["HS256"] }
       );
-      return denyAdmin(request, "wrong_role");
+      if (typeof payload.email === "string") {
+        response.headers.set("x-admin-email", payload.email);
+      }
     }
+  } catch { /* ignore — already validated above */ }
 
-    // ── 7. Request is authenticated — pass through ───────────────────────────
-    const response = NextResponse.next();
-    if (typeof payload.email === "string") {
-      response.headers.set("x-admin-email", payload.email);
-    }
-    return response;
-  } catch {
-    return denyAdmin(request, "invalid_token");
-  }
+  return response;
 }
 
 /** Clear admin cookie and redirect to /admin/login */
