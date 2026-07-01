@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get("token");
   const email = searchParams.get("email");
 
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const failUrl = `${baseUrl}/?verified=fail`;
-  const successUrl = `${baseUrl}/?verified=success`;
+  const origin = request.nextUrl.origin;
+  const failUrl = `${origin}/?verified=fail`;
+  const successUrl = `${origin}/?verified=success`;
 
   if (!token || !email) {
     return NextResponse.redirect(failUrl);
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     if (user.verificationTokenExpiresAt < new Date()) {
       console.warn(`[verify-email] Expired token for ${email}`);
       return NextResponse.redirect(
-        `${baseUrl}/?verified=expired`
+        `${origin}/?verified=expired`
       );
     }
 

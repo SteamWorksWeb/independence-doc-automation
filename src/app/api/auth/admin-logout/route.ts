@@ -13,8 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
-  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  const loginUrl = `${baseUrl}/admin/login`;
+  const loginUrl = new URL("/admin/login", request.nextUrl.origin);
 
   const response = NextResponse.redirect(loginUrl, { status: 303 });
 
