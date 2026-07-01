@@ -4,96 +4,75 @@
 // THE INDEPENDENCE LAW FIRM — CLIENT INTAKE WIZARD
 // src/components/intake/IntakeWizard.tsx
 //
-// 7-step DOJ-aligned onboarding form. Collects all fields required for the
-// undue-hardship determination and populates IntakeProfile on the backend.
-// Submits through /api/intake (Next.js proxy) — the client_token HttpOnly
-// cookie is read server-side so JS never touches it.
+// 5-step DOJ Student Loan Questionnaire. Maps directly to the IntakeProfile
+// schema (DOJ attestation fields).
+//
+// Submits through /api/intake (Next.js proxy) — the HttpOnly client_token
+// cookie is read server-side. localStorage is never touched.
 //
 // Steps:
-//   1 — Personal Information  (dob, ssn, county, phone, address)
-//   2 — Household & Health    (householdSize, hasDisability)
-//   3 — Employment & Income   (isEmployed, unemployed5of10, monthlyIncome)
-//   4 — Assets                (housingStatus, hasCar, hasRetirement, expectingRefund)
-//   5 — Monthly Expenses      (food, housing, transport, etc.)
-//   6 — Education & Debt      (totalDebt, studentLoanDebt, schoolsHistory)
-//   7 — Hardship Statement    (hardshipNotes, unmetBasicNeeds)
+//   1 — Personal & Household      (dob, ssn, county, phone, address, householdSize)
+//   2 — Health, Employment & Assets (checkboxes + monthlyIncome)
+//   3 — Monthly Expenses Pt. 1    (food, housekeeping, apparel, personal care)
+//   4 — Housing & Transportation  (housing, utilities, gas, car insurance, unmetBasicNeeds)
+//   5 — Education & Hardship      (debt totals, schoolsHistory, hardshipNotes)
 // =============================================================================
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './IntakeWizard.module.css';
 
-// ── Step metadata ─────────────────────────────────────────────────────────────
-const STEPS = [
-  { number: 1, label: 'Personal',   icon: '👤' },
-  { number: 2, label: 'Household',  icon: '🏠' },
-  { number: 3, label: 'Employment', icon: '💼' },
-  { number: 4, label: 'Assets',     icon: '📦' },
-  { number: 5, label: 'Expenses',   icon: '📊' },
-  { number: 6, label: 'Debt',       icon: '🎓' },
-  { number: 7, label: 'Hardship',   icon: '✍️' },
-] as const;
-
-const TOTAL_STEPS = STEPS.length;
+const TOTAL_STEPS = 5;
 
 // ── Form state ────────────────────────────────────────────────────────────────
 interface FormData {
-  // Step 1 — Personal
-  dob:     string;
-  ssn:     string;
-  county:  string;
-  phone:   string;
-  address: string;
-
-  // Step 2 — Household & Health
+  // Step 1
+  dob:           string;
+  ssn:           string;
+  county:        string;
+  phone:         string;
+  address:       string;
   householdSize: string;
-  hasDisability: boolean;
 
-  // Step 3 — Employment & Income
+  // Step 2
+  hasDisability:   boolean;
   isEmployed:      boolean;
   unemployed5of10: boolean;
+  hasCar:          boolean;
   monthlyIncome:   string;
 
-  // Step 4 — Assets
-  housingStatus:   string;
-  hasCar:          boolean;
-  hasRetirement:   boolean;
-  expectingRefund: boolean;
-
-  // Step 5 — Monthly Expenses
+  // Step 3
   expFood:         string;
   expHousekeeping: string;
   expApparel:      string;
   expPersonalCare: string;
+
+  // Step 4
   expHousing:      string;
   expUtilities:    string;
   expTransportGas: string;
   expCarInsurance: string;
+  unmetBasicNeeds: string;
 
-  // Step 6 — Education & Debt
+  // Step 5
   totalDebt:       string;
   studentLoanDebt: string;
   schoolsHistory:  string;
-
-  // Step 7 — Hardship
   hardshipNotes:   string;
-  unmetBasicNeeds: string;
 }
 
 const INITIAL: FormData = {
-  dob: '', ssn: '', county: '', phone: '', address: '',
-  householdSize: '', hasDisability: false,
-  isEmployed: false, unemployed5of10: false, monthlyIncome: '',
-  housingStatus: '', hasCar: false, hasRetirement: false, expectingRefund: false,
+  dob: '', ssn: '', county: '', phone: '', address: '', householdSize: '',
+  hasDisability: false, isEmployed: false, unemployed5of10: false, hasCar: false,
+  monthlyIncome: '',
   expFood: '', expHousekeeping: '', expApparel: '', expPersonalCare: '',
   expHousing: '', expUtilities: '', expTransportGas: '', expCarInsurance: '',
-  totalDebt: '', studentLoanDebt: '', schoolsHistory: '',
-  hardshipNotes: '', unmetBasicNeeds: '',
+  unmetBasicNeeds: '',
+  totalDebt: '', studentLoanDebt: '', schoolsHistory: '', hardshipNotes: '',
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const toFloat = (s: string) => parseFloat(s) || 0;
-const toInt   = (s: string) => parseInt(s, 10) || 0;
+const pf = (s: string) => parseFloat(s) || 0;
+const pi = (s: string) => parseInt(s, 10) || 0;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function IntakeWizard() {
@@ -103,9 +82,11 @@ export default function IntakeWizard() {
   const [error, setError]             = useState('');
   const [form, setForm]               = useState<FormData>(INITIAL);
 
-  const set = useCallback(<K extends keyof FormData>(field: K, value: FormData[K]) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }, []);
+  const update = useCallback(
+    <K extends keyof FormData>(field: K, value: FormData[K]) =>
+      setForm((prev) => ({ ...prev, [field]: value })),
+    []
+  );
 
   const next = () => { setError(''); setStep((s) => Math.min(s + 1, TOTAL_STEPS)); };
   const prev = () => { setError(''); setStep((s) => Math.max(s - 1, 1)); };
@@ -115,51 +96,36 @@ export default function IntakeWizard() {
     setError('');
 
     const payload = {
-      // Personal
       dob:     form.dob     || undefined,
       ssn:     form.ssn     || undefined,
       county:  form.county  || undefined,
       phone:   form.phone   || undefined,
       address: form.address || undefined,
-      householdSize: toInt(form.householdSize),
-
-      // Household & Health
-      hasDisability: form.hasDisability,
-
-      // Employment
+      householdSize:   pi(form.householdSize),
+      hasDisability:   form.hasDisability,
       isEmployed:      form.isEmployed,
       unemployed5of10: form.unemployed5of10,
-      monthlyIncome:   toFloat(form.monthlyIncome),
-
-      // Assets
-      housingStatus:   form.housingStatus || undefined,
       hasCar:          form.hasCar,
-      hasRetirement:   form.hasRetirement,
-      expectingRefund: form.expectingRefund,
-
-      // Expenses
-      expFood:         toFloat(form.expFood),
-      expHousekeeping: toFloat(form.expHousekeeping),
-      expApparel:      toFloat(form.expApparel),
-      expPersonalCare: toFloat(form.expPersonalCare),
-      expHousing:      toFloat(form.expHousing),
-      expUtilities:    toFloat(form.expUtilities),
-      expTransportGas: toFloat(form.expTransportGas),
-      expCarInsurance: toFloat(form.expCarInsurance),
-
-      // Debt
-      totalDebt:       toFloat(form.totalDebt),
-      studentLoanDebt: toFloat(form.studentLoanDebt),
-      schoolsHistory:  form.schoolsHistory || undefined,
-
-      // Hardship
-      hardshipNotes:   form.hardshipNotes   || undefined,
+      monthlyIncome:   pf(form.monthlyIncome),
+      expFood:         pf(form.expFood),
+      expHousekeeping: pf(form.expHousekeeping),
+      expApparel:      pf(form.expApparel),
+      expPersonalCare: pf(form.expPersonalCare),
+      expHousing:      pf(form.expHousing),
+      expUtilities:    pf(form.expUtilities),
+      expTransportGas: pf(form.expTransportGas),
+      expCarInsurance: pf(form.expCarInsurance),
       unmetBasicNeeds: form.unmetBasicNeeds || undefined,
-
+      totalDebt:       pf(form.totalDebt),
+      studentLoanDebt: pf(form.studentLoanDebt),
+      schoolsHistory:  form.schoolsHistory  || undefined,
+      hardshipNotes:   form.hardshipNotes   || undefined,
       isCompleted: true,
     };
 
     try {
+      // ── Call the Next.js proxy — NOT Render directly.
+      //    The proxy reads the HttpOnly client_token cookie server-side.
       const res = await fetch('/api/intake', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -168,23 +134,72 @@ export default function IntakeWizard() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? 'Failed to save profile.');
+        throw new Error((data as { error?: string }).error ?? 'Failed to save intake profile.');
       }
 
       router.push('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
+      setError(err instanceof Error ? err.message : 'An error occurred. Please try again.');
       setIsSubmitting(false);
     }
   };
 
   const pct = ((step / TOTAL_STEPS) * 100).toFixed(0);
 
+  // ── Input helpers ─────────────────────────────────────────────────────────
+  const textInput = (id: keyof FormData, label: string, opts?: {
+    type?: string; placeholder?: string; colSpan?: boolean;
+  }) => (
+    <div className={opts?.colSpan ? styles.colSpan2 : undefined}>
+      <label htmlFor={id} className={styles.label}>{label}</label>
+      <input
+        id={id}
+        type={opts?.type ?? 'text'}
+        className={styles.input}
+        value={form[id] as string}
+        onChange={(e) => update(id, e.target.value as never)}
+        placeholder={opts?.placeholder}
+      />
+    </div>
+  );
+
+  const numInput = (id: keyof FormData, label: string) => (
+    <div>
+      <label htmlFor={id} className={styles.label}>{label}</label>
+      <div className={styles.inputWrapper}>
+        <span className={styles.inputPrefix}>$</span>
+        <input
+          id={id}
+          type="number"
+          min="0"
+          step="1"
+          className={styles.input}
+          value={form[id] as string}
+          onChange={(e) => update(id, e.target.value as never)}
+          placeholder="0.00"
+        />
+      </div>
+    </div>
+  );
+
+  const checkRow = (id: keyof FormData, label: string) => (
+    <label htmlFor={id} className={styles.checkRow}>
+      <input
+        id={id}
+        type="checkbox"
+        className={styles.checkbox}
+        checked={form[id] as boolean}
+        onChange={(e) => update(id, e.target.checked as never)}
+      />
+      <span className={styles.checkLabel}>{label}</span>
+    </label>
+  );
+
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
         <p className={styles.headerEyebrow}>The Independence Law Firm</p>
-        <h1 className={styles.headerTitle}>Client Intake Form</h1>
+        <h1 className={styles.headerTitle}>DOJ Student Loan Questionnaire</h1>
         <p className={styles.headerSubtitle}>
           Your information is protected by attorney-client privilege and
           256-bit encryption.
@@ -195,25 +210,8 @@ export default function IntakeWizard() {
         {/* ── Progress header ─────────────────────────────────────────── */}
         <div className={styles.progressHeader}>
           <div className={styles.progressMeta}>
-            <span className={styles.progressLabel}>Intake Progress</span>
+            <span className={styles.progressLabel}>Progress</span>
             <span className={styles.progressCount}>Step {step} of {TOTAL_STEPS}</span>
-          </div>
-          <div className={styles.stepDots}>
-            {STEPS.map((s) => (
-              <span
-                key={s.number}
-                className={[
-                  styles.dot,
-                  step === s.number ? styles.active    : '',
-                  step >  s.number  ? styles.completed : '',
-                ].join(' ')}
-              >
-                <span className={styles.dotCircle}>
-                  {step > s.number ? '✓' : s.number}
-                </span>
-                {s.label}
-              </span>
-            ))}
           </div>
           <div className={styles.progressBar}>
             <div
@@ -227,7 +225,7 @@ export default function IntakeWizard() {
           </div>
         </div>
 
-        {/* ── Step body ───────────────────────────────────────────────── */}
+        {/* ── Body ────────────────────────────────────────────────────── */}
         <div className={styles.body}>
           {error && (
             <div className={styles.errorAlert} role="alert">
@@ -236,318 +234,155 @@ export default function IntakeWizard() {
             </div>
           )}
 
-          {/* ── STEP 1: Personal Information ──────────────────────────── */}
+          {/* ── STEP 1: Personal & Household ──────────────────────────── */}
           {step === 1 && (
             <div key="s1" className={styles.stepContent}>
-              <div className={styles.stepIcon}>👤</div>
-              <h2 className={styles.stepTitle}>Personal Information</h2>
-              <p className={styles.stepDescription}>
-                We need a few basic details to open your case file and
-                determine which federal bankruptcy court has jurisdiction.
-              </p>
-              <div className={styles.fieldGroup}>
-                <div className={styles.fieldRow}>
-                  <div className={styles.field}>
-                    <label htmlFor="dob" className={styles.label}>Date of Birth</label>
-                    <input id="dob" type="text" className={styles.input}
-                      value={form.dob} onChange={(e) => set('dob', e.target.value)}
-                      placeholder="MM/DD/YYYY" autoComplete="bday" />
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor="ssn" className={styles.label}>
-                      Social Security Number
-                      <span className={styles.sensitiveTag}>🔒 Encrypted</span>
-                    </label>
-                    <input id="ssn" type="password" className={styles.input}
-                      value={form.ssn} onChange={(e) => set('ssn', e.target.value)}
-                      placeholder="XXX-XX-XXXX" autoComplete="off" />
-                  </div>
-                </div>
-                <div className={styles.fieldRow}>
-                  <div className={styles.field}>
-                    <label htmlFor="phone" className={styles.label}>Phone Number</label>
-                    <input id="phone" type="tel" className={styles.input}
-                      value={form.phone} onChange={(e) => set('phone', e.target.value)}
-                      placeholder="(555) 555-5555" autoComplete="tel" />
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor="county" className={styles.label}>County of Residence</label>
-                    <input id="county" type="text" className={styles.input}
-                      value={form.county} onChange={(e) => set('county', e.target.value)}
-                      placeholder="e.g. Cook County" />
-                  </div>
-                </div>
-                <div className={styles.field}>
-                  <label htmlFor="address" className={styles.label}>Current Address</label>
-                  <textarea id="address" className={styles.textarea} rows={2}
-                    value={form.address} onChange={(e) => set('address', e.target.value)}
-                    placeholder="123 Main St, City, State, ZIP"
-                    autoComplete="street-address" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 2: Household & Health ────────────────────────────── */}
-          {step === 2 && (
-            <div key="s2" className={styles.stepContent}>
-              <div className={styles.stepIcon}>🏠</div>
-              <h2 className={styles.stepTitle}>Household & Health</h2>
-              <p className={styles.stepDescription}>
-                Household size and disability status are key factors in the
-                IRS means test used to determine bankruptcy eligibility.
-              </p>
-              <div className={styles.fieldGroup}>
-                <div className={styles.field}>
+              <h2 className={styles.stepTitle}>Personal &amp; Household Information</h2>
+              <div className={styles.grid2}>
+                {textInput('dob',  'Date of Birth',          { placeholder: 'MM/DD/YYYY' })}
+                {textInput('ssn',  'Social Security Number', { type: 'password', placeholder: 'XXX-XX-XXXX' })}
+                {textInput('address', 'Full Address',        { colSpan: true, placeholder: '123 Main St, City, State, ZIP' })}
+                {textInput('county', 'County')}
+                {textInput('phone',  'Phone Number',         { type: 'tel', placeholder: '(555) 555-5555' })}
+                <div>
                   <label htmlFor="householdSize" className={styles.label}>
-                    Number of People in Household
+                    Additional Household Members
                   </label>
                   <div className={styles.inputWrapper}>
                     <span className={styles.inputPrefix}>#</span>
-                    <input id="householdSize" type="number" min="1" max="20"
+                    <input
+                      id="householdSize"
+                      type="number"
+                      min="0"
                       className={styles.input}
                       value={form.householdSize}
-                      onChange={(e) => set('householdSize', e.target.value)}
-                      placeholder="1" />
-                  </div>
-                </div>
-                <div className={styles.field}>
-                  <span className={styles.label}>Disability Status</span>
-                  <div className={styles.toggleGroup}>
-                    <label className={styles.toggleOption}>
-                      <input type="checkbox" className={styles.checkbox}
-                        checked={form.hasDisability}
-                        onChange={(e) => set('hasDisability', e.target.checked)} />
-                      <span className={styles.toggleLabel}>
-                        I have a documented disability or am unable to work due to a medical condition
-                      </span>
-                    </label>
+                      onChange={(e) => update('householdSize', e.target.value)}
+                      placeholder="0"
+                    />
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── STEP 3: Employment & Income ───────────────────────────── */}
-          {step === 3 && (
-            <div key="s3" className={styles.stepContent}>
-              <div className={styles.stepIcon}>💼</div>
-              <h2 className={styles.stepTitle}>Employment & Income</h2>
-              <p className={styles.stepDescription}>
-                Employment history and current income determine which chapter
-                of bankruptcy you qualify for and support the undue hardship
-                standard under the Brunner test.
-              </p>
+          {/* ── STEP 2: Health, Employment & Assets ───────────────────── */}
+          {step === 2 && (
+            <div key="s2" className={styles.stepContent}>
+              <h2 className={styles.stepTitle}>Health, Employment &amp; Assets</h2>
               <div className={styles.fieldGroup}>
-                <div className={styles.toggleGroup}>
-                  <label className={styles.toggleOption}>
-                    <input type="checkbox" className={styles.checkbox}
-                      checked={form.isEmployed}
-                      onChange={(e) => set('isEmployed', e.target.checked)} />
-                    <span className={styles.toggleLabel}>
-                      I am currently employed (full-time, part-time, or self-employed)
-                    </span>
-                  </label>
-                  <label className={styles.toggleOption}>
-                    <input type="checkbox" className={styles.checkbox}
-                      checked={form.unemployed5of10}
-                      onChange={(e) => set('unemployed5of10', e.target.checked)} />
-                    <span className={styles.toggleLabel}>
-                      I have been unemployed for 5 or more of the past 10 years
-                    </span>
-                  </label>
+                <div className={styles.checkList}>
+                  {checkRow('hasDisability',   'Do you have a disability or chronic injury impacting income potential?')}
+                  {checkRow('isEmployed',       'Are you currently employed?')}
+                  {checkRow('unemployed5of10',  'Have you been unemployed for at least 5 of the last 10 years?')}
+                  {checkRow('hasCar',           'Do you own a vehicle?')}
                 </div>
                 <div className={styles.field}>
                   <label htmlFor="monthlyIncome" className={styles.label}>
-                    Estimated Monthly Income (after tax)
+                    Gross Monthly Income ($)
                   </label>
                   <div className={styles.inputWrapper}>
                     <span className={styles.inputPrefix}>$</span>
-                    <input id="monthlyIncome" type="number" min="0" step="100"
+                    <input
+                      id="monthlyIncome"
+                      type="number"
+                      min="0"
+                      step="100"
                       className={styles.input}
                       value={form.monthlyIncome}
-                      onChange={(e) => set('monthlyIncome', e.target.value)}
-                      placeholder="0.00" />
+                      onChange={(e) => update('monthlyIncome', e.target.value)}
+                      placeholder="0.00"
+                    />
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── STEP 4: Assets ────────────────────────────────────────── */}
+          {/* ── STEP 3: Monthly Expenses Pt. 1 ───────────────────────── */}
+          {step === 3 && (
+            <div key="s3" className={styles.stepContent}>
+              <h2 className={styles.stepTitle}>Average Monthly Expenses</h2>
+              <p className={styles.stepDescription}>
+                Enter 0 if an expense does not apply to you.
+              </p>
+              <div className={styles.grid2}>
+                {numInput('expFood',         'Food')}
+                {numInput('expHousekeeping', 'Housekeeping Supplies')}
+                {numInput('expApparel',      'Apparel &amp; Services')}
+                {numInput('expPersonalCare', 'Personal Care Products')}
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 4: Housing & Transportation ─────────────────────── */}
           {step === 4 && (
             <div key="s4" className={styles.stepContent}>
-              <div className={styles.stepIcon}>📦</div>
-              <h2 className={styles.stepTitle}>Assets & Property</h2>
-              <p className={styles.stepDescription}>
-                Asset disclosures are required for the bankruptcy petition.
-                Exemptions exist for primary residences, basic vehicles, and
-                retirement accounts in most states.
-              </p>
+              <h2 className={styles.stepTitle}>Housing &amp; Transportation</h2>
               <div className={styles.fieldGroup}>
-                <div className={styles.field}>
-                  <label htmlFor="housingStatus" className={styles.label}>
-                    Housing Status
-                  </label>
-                  <select id="housingStatus" className={styles.select}
-                    value={form.housingStatus}
-                    onChange={(e) => set('housingStatus', e.target.value)}>
-                    <option value="">Select…</option>
-                    <option value="Own">I own my home</option>
-                    <option value="Rent">I rent my home</option>
-                  </select>
+                <div className={styles.grid2}>
+                  {numInput('expHousing',      'Housing (Rent / Mortgage)')}
+                  {numInput('expUtilities',    'Utilities (Gas, Electric, Water)')}
+                  {numInput('expTransportGas', 'Vehicle Gas')}
+                  {numInput('expCarInsurance', 'Car Insurance')}
                 </div>
-                <div className={styles.toggleGroup}>
-                  <label className={styles.toggleOption}>
-                    <input type="checkbox" className={styles.checkbox}
-                      checked={form.hasCar}
-                      onChange={(e) => set('hasCar', e.target.checked)} />
-                    <span className={styles.toggleLabel}>I own a vehicle</span>
+                <div className={styles.field}>
+                  <label htmlFor="unmetBasicNeeds" className={styles.label}>
+                    Unmet Basic Needs
                   </label>
-                  <label className={styles.toggleOption}>
-                    <input type="checkbox" className={styles.checkbox}
-                      checked={form.hasRetirement}
-                      onChange={(e) => set('hasRetirement', e.target.checked)} />
-                    <span className={styles.toggleLabel}>
-                      I have a retirement account (401k, IRA, pension)
-                    </span>
-                  </label>
-                  <label className={styles.toggleOption}>
-                    <input type="checkbox" className={styles.checkbox}
-                      checked={form.expectingRefund}
-                      onChange={(e) => set('expectingRefund', e.target.checked)} />
-                    <span className={styles.toggleLabel}>
-                      I am expecting a tax refund this year
-                    </span>
-                  </label>
+                  <p className={styles.fieldHint}>
+                    Are there basic expenses you currently cannot afford? Detail why they are necessary.
+                  </p>
+                  <textarea
+                    id="unmetBasicNeeds"
+                    className={styles.textarea}
+                    value={form.unmetBasicNeeds}
+                    onChange={(e) => update('unmetBasicNeeds', e.target.value)}
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── STEP 5: Monthly Expenses ──────────────────────────────── */}
+          {/* ── STEP 5: Education & Hardship ─────────────────────────── */}
           {step === 5 && (
             <div key="s5" className={styles.stepContent}>
-              <div className={styles.stepIcon}>📊</div>
-              <h2 className={styles.stepTitle}>Monthly Expenses</h2>
-              <p className={styles.stepDescription}>
-                The DOJ undue-hardship test requires itemized monthly expenses.
-                Provide your best estimates — these can be refined later.
-              </p>
+              <h2 className={styles.stepTitle}>Education &amp; Case Narrative</h2>
               <div className={styles.fieldGroup}>
-                <div className={styles.expenseGrid}>
-                  {[
-                    ['expFood',         'Food & Groceries',   'expFood'],
-                    ['expHousekeeping', 'Housekeeping',        'expHousekeeping'],
-                    ['expApparel',      'Clothing & Apparel',  'expApparel'],
-                    ['expPersonalCare', 'Personal Care',       'expPersonalCare'],
-                    ['expHousing',      'Housing / Rent',      'expHousing'],
-                    ['expUtilities',    'Utilities',           'expUtilities'],
-                    ['expTransportGas', 'Gas / Transport',     'expTransportGas'],
-                    ['expCarInsurance', 'Car Insurance',       'expCarInsurance'],
-                  ].map(([field, label, htmlId]) => (
-                    <div key={field} className={styles.expenseField}>
-                      <label htmlFor={htmlId} className={styles.label}>{label}</label>
-                      <div className={styles.inputWrapper}>
-                        <span className={styles.inputPrefix}>$</span>
-                        <input
-                          id={htmlId}
-                          type="number"
-                          min="0"
-                          step="10"
-                          className={styles.input}
-                          value={form[field as keyof FormData] as string}
-                          onChange={(e) => set(field as keyof FormData, e.target.value as never)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 6: Education & Debt ──────────────────────────────── */}
-          {step === 6 && (
-            <div key="s6" className={styles.stepContent}>
-              <div className={styles.stepIcon}>🎓</div>
-              <h2 className={styles.stepTitle}>Education & Debt</h2>
-              <p className={styles.stepDescription}>
-                Student loans require special adversary proceedings. A complete
-                education history helps us build the strongest possible undue
-                hardship argument.
-              </p>
-              <div className={styles.fieldGroup}>
-                <div className={styles.fieldRow}>
-                  <div className={styles.field}>
-                    <label htmlFor="totalDebt" className={styles.label}>
-                      Estimated Total Debt
-                    </label>
-                    <div className={styles.inputWrapper}>
-                      <span className={styles.inputPrefix}>$</span>
-                      <input id="totalDebt" type="number" min="0" step="1000"
-                        className={styles.input}
-                        value={form.totalDebt}
-                        onChange={(e) => set('totalDebt', e.target.value)}
-                        placeholder="0.00" />
-                    </div>
-                  </div>
-                  <div className={styles.field}>
-                    <label htmlFor="studentLoanDebt" className={styles.label}>
-                      Student Loan Debt
-                    </label>
-                    <div className={styles.inputWrapper}>
-                      <span className={styles.inputPrefix}>$</span>
-                      <input id="studentLoanDebt" type="number" min="0" step="1000"
-                        className={styles.input}
-                        value={form.studentLoanDebt}
-                        onChange={(e) => set('studentLoanDebt', e.target.value)}
-                        placeholder="0.00" />
-                    </div>
-                  </div>
+                <div className={styles.grid2}>
+                  {numInput('totalDebt',       'Total Estimated Debt')}
+                  {numInput('studentLoanDebt', 'Student Loan Debt')}
                 </div>
                 <div className={styles.field}>
                   <label htmlFor="schoolsHistory" className={styles.label}>
                     Schools Attended
                   </label>
-                  <textarea id="schoolsHistory" className={styles.textarea}
+                  <p className={styles.fieldHint}>
+                    List all schools, graduation dates, and degrees received where you incurred student loan debt.
+                  </p>
+                  <textarea
+                    id="schoolsHistory"
+                    className={styles.textarea}
                     value={form.schoolsHistory}
-                    onChange={(e) => set('schoolsHistory', e.target.value)}
-                    placeholder="School name, degree pursued, years attended&#10;e.g. State University, B.A. Business, 2010–2014&#10;     Community College, A.A. General Studies, 2008–2010" />
+                    onChange={(e) => update('schoolsHistory', e.target.value)}
+                    placeholder={
+                      'e.g. San Francisco State University — No Degree\n' +
+                      '     Texas Southern University — B.S. Business (May 2020)…'
+                    }
+                  />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── STEP 7: Hardship Statement ────────────────────────────── */}
-          {step === 7 && (
-            <div key="s7" className={styles.stepContent}>
-              <div className={styles.stepIcon}>✍️</div>
-              <h2 className={styles.stepTitle}>Your Hardship Statement</h2>
-              <p className={styles.stepDescription}>
-                These statements form the core of your undue hardship argument.
-                Be specific — courts weigh medical diagnoses, job loss, family
-                circumstances, and the gap between income and basic needs.
-              </p>
-              <div className={styles.fieldGroup}>
                 <div className={styles.field}>
                   <label htmlFor="hardshipNotes" className={styles.label}>
-                    What led you here? Describe your financial hardship.
+                    Hardship Narrative
                   </label>
-                  <textarea id="hardshipNotes" className={styles.textarea}
+                  <p className={styles.fieldHint}>
+                    Provide any additional information in support of your "undue hardship".
+                  </p>
+                  <textarea
+                    id="hardshipNotes"
+                    className={styles.textarea}
                     value={form.hardshipNotes}
-                    onChange={(e) => set('hardshipNotes', e.target.value)}
-                    placeholder="E.g. After losing my position during the 2020 downturn, I was unable to maintain payments on $92,000 in federal loans despite working two part-time jobs. Wage garnishment has made it impossible to cover rent and groceries simultaneously…" />
-                </div>
-                <div className={styles.field}>
-                  <label htmlFor="unmetBasicNeeds" className={styles.label}>
-                    What basic needs are you currently unable to meet?
-                  </label>
-                  <textarea id="unmetBasicNeeds" className={styles.textarea}
-                    value={form.unmetBasicNeeds}
-                    onChange={(e) => set('unmetBasicNeeds', e.target.value)}
-                    placeholder="E.g. I cannot afford consistent groceries for my household of 3, am behind on rent by 2 months, and have delayed necessary medical treatment due to cost…" />
+                    onChange={(e) => update('hardshipNotes', e.target.value)}
+                  />
                 </div>
               </div>
             </div>
@@ -559,7 +394,7 @@ export default function IntakeWizard() {
           {step > 1 ? (
             <button id="intake-back" className={styles.btnBack}
               onClick={prev} disabled={isSubmitting} type="button">
-              ← Back
+              Back
             </button>
           ) : (
             <div className={styles.spacer} />
@@ -568,16 +403,14 @@ export default function IntakeWizard() {
           {step < TOTAL_STEPS ? (
             <button id="intake-next" className={styles.btnNext}
               onClick={next} type="button">
-              Continue →
+              Next
             </button>
           ) : (
             <button id="intake-submit" className={styles.btnSubmit}
               onClick={handleSubmit} disabled={isSubmitting} type="button">
-              {isSubmitting ? (
-                <><span className={styles.spinner} /> Submitting…</>
-              ) : (
-                'Submit Profile'
-              )}
+              {isSubmitting
+                ? <><span className={styles.spinner} /> Submitting…</>
+                : 'Submit Profile'}
             </button>
           )}
         </div>
