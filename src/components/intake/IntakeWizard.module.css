@@ -1,0 +1,449 @@
+/* =============================================================================
+   IntakeWizard.module.css
+   Independence Law Firm — Client Intake Onboarding Wizard
+   
+   All values reference the CSS custom properties from globals.css.
+   ============================================================================= */
+
+/* ── Outer shell ────────────────────────────────────────────────────────────── */
+.shell {
+  min-height: 100vh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--space-10) var(--space-4) var(--space-16);
+}
+
+/* ── Brand header ───────────────────────────────────────────────────────────── */
+.header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.headerEyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-crimson);
+  margin-bottom: var(--space-2);
+}
+
+.headerTitle {
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  color: var(--color-navy);
+  margin-bottom: var(--space-2);
+}
+
+.headerSubtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+/* ── Wizard card ────────────────────────────────────────────────────────────── */
+.card {
+  width: 100%;
+  max-width: 640px;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+}
+
+/* ── Progress header ────────────────────────────────────────────────────────── */
+.progressHeader {
+  background: var(--color-navy);
+  padding: var(--space-6) var(--space-8);
+}
+
+.progressMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.progressLabel {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.progressCount {
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Step dots */
+.stepDots {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.dot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color var(--transition-base);
+}
+
+.dot.active {
+  color: #ffffff;
+}
+
+.dot.completed {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.dotCircle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.dot.active .dotCircle {
+  background: var(--color-crimson);
+  border-color: var(--color-crimson);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(179, 30, 60, 0.6);
+}
+
+.dot.completed .dotCircle {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+/* Progress bar */
+.progressBar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-crimson), #e05275);
+  border-radius: var(--radius-full);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px rgba(179, 30, 60, 0.5);
+}
+
+/* ── Step content area ──────────────────────────────────────────────────────── */
+.body {
+  padding: var(--space-8);
+}
+
+.stepContent {
+  min-height: 280px;
+  animation: stepEnter 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes stepEnter {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Step heading */
+.stepIcon {
+  width: 44px;
+  height: 44px;
+  background: var(--color-crimson-light);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  margin-bottom: var(--space-4);
+}
+
+.stepTitle {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  color: var(--color-navy);
+  margin-bottom: var(--space-2);
+}
+
+.stepDescription {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-6);
+  line-height: 1.6;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-crimson-light);
+}
+
+/* ── Form fields ────────────────────────────────────────────────────────────── */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-crimson);
+  box-shadow: 0 0 0 3px rgba(179, 30, 60, 0.1);
+}
+
+.select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  padding-right: 2.5rem;
+  cursor: pointer;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.6;
+}
+
+/* Prefix/suffix inputs */
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputPrefix {
+  position: absolute;
+  left: 1rem;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.inputWrapper .input {
+  padding-left: 2rem;
+}
+
+/* ── Error alert ────────────────────────────────────────────────────────────── */
+.errorAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-error-bg);
+  border: 1px solid rgba(192, 57, 43, 0.2);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+}
+
+.errorIcon {
+  font-size: 1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--color-error);
+  line-height: 1.5;
+}
+
+/* ── Navigation footer ──────────────────────────────────────────────────────── */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-5) var(--space-8) var(--space-8);
+  border-top: 1px solid var(--color-border);
+  gap: var(--space-4);
+}
+
+.btnBack {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btnBack:hover {
+  border-color: var(--color-navy);
+  color: var(--color-navy);
+  background: var(--color-bg);
+}
+
+.btnBack:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btnNext {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.75rem 1.75rem;
+  background: var(--color-navy);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.btnNext:hover {
+  background: var(--color-navy-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.btnSubmit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.75rem 1.75rem;
+  background: var(--color-crimson);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(179, 30, 60, 0.35);
+}
+
+.btnSubmit:hover:not(:disabled) {
+  background: var(--color-crimson-hover);
+  box-shadow: 0 4px 16px rgba(179, 30, 60, 0.45);
+  transform: translateY(-1px);
+}
+
+.btnSubmit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ── Spinner ────────────────────────────────────────────────────────────────── */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Security footnote ──────────────────────────────────────────────────────── */
+.securityNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.securityNote svg {
+  flex-shrink: 0;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .progressHeader { padding: var(--space-5) var(--space-5); }
+  .body           { padding: var(--space-6) var(--space-5); }
+  .footer         { padding: var(--space-4) var(--space-5) var(--space-6); }
+  .stepDots       { display: none; }
+}

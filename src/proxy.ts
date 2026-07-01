@@ -38,10 +38,11 @@
 import { jwtVerify } from "jose";
 import { NextRequest, NextResponse } from "next/server";
 
-// ── Matcher: admin routes + client dashboard routes ───────────────────────────
+// ── Matcher: admin routes + client dashboard + onboarding ────────────────────
 export const config = {
-  matcher: ["/admin/:path*", "/dashboard/:path*"],
+  matcher: ["/admin/:path*", "/dashboard/:path*", "/onboarding/:path*"],
 };
+
 
 // ── Unified proxy handler ─────────────────────────────────────────────────────
 export async function proxy(request: NextRequest): Promise<NextResponse> {
