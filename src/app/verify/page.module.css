@@ -1,0 +1,217 @@
+/*
+ * src/app/verify/page.module.css
+ *
+ * Verify page layout and card states.
+ * Inherits the admin login layout aesthetic:
+ *   - Off-white linen-weave background
+ *   - Brand mark top-left
+ *   - Centred card with crimson top-accent
+ *
+ * Card icon ring variants are controlled via data-variant attribute:
+ *   data-variant="success" | "warning" | "error"
+ */
+
+/* ── Page root ────────────────────────────────────────────── */
+.root {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  position: relative;
+  overflow: hidden;
+  background-color: #f0f1f4;
+  background-image:
+    radial-gradient(
+      ellipse at 50% 50%,
+      transparent 55%,
+      rgba(20, 30, 55, 0.07) 100%
+    ),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='6'%3E%3Crect width='6' height='6' fill='%23eef0f3'/%3E%3Cpath d='M0 0L6 6M6 0L0 6' stroke='%23dde0e8' stroke-width='0.4' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* Corner accents */
+.root::before {
+  content: '';
+  position: fixed;
+  top: -120px;
+  right: -120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26,39,68,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.root::after {
+  content: '';
+  position: fixed;
+  bottom: -80px;
+  left: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(179,30,60,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Brand mark ───────────────────────────────────────────── */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 28px;
+  position: relative;
+  z-index: 10;
+  align-self: start;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.brandThe {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  color: var(--color-crimson);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.brandName {
+  font-family: var(--font-serif);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* ── Centre slot ──────────────────────────────────────────── */
+.center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  width: 100%;
+  max-width: 460px;
+  border-top: 4px solid var(--color-crimson);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-10) var(--space-8) var(--space-8);
+  text-align: center;
+  gap: 0;
+}
+
+/* ── Icon ring ────────────────────────────────────────────── */
+.iconRing {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-6);
+  flex-shrink: 0;
+}
+
+.iconRing[data-variant="success"] {
+  background: linear-gradient(135deg, #e6f7f2 0%, #d0f0e4 100%);
+  color: var(--color-success);
+  box-shadow: 0 4px 20px rgba(15,123,85,0.2);
+}
+
+.iconRing[data-variant="warning"] {
+  background: linear-gradient(135deg, #fef9ec 0%, #fef3c7 100%);
+  color: var(--color-warning);
+  box-shadow: 0 4px 20px rgba(217,119,6,0.2);
+}
+
+.iconRing[data-variant="error"] {
+  background: linear-gradient(135deg, #fdf0ee 0%, #fee2e2 100%);
+  color: var(--color-error);
+  box-shadow: 0 4px 20px rgba(192,57,43,0.2);
+}
+
+/* ── Body ─────────────────────────────────────────────────── */
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+/* ── Heading ──────────────────────────────────────────────── */
+.title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.625rem, 3vw, 2rem);
+  font-weight: 900;
+  color: var(--color-navy);
+  line-height: 1.2;
+  margin-bottom: calc(-1 * var(--space-1));
+}
+
+.title em {
+  font-style: italic;
+  color: var(--color-crimson);
+}
+
+/* ── Subtitle ─────────────────────────────────────────────── */
+.subtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  max-width: 360px;
+  line-height: 1.6;
+}
+
+/* ── Alert row ────────────────────────────────────────────── */
+.redirectAlert {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+/* ── CTA button ───────────────────────────────────────────── */
+.cta {
+  margin-top: var(--space-2);
+  padding: 0.875rem 2.25rem;
+  font-size: 0.9375rem;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.footer {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(26, 39, 68, 0.25);
+  padding: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .brand { padding: 16px 20px; }
+  .brandName { font-size: 0.8125rem; }
+
+  .card {
+    border-radius: 0;
+    min-height: 100dvh;
+    justify-content: center;
+    padding: var(--space-8) var(--space-5);
+  }
+}

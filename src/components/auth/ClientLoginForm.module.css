@@ -1,0 +1,185 @@
+/*
+ * src/components/auth/ClientLoginForm.module.css
+ *
+ * Scoped styles for the Client Login Form.
+ * Uses the same design token vocabulary as AuthForm.module.css and
+ * AdminAuthForm.module.css — cohesive brand, separate files.
+ */
+
+/* ── Card ─────────────────────────────────────────────────── */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  width: 100%;
+  max-width: 460px;
+  border-top: 4px solid var(--color-crimson);
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header {
+  padding: var(--space-8) var(--space-8) 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Lock icon badge */
+.portalBadge {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--color-crimson-light) 0%, #f9dde3 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-crimson);
+  box-shadow: 0 4px 16px rgba(179,30,60,0.18);
+  margin-bottom: var(--space-1);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  font-weight: 900;
+  color: var(--color-navy);
+  line-height: 1.2;
+}
+
+.title em {
+  font-style: italic;
+  color: var(--color-crimson);
+}
+
+.subtitle {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  max-width: 320px;
+  line-height: 1.5;
+  padding-bottom: var(--space-2);
+}
+
+/* ── Unverified email banner (403 state) ──────────────────── */
+.unverifiedBanner {
+  margin: var(--space-4) var(--space-8) 0;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-warning-bg);
+  border-left: 4px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  color: #92400e; /* amber-800 — readable against warning-bg */
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.unverifiedBanner strong {
+  display: block;
+  font-size: 0.9375rem;
+  margin-bottom: 2px;
+}
+
+.unverifiedBanner p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #78350f; /* amber-900 */
+}
+
+/* ── Form ─────────────────────────────────────────────────── */
+.form {
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Password field ──────────────────────────────────────── */
+.passwordWrapper {
+  position: relative;
+}
+
+.passwordInput {
+  padding-right: 3rem !important;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: var(--space-1);
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+.passwordToggle:hover { color: var(--color-navy); }
+
+/* ── Submit button ───────────────────────────────────────── */
+.submitBtn {
+  margin-top: var(--space-2);
+  padding: 1rem 2rem;
+  font-size: 1rem;
+}
+
+/* ── Trust footer ────────────────────────────────────────── */
+.trustFooter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-8);
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+
+.trustItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.trustDot {
+  color: var(--color-border);
+  font-size: 0.75rem;
+}
+
+/* ── Mobile ──────────────────────────────────────────────── */
+@media (max-width: 520px) {
+  .card {
+    border-radius: 0;
+    border-top: 4px solid var(--color-crimson);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    padding: var(--space-6) var(--space-5) 0;
+  }
+
+  .form {
+    padding: var(--space-5) var(--space-5) var(--space-6);
+    flex: 1;
+  }
+
+  .unverifiedBanner {
+    margin: var(--space-4) var(--space-5) 0;
+  }
+
+  .trustFooter {
+    padding: var(--space-4) var(--space-5);
+  }
+}
