@@ -23,7 +23,7 @@ interface EligibilityResult {
   disposableIncome: number;
   isProng1Met: boolean;
   isProng2Met: boolean;
-  overallScore: "HIGH" | "MEDIUM" | "LOW";
+  overallScore: "HIGH_PROBABILITY" | "MEDIUM_PROBABILITY" | "LOW_PROBABILITY";
 }
 
 type State =
@@ -156,7 +156,7 @@ function ResultView({
   const { totalExpenses, disposableIncome, isProng1Met, isProng2Met, overallScore } = data;
 
   const scoreConfig = {
-    HIGH: {
+    HIGH_PROBABILITY: {
       bannerClass: styles.scoreBannerHigh,
       pillClass: styles.scorePillHigh,
       verdictClass: styles.scoreVerdictHigh,
@@ -164,7 +164,7 @@ function ResultView({
       description:
         "This client presents a strong case for discharge. Both financial prongs are met, indicating genuine and persistent undue hardship.",
     },
-    MEDIUM: {
+    MEDIUM_PROBABILITY: {
       bannerClass: styles.scoreBannerMedium,
       pillClass: styles.scorePillMedium,
       verdictClass: styles.scoreVerdictMedium,
@@ -172,7 +172,7 @@ function ResultView({
       description:
         "This client meets some but not all prongs. Additional evidence or legal strategy may be required to demonstrate undue hardship.",
     },
-    LOW: {
+    LOW_PROBABILITY: {
       bannerClass: styles.scoreBannerLow,
       pillClass: styles.scorePillLow,
       verdictClass: styles.scoreVerdictLow,
