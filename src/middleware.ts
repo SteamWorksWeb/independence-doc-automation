@@ -1,8 +1,7 @@
 /**
- * src/proxy.ts
+ * src/middleware.ts
  *
- * Next.js 16 Proxy — Unified Route Protection
- * (Next.js 16 uses proxy.ts instead of middleware.ts as the edge interceptor)
+ * Next.js Edge Middleware — Unified Route Protection
  *
  * Guards two distinct route segments with separate auth layers:
  *
@@ -43,9 +42,8 @@ export const config = {
   matcher: ["/admin/:path*", "/dashboard/:path*", "/onboarding/:path*"],
 };
 
-
-// ── Unified proxy handler ─────────────────────────────────────────────────────
-export async function proxy(request: NextRequest): Promise<NextResponse> {
+// ── Unified middleware handler ─────────────────────────────────────────────────
+export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;
 
   // Route to the appropriate guard based on the path prefix
@@ -74,25 +72,30 @@ async function handleAdminRoute(
     return NextResponse.next();
   }
 
-  // ── 2. Check for cookie presence ──────────────────────────────────────────
+  // ── 2. Pass-through Next.js API routes (proxy routes handle their own auth) ─
+  if (pathname.startsWith("/api/admin/")) {
+    return NextResponse.next();
+  }
+
+  // ── 3. Check for cookie presence ──────────────────────────────────────────
   const cookie = request.cookies.get("admin_session");
 
   if (!cookie?.value) {
     return denyAdmin(request, "no_cookie");
   }
 
-  // ── 3. Load ADMIN_JWT_SECRET ───────────────────────────────────────────────
+  // ── 4. Load ADMIN_JWT_SECRET ───────────────────────────────────────────────
   const secret = process.env.ADMIN_JWT_SECRET;
 
   if (!secret) {
     console.error(
-      "[proxy] ADMIN_JWT_SECRET is not set. " +
+      "[middleware] ADMIN_JWT_SECRET is not set. " +
         "Configure it in your environment variables."
     );
     return denyAdmin(request, "config_error");
   }
 
-  // ── 4. Cryptographically verify the JWT ───────────────────────────────────
+  // ── 5. Cryptographically verify the JWT ───────────────────────────────────
   try {
     const { payload } = await jwtVerify(
       cookie.value,
@@ -103,15 +106,15 @@ async function handleAdminRoute(
       }
     );
 
-    // ── 5. Assert role claim ─────────────────────────────────────────────────
+    // ── 6. Assert role claim ─────────────────────────────────────────────────
     if (payload.role !== "admin") {
       console.warn(
-        `[proxy] Token with unexpected role "${payload.role}" rejected`
+        `[middleware] Token with unexpected role "${payload.role}" rejected`
       );
       return denyAdmin(request, "wrong_role");
     }
 
-    // ── 6. Request is authenticated — pass through ───────────────────────────
+    // ── 7. Request is authenticated — pass through ───────────────────────────
     const response = NextResponse.next();
     if (typeof payload.email === "string") {
       response.headers.set("x-admin-email", payload.email);
@@ -124,7 +127,7 @@ async function handleAdminRoute(
 
 /** Clear admin cookie and redirect to /admin/login */
 function denyAdmin(request: NextRequest, reason: string): NextResponse {
-  console.warn(`[proxy] Admin access denied (${reason}): ${request.nextUrl.pathname}`);
+  console.warn(`[middleware] Admin access denied (${reason}): ${request.nextUrl.pathname}`);
 
   const loginUrl = new URL("/admin/login", request.url);
   const response = NextResponse.redirect(loginUrl);
@@ -168,7 +171,7 @@ async function handleClientRoute(
   if (!jwtSecret) {
     // Configuration error — fail safe: redirect rather than allow unguarded access
     console.error(
-      "[proxy] JWT_SECRET is not set. Cannot verify client tokens."
+      "[middleware] JWT_SECRET is not set. Cannot verify client tokens."
     );
     const loginUrl = new URL(CLIENT_LOGIN_PATH, request.url);
     loginUrl.searchParams.set("next", pathname);
