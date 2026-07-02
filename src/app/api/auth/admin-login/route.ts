@@ -48,12 +48,12 @@ function getAdminEnv(): {
 } {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
-  const adminJwtSecret = process.env.ADMIN_JWT_SECRET;
+  const adminJwtSecret = process.env.JWT_SECRET;
 
   if (!adminEmail || !adminPasswordHash || !adminJwtSecret) {
     throw new Error(
       "[admin-login] Missing required environment variables: " +
-        "ADMIN_EMAIL, ADMIN_PASSWORD_HASH, ADMIN_JWT_SECRET. " +
+        "ADMIN_EMAIL, ADMIN_PASSWORD_HASH, JWT_SECRET. " +
         "See .env.example for setup instructions."
     );
   }
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
   // Signed with ADMIN_JWT_SECRET — a completely separate secret from
   // client session tokens. Role claim explicitly set to "admin".
   const token = await new SignJWT({
-    role: "admin",
+    role: "lawyer",
     email: env.adminEmail,
   })
     .setProtectedHeader({ alg: "HS256" })

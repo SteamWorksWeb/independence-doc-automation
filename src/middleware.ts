@@ -69,7 +69,7 @@ async function handleAdminRoute(
 ): Promise<NextResponse> {
   // ── 1. Check for an existing valid admin session ───────────────────────────
   const cookie = request.cookies.get("admin_session");
-  const secret = process.env.ADMIN_JWT_SECRET;
+  const secret = process.env.JWT_SECRET;
 
   let isAuthenticated = false;
 
@@ -83,7 +83,7 @@ async function handleAdminRoute(
           algorithms: ["HS256"],
         }
       );
-      if (payload.role === "admin") {
+      if (payload.role === "lawyer") {
         isAuthenticated = true;
       }
     } catch {

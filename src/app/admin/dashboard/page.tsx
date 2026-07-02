@@ -31,7 +31,6 @@ export const metadata: Metadata = {
 };
 
 export const maxDuration = 60; // Allow 60s for Render cold starts
-export const dynamic = "force-dynamic"; // Bust Vercel fetch cache — always hit backend
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
