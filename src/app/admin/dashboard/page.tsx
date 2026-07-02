@@ -3,11 +3,10 @@
  *
  * Lawyer Command Center — Client Roster (Phase 1)
  *
- * This page is a React Server Component. It fetches the client list via the
- * internal Next.js proxy at /api/admin/clients, which reads the admin_session
- * cookie and forwards it as a Bearer token to the AWS backend. The Cookie
- * header is passed explicitly since server-to-server fetches in Next.js do
- * not auto-attach cookies.
+ * This page is a React Server Component. It fetches the client list directly
+ * from the AWS backend using the admin_session cookie (read via next/headers)
+ * as a Bearer token. Direct-to-AWS avoids the self-referencing fetch problem
+ * that plagues Server Components on Vercel when hitting their own API routes.
  *
  * Status logic:
  *   - "Pending Email Verification" → isVerified === false
@@ -82,69 +81,65 @@ function obfuscateEmail(email: string): string {
 }
 
 async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
-  // ── 1. Read the admin session cookie — verify it exists ────────────────
+  // ── 1. Read the admin session cookie ──────────────────────────────────
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
   if (!token) {
-    console.warn("[dashboard] No admin_session cookie found.");
+    console.error("[dashboard] FAIL: No admin_session cookie found in Server Component.");
     return { clients: null, error: "Unauthorized: No active admin session." };
   }
 
-  // Diagnostic: confirm the token is present (mask middle chars for security)
+  // Diagnostic: confirm the token exists (mask middle for security)
   const masked = token.length > 10
     ? `${token.slice(0, 5)}…${token.slice(-5)}`
     : "****";
-  console.log(`[dashboard] admin_session cookie present: ${masked}`);
+  console.log(`[dashboard] admin_session token present: ${masked} (${token.length} chars)`);
 
-  // ── 2. Resolve the internal proxy URL ─────────────────────────────────
-  //    Server Components cannot use relative URLs in fetch(), so we derive
-  //    the absolute origin from the incoming request's Host header. This
-  //    works in all environments (local dev, Vercel, custom domains).
-  const headersList = await headers();
-  const host = headersList.get("host") || "localhost:3000";
-  const protocol = host.includes("localhost") ? "http" : "https";
-  const baseUrl = `${protocol}://${host}`;
+  // ── 2. Validate backend env var BEFORE constructing the URL ────────────
+  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
+  if (!backendBase) {
+    console.error(
+      "[dashboard] FAIL: NEXT_PUBLIC_AWS_API_URL is undefined.",
+      "Available env keys:", Object.keys(process.env).filter((k) => k.startsWith("NEXT_PUBLIC_")).join(", ") || "(none)"
+    );
+    return { clients: null, error: "Server configuration error. Please check server logs." };
+  }
 
-  const url = `${baseUrl}/api/admin/clients`;
-  console.log(`[dashboard] Fetching roster via internal proxy: ${url}`);
+  const targetUrl = `${backendBase}/admin/clients`;
+  console.log(`[dashboard] Fetching directly from AWS: ${targetUrl}`);
 
-  // ── 3. Fetch through the proxy, manually forwarding cookies ───────────
-  //    Server-to-server fetches within Next.js do NOT auto-attach cookies;
-  //    we must pass them explicitly in the Cookie header.
-  const cookieHeader = cookieStore.toString();
-  const fetchHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
-    Cookie: cookieHeader,
-  };
-  console.log("[dashboard] Outgoing headers:", {
-    "Content-Type": fetchHeaders["Content-Type"],
-    Cookie: cookieHeader ? `(${cookieHeader.length} chars)` : "(empty)",
-  });
-
+  // ── 3. Hit AWS directly with Bearer token ─────────────────────────────
   try {
-    const res = await fetch(url, {
+    const res = await fetch(targetUrl, {
       method: "GET",
-      headers: fetchHeaders,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       cache: "no-store",
     });
 
-    console.log(`[dashboard] Proxy responded: ${res.status}`);
+    console.log(`[dashboard] AWS responded: ${res.status} ${res.statusText}`);
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message = (body as { message?: string }).message ?? `Error ${res.status}`;
-      console.error(`[dashboard] Proxy error: ${message}`);
-      return { clients: null, error: message };
+      const errorText = await res.text().catch(() => "(could not read response body)");
+      console.error(
+        `[dashboard] FAIL: AWS returned ${res.status}`,
+        `| URL: ${targetUrl}`,
+        `| Body: ${errorText.slice(0, 500)}`
+      );
+      return { clients: null, error: "Failed to load clients. Please check server logs." };
     }
 
     const data = await res.json();
     // Backend returns { clients: Client[] } or Client[] — handle both shapes
     const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
     const clients: ClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
+    console.log(`[dashboard] SUCCESS: Loaded ${clients.length} clients from AWS.`);
     return { clients, error: null };
   } catch (err) {
-    console.error("[dashboard] Failed to fetch clients:", err);
+    console.error("[dashboard] FAIL: Network error reaching AWS:", err);
     return { clients: null, error: "Unable to connect to the server. Check your connection and try again." };
   }
 }
