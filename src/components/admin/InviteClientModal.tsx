@@ -145,12 +145,12 @@ export default function InviteClientModal({ adminToken }: InviteClientModalProps
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  // Derive a display-friendly invite link
-  const displayLink =
-    result.inviteLink ||
-    (result.token
-      ? `${typeof window !== "undefined" ? window.location.origin : ""}/register?token=${result.token}`
-      : "");
+  // Always point the invite link to /register?token=...
+  // The backend may return an inviteLink pointing to /login, but new
+  // clients need the registration form, not the login page.
+  const displayLink = result.token
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/register?token=${result.token}`
+    : "";
 
   return (
     <>
