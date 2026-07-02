@@ -30,6 +30,8 @@ export const metadata: Metadata = {
   title: "Client Roster",
 };
 
+export const maxDuration = 60; // Allow 60s for Render cold starts
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface IntakeProfile {
@@ -138,9 +140,9 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
     const clients: ClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
     console.log(`[dashboard] SUCCESS: Loaded ${clients.length} clients from AWS.`);
     return { clients, error: null };
-  } catch (err) {
-    console.error("[dashboard] FAIL: Network error reaching AWS:", err);
-    return { clients: null, error: "Unable to connect to the server. Check your connection and try again." };
+  } catch (error) {
+    console.error("[dashboard] FETCH EXCEPTION:", error);
+    return { clients: null, error: `Network Exception: ${error instanceof Error ? error.message : "Unknown error"}` };
   }
 }
 
