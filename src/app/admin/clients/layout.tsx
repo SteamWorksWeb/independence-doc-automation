@@ -38,7 +38,7 @@ export default function ClientsLayout({
         {/* Top bar */}
         <header className={styles.topBar}>
           <div className={styles.topBarLeft}>
-            <span className={styles.topBarTitle}>Client Profile</span>
+            <span className={styles.topBarTitle}>Administration</span>
           </div>
           <div className={styles.topBarRight}>
             <span className={styles.topBarBadge}>

@@ -29,7 +29,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { id: "dashboard", label: "Dashboard", icon: GridIcon, href: "/admin/dashboard", active: true },
-  { id: "clients",   label: "Clients",   icon: UsersIcon, href: "/admin/clients",  active: false, soon: true },
+  { id: "clients",   label: "Clients",   icon: UsersIcon, href: "/admin/clients",  active: true },
   { id: "cases",     label: "Cases",     icon: FolderIcon, href: "/admin/cases",   active: false, soon: true },
   { id: "documents", label: "Documents", icon: FileIcon,  href: "/admin/documents", active: false, soon: true },
   { id: "settings",  label: "Settings",  icon: GearIcon,  href: "/admin/settings", active: false, soon: true },

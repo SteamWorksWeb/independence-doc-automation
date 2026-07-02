@@ -1,0 +1,407 @@
+/*
+ * page.module.css — Clients Page
+ *
+ * Design system: Independence Law Firm enterprise palette
+ *   Navy:     #1a2744  | Crimson: #b31e3c
+ *   Success:  #0f7b55  | Warning: #d97706
+ *   Border:   #dde2ea  | BG:      #f4f5f7
+ *
+ * All tokens reference variables defined in globals.css.
+ */
+
+/* ── Page wrapper ──────────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1200px;
+}
+
+/* ── Page header ───────────────────────────────────────────── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-family: var(--font-serif);
+  font-size: clamp(1.375rem, 2.5vw, 1.75rem);
+  font-weight: 900;
+  font-style: italic;
+  color: var(--color-navy);
+  margin: 0 0 4px;
+  line-height: 1.1;
+}
+
+.pageSubtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.dateBadge {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  padding: 6px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+/* ── Stat strip ────────────────────────────────────────────── */
+.statsStrip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.statPill {
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.statPill:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.statPillValue {
+  font-family: var(--font-serif);
+  font-size: 1.875rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--color-navy);
+}
+
+.statPillLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Color variants */
+.statPill--navy    { border-left: 3px solid var(--color-navy); }
+.statPill--success { border-left: 3px solid var(--color-success); }
+.statPill--warning { border-left: 3px solid var(--color-warning); }
+.statPill--muted   { border-left: 3px solid var(--color-border); }
+
+.statPill--success .statPillValue { color: var(--color-success); }
+.statPill--warning .statPillValue { color: var(--color-warning); }
+.statPill--muted   .statPillValue { color: var(--color-text-muted); }
+
+/* ── Search bar ────────────────────────────────────────────── */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.searchBar:focus-within {
+  border-color: var(--color-crimson);
+  box-shadow: 0 0 0 3px rgba(179,30,60,0.1);
+}
+
+.searchIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-muted);
+}
+
+.searchCount {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Table card ────────────────────────────────────────────── */
+.tableCard {
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.tableCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tableCardTitle {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin: 0 0 2px;
+}
+
+.tableCardMeta {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Table wrapper (horizontal scroll on mobile) ───────────── */
+.tableWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Data table ────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  min-width: 720px;
+}
+
+.th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.th:first-child { padding-left: 24px; }
+.th:last-child  { padding-right: 24px; }
+
+.tr {
+  border-bottom: 1px solid var(--color-border);
+  transition: background 150ms ease;
+}
+
+.tr:last-child  { border-bottom: none; }
+.tr:hover       { background: #fafbfc; }
+
+.td {
+  padding: 14px 16px;
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.td:first-child { padding-left: 24px; }
+.td:last-child  { padding-right: 24px; }
+
+/* Column-specific styles */
+.tdIndex {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  width: 40px;
+}
+
+.tdEmail {
+  font-weight: 500;
+  max-width: 280px;
+}
+
+/* Show full email on desktop, obfuscated on narrow screens */
+.emailFull        { display: inline; }
+.emailObfuscated  { display: none; }
+
+.tdDate {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Clickable email cell */
+.emailLink {
+  color: var(--color-navy);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+.emailLink:hover {
+  color: var(--color-crimson);
+  text-decoration: underline;
+}
+
+/* "View →" action link */
+.viewLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-crimson);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+.viewLink:hover {
+  color: var(--color-crimson-hover);
+  text-decoration: underline;
+}
+
+/* ── Status badges ─────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.badgeSuccess {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.badgeWarning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.badgeMuted {
+  background: var(--color-bg-alt);
+  color: var(--color-text-muted);
+}
+
+/* ── Intake column indicators ──────────────────────────────── */
+.intakeNa,
+.intakeNotStarted,
+.intakeInProgress,
+.intakeComplete {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.intakeNa          { color: var(--color-text-muted); }
+.intakeNotStarted  { color: var(--color-text-muted); }
+.intakeInProgress  { color: var(--color-warning); }
+.intakeComplete {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success);
+}
+
+/* ── Table footer ──────────────────────────────────────────── */
+.tableFooter {
+  padding: 12px 24px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.tableFooterText {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Empty / Error states ──────────────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 64px 24px;
+  gap: 12px;
+}
+
+.emptyIcon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.emptyIconError {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+.emptyTitle {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.emptyBody {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .statsStrip { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .statsStrip        { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .pageHeader        { flex-direction: column; }
+  .dateBadge         { align-self: stretch; text-align: center; }
+  .tableCardHeader   { flex-direction: column; }
+
+  /* Switch to obfuscated email on small screens */
+  .emailFull       { display: none; }
+  .emailObfuscated { display: inline; }
+}
+
+@media (max-width: 400px) {
+  .statsStrip { grid-template-columns: 1fr; }
+}
