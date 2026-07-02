@@ -394,6 +394,74 @@
   .cardHeader { padding: var(--space-6) var(--space-6) var(--space-5); }
   .formBody   { padding: var(--space-6); }
   .trustFooter { padding: var(--space-4) var(--space-6); gap: var(--space-3); }
+
+  .gateBody { padding: var(--space-6); }
+}
+
+/* ── Invitation-only gate (State A: no token) ────────────────────────────────── */
+.gateBody {
+  padding: var(--space-10) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-5);
+}
+
+.gateIconWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(179,30,60,0.12), rgba(26,39,68,0.08));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-crimson);
+}
+
+.gateTitle {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.gateDesc {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  max-width: 380px;
+  margin: 0;
+}
+
+.gateDesc strong {
+  color: var(--color-navy);
+}
+
+.gateDivider {
+  width: 60px;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.gateContact {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.gateContactNote {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+}
+
+.gateBtn {
+  margin-top: var(--space-2);
+  max-width: 280px;
 }
 
 @keyframes fadeInUp {

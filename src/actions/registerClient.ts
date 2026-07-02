@@ -25,11 +25,12 @@ export type RegisterInput = {
   name: string;
   email: string;
   password: string;
+  token?: string;  // Invitation token — required by "Velvet Rope" backend
 };
 
 export type ActionResult =
   | { ok: true; email: string }
-  | { ok: false; code: "VALIDATION" | "DUPLICATE_EMAIL" | "SERVER_ERROR"; message: string };
+  | { ok: false; code: "VALIDATION" | "DUPLICATE_EMAIL" | "INVALID_TOKEN" | "SERVER_ERROR"; message: string };
 
 // ── Environment guard ─────────────────────────────────────────────────────────
 
@@ -106,6 +107,7 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
         email:    input.email.trim().toLowerCase(),
         password: input.password,   // backend hashes this with bcrypt cost 12
         lawyerId,                   // injected server-side, never from form
+        ...(input.token ? { token: input.token } : {}),  // Velvet Rope invitation token
       }),
       // Disable Next.js caching — mutation must always be fresh
       cache: "no-store",
@@ -150,6 +152,15 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
       ok: false,
       code: "VALIDATION",
       message: errorBody.error ?? "Invalid registration data. Please check your details.",
+    };
+  }
+
+  // 403 — Invalid or expired invitation token
+  if (response.status === 403) {
+    return {
+      ok: false,
+      code: "INVALID_TOKEN",
+      message: errorBody.error ?? "This invitation link is invalid or has expired. Please contact your attorney for a new invitation.",
     };
   }
 

@@ -18,6 +18,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
+import InviteClientModal from "@/components/admin/InviteClientModal";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -147,6 +148,10 @@ export default async function ClientsPage() {
   const headersList = await headers();
   const adminEmail = headersList.get("x-admin-email") ?? "Administrator";
 
+  // Read admin session token for the invite modal (client component)
+  const cookieStore = await cookies();
+  const adminToken = cookieStore.get("admin_session")?.value ?? "";
+
   const { clients, error } = await fetchClients();
 
   // Derive counts for the stat strip
@@ -166,13 +171,16 @@ export default async function ClientsPage() {
             Signed in as <strong>{adminEmail}</strong>
           </p>
         </div>
-        <div className={styles.dateBadge}>
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
+        <div className={styles.headerActions}>
+          {adminToken && <InviteClientModal adminToken={adminToken} />}
+          <div className={styles.dateBadge}>
+            {new Date().toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </div>
         </div>
       </div>
 

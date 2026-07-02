@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+
 /**
  * src/app/register/page.tsx
  *
@@ -18,6 +20,7 @@
  */
 
 import { useState, useCallback, useId, useTransition } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Metadata } from "next";
 import { registerClient } from "@/actions/registerClient";
 import styles from "./register.module.css";
@@ -120,9 +123,30 @@ function ScalesIcon({ size = 48 }: { size?: number }) {
   );
 }
 
+function LockIcon() {
+  return (
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
+// Wrapper component to provide Suspense boundary for useSearchParams
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPageInner />
+    </Suspense>
+  );
+}
+
+function RegisterPageInner() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
   const uid = useId();
   const [isPending, startTransition] = useTransition();
 
@@ -157,7 +181,7 @@ export default function RegisterPage() {
       setPageState("loading");
 
       startTransition(async () => {
-        const result = await registerClient({ name, email, password });
+        const result = await registerClient({ name, email, password, token: token || undefined });
 
         if (result.ok) {
           setRegisteredEmail(result.email);
@@ -167,6 +191,8 @@ export default function RegisterPage() {
 
           if (result.code === "DUPLICATE_EMAIL") {
             setErrors({ email: result.message });
+          } else if (result.code === "INVALID_TOKEN") {
+            setErrors({ general: result.message });
           } else if (result.code === "VALIDATION") {
             setErrors({ general: result.message });
           } else {
@@ -175,7 +201,7 @@ export default function RegisterPage() {
         }
       });
     },
-    [name, email, password]
+    [name, email, password, token]
   );
 
   // ── Pending (Success) State ──────────────────────────────────────────────────
@@ -237,7 +263,86 @@ export default function RegisterPage() {
     );
   }
 
-  // ── Registration Form ─────────────────────────────────────────────────────────
+  // ── State A: No Token — Invitation-Only Gate ──────────────────────────────────
+  if (!token) {
+    return (
+      <main className={styles.root}>
+        <aside className={styles.brandPanel} aria-label="Firm information">
+          <div className={styles.brandLogo}>
+            <ScalesIcon />
+            <div>
+              <p className={styles.brandTagline}>THE</p>
+              <p className={styles.brandFirmName}>Independence</p>
+              <p className={styles.brandFirmName}>Law Firm</p>
+            </div>
+          </div>
+          <div className={styles.brandHero}>
+            <h2 className={styles.brandHeadline}>
+              <em>Exclusive Access.</em>
+              <br />
+              By Invitation Only.
+            </h2>
+            <p className={styles.brandBody}>
+              Our client portal is secured with invitation-only registration
+              to ensure the highest level of confidentiality and personalized service.
+            </p>
+          </div>
+          <div className={styles.brandFooter}>
+            <a href="https://theindependencelaw.com" target="_blank" rel="noopener noreferrer" className={styles.brandLink}>
+              ← Return to main website
+            </a>
+          </div>
+        </aside>
+
+        <section className={styles.formPanel} aria-label="Registration restricted">
+          <div className={styles.formInner}>
+            {/* Mobile firm name strip */}
+            <div className={styles.mobileHeader} aria-hidden>
+              <ScalesIcon size={32} />
+              <span className={styles.mobileFirmName}>The Independence Law Firm</span>
+            </div>
+
+            <div className={styles.card}>
+              <div className={styles.cardHeader}>
+                <p className={styles.cardEyebrow}>Client Portal</p>
+                <h1 className={styles.cardTitle}>
+                  Invitation <em>Required</em>
+                </h1>
+              </div>
+
+              <div className={styles.gateBody}>
+                <div className={styles.gateIconWrap}>
+                  <LockIcon />
+                </div>
+                <h2 className={styles.gateTitle}>Registration is by invitation only.</h2>
+                <p className={styles.gateDesc}>
+                  Please contact <strong>Independence Law Firm</strong> to begin your
+                  intake process. Once approved, you will receive a secure registration
+                  link via email.
+                </p>
+                <div className={styles.gateDivider} />
+                <p className={styles.gateContact}>
+                  Already have an invitation?{" "}
+                  <span className={styles.gateContactNote}>
+                    Check your email for the registration link, or contact your attorney.
+                  </span>
+                </p>
+                <a href="/" className={`btn btn--navy btn--full ${styles.gateBtn}`}>
+                  ← Back to Sign In
+                </a>
+              </div>
+            </div>
+
+            <p className={styles.legalNote}>
+              All communications are protected by attorney-client privilege.
+            </p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // ── State B: Has Token — Registration Form ─────────────────────────────────────
   return (
     <main className={styles.root}>
       {/* ── Brand Panel ──────────────────────────────────────────────────────── */}
