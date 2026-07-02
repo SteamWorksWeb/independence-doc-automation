@@ -20,7 +20,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const BACKEND_URL = process.env.BACKEND_URL as string;
+/**
+ * Resolve the Render backend intake URL.
+ *
+ * NEXT_PUBLIC_AWS_API_URL is set to https://<host>/api/v1
+ * The intake endpoint lives at /api/v1/intake, so we simply append /intake.
+ */
+function getIntakeUrl(): string | null {
+  const base = process.env.NEXT_PUBLIC_AWS_API_URL;
+  if (!base) return null;
+  return `${base.replace(/\/+$/, '')}/intake`;
+}
 
 // ── POST /api/intake ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -31,6 +41,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const intakeUrl = getIntakeUrl();
+  if (!intakeUrl) {
+    console.error('[intake proxy] NEXT_PUBLIC_AWS_API_URL is not configured');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -39,7 +55,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const response = await fetch(`${BACKEND_URL}/api/v1/intake`, {
+    const response = await fetch(intakeUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -70,8 +86,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const intakeUrl = getIntakeUrl();
+  if (!intakeUrl) {
+    console.error('[intake proxy] NEXT_PUBLIC_AWS_API_URL is not configured');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
+  }
+
   try {
-    const response = await fetch(`${BACKEND_URL}/api/v1/intake`, {
+    const response = await fetch(intakeUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
