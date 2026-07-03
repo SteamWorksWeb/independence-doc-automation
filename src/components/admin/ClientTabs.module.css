@@ -1,0 +1,90 @@
+/*
+ * ClientTabs.module.css — Tabbed Interface for Client Directory
+ *
+ * Design system: Independence Law Firm enterprise palette
+ * Provides tab bar + content panel styling consistent with the firm's
+ * card-based UI pattern.
+ */
+
+/* ── Tab bar ───────────────────────────────────────────────── */
+.tabBar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  padding: 0 24px;
+  background: transparent;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 200ms ease;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--color-navy);
+}
+
+.tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: transparent;
+  border-radius: 2px 2px 0 0;
+  transition: background 200ms ease;
+}
+
+.tabActive {
+  composes: tab;
+  color: var(--color-crimson);
+}
+
+.tabActive::after {
+  background: var(--color-crimson);
+}
+
+/* ── Count badge in tab ────────────────────────────────────── */
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: var(--color-bg-alt);
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+.tabActive .tabCount {
+  background: rgba(179, 30, 60, 0.1);
+  color: var(--color-crimson);
+}
+
+/* ── Tab content panel ─────────────────────────────────────── */
+.tabContent {
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

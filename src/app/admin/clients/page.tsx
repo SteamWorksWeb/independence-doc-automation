@@ -1,7 +1,7 @@
 /**
  * src/app/admin/clients/page.tsx
  *
- * Client Directory — Dedicated Clients Page
+ * Client Directory — Dedicated Clients Page (Tabbed Interface)
  *
  * This page is a React Server Component. It uses the exact same secure
  * data-fetching pattern perfected in the dashboard:
@@ -9,9 +9,9 @@
  *   2. Fetches clients directly from the Render backend (Bearer token)
  *   3. Robust try/catch with error surfacing to the UI
  *
- * Features beyond the dashboard roster:
- *   - Dedicated page title and metadata
- *   - Search/filter functionality (client-side via "use client" wrapper)
+ * Features:
+ *   - Tabbed interface: "Active Clients" (server-rendered) | "Pending Invites" (client-side)
+ *   - Invite management: copy registration links, revoke pending invitations
  *   - Full client details with direct profile links
  */
 
@@ -19,6 +19,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import InviteClientModal from "@/components/admin/InviteClientModal";
+import ClientTabs from "@/components/admin/ClientTabs";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -192,88 +193,92 @@ export default async function ClientsPage() {
         <StatPill label="Unverified" value={error ? "—" : String(unverified)} color="muted" />
       </div>
 
-      {/* ── Main table card ───────────────────────────────── */}
+      {/* ── Main table card (tabbed) ─────────────────────── */}
       <div className={styles.tableCard}>
         <div className={styles.tableCardHeader}>
           <div>
-            <h2 className={styles.tableCardTitle}>All Clients</h2>
+            <h2 className={styles.tableCardTitle}>Client Directory</h2>
             {!error && (
               <p className={styles.tableCardMeta}>
-                {total} {total === 1 ? "client" : "clients"} registered
+                Manage active clients and pending invitations
               </p>
             )}
           </div>
         </div>
 
-        {/* Error state */}
-        {error && <ErrorState message={error} />}
+        <ClientTabs adminToken={adminToken} clientCount={total}>
+          {/* ── Active Clients tab content (server-rendered) ── */}
 
-        {/* Empty state */}
-        {!error && clients && clients.length === 0 && <EmptyState />}
+          {/* Error state */}
+          {error && <ErrorState message={error} />}
 
-        {/* Table */}
-        {!error && clients && clients.length > 0 && (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table} aria-label="Client directory">
-              <thead>
-                <tr>
-                  <th className={styles.th} scope="col">#</th>
-                  <th className={styles.th} scope="col">Client Email</th>
-                  <th className={styles.th} scope="col">Joined Date</th>
-                  <th className={styles.th} scope="col">Status</th>
-                  <th className={styles.th} scope="col">Intake</th>
-                  <th className={styles.th} scope="col">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients.map((client, index) => (
-                  <tr key={client.id} className={styles.tr}>
-                    <td className={`${styles.td} ${styles.tdIndex}`}>{index + 1}</td>
-                    <td className={`${styles.td} ${styles.tdEmail}`}>
-                      <Link
-                        href={`/admin/clients/${client.id}`}
-                        className={styles.emailLink}
-                        title={client.email}
-                      >
-                        <span className={styles.emailFull}>{client.email}</span>
-                        <span className={styles.emailObfuscated} aria-hidden>
-                          {obfuscateEmail(client.email)}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className={`${styles.td} ${styles.tdDate}`}>
-                      {formatDate(client.createdAt)}
-                    </td>
-                    <td className={styles.td}>
-                      <StatusBadge status={client.status} />
-                    </td>
-                    <td className={styles.td}>
-                      <IntakeIndicator client={client} />
-                    </td>
-                    <td className={styles.td}>
-                      <Link
-                        href={`/admin/clients/${client.id}`}
-                        className={styles.viewLink}
-                        aria-label={`View profile for ${client.email}`}
-                      >
-                        View →
-                      </Link>
-                    </td>
+          {/* Empty state */}
+          {!error && clients && clients.length === 0 && <EmptyState />}
+
+          {/* Table */}
+          {!error && clients && clients.length > 0 && (
+            <div className={styles.tableWrapper}>
+              <table className={styles.table} aria-label="Client directory">
+                <thead>
+                  <tr>
+                    <th className={styles.th} scope="col">#</th>
+                    <th className={styles.th} scope="col">Client Email</th>
+                    <th className={styles.th} scope="col">Joined Date</th>
+                    <th className={styles.th} scope="col">Status</th>
+                    <th className={styles.th} scope="col">Intake</th>
+                    <th className={styles.th} scope="col">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {clients.map((client, index) => (
+                    <tr key={client.id} className={styles.tr}>
+                      <td className={`${styles.td} ${styles.tdIndex}`}>{index + 1}</td>
+                      <td className={`${styles.td} ${styles.tdEmail}`}>
+                        <Link
+                          href={`/admin/clients/${client.id}`}
+                          className={styles.emailLink}
+                          title={client.email}
+                        >
+                          <span className={styles.emailFull}>{client.email}</span>
+                          <span className={styles.emailObfuscated} aria-hidden>
+                            {obfuscateEmail(client.email)}
+                          </span>
+                        </Link>
+                      </td>
+                      <td className={`${styles.td} ${styles.tdDate}`}>
+                        {formatDate(client.createdAt)}
+                      </td>
+                      <td className={styles.td}>
+                        <StatusBadge status={client.status} />
+                      </td>
+                      <td className={styles.td}>
+                        <IntakeIndicator client={client} />
+                      </td>
+                      <td className={styles.td}>
+                        <Link
+                          href={`/admin/clients/${client.id}`}
+                          className={styles.viewLink}
+                          aria-label={`View profile for ${client.email}`}
+                        >
+                          View →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {/* Table footer */}
-        {!error && clients && clients.length > 0 && (
-          <div className={styles.tableFooter}>
-            <span className={styles.tableFooterText}>
-              Showing all {total} {total === 1 ? "client" : "clients"}
-            </span>
-          </div>
-        )}
+          {/* Table footer */}
+          {!error && clients && clients.length > 0 && (
+            <div className={styles.tableFooter}>
+              <span className={styles.tableFooterText}>
+                Showing all {total} {total === 1 ? "client" : "clients"}
+              </span>
+            </div>
+          )}
+        </ClientTabs>
       </div>
     </div>
   );
