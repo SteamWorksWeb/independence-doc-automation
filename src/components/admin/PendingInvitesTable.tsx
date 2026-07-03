@@ -2,17 +2,13 @@
  * src/components/admin/PendingInvitesTable.tsx
  *
  * Client component that fetches and displays pending client invitations.
- * Supports two actions per invite:
- *   - Copy Link: constructs the registration URL and copies to clipboard
- *   - Revoke: DELETEs the invite via the backend and removes it from local state
  *
- * Mounted inside the "Pending Invites" tab of the Client Directory page.
+ * Migrated from CSS Modules → Tailwind CSS (Phase 2).
  */
 
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import styles from "./PendingInvitesTable.module.css";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,7 +59,6 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
 
-  // ── Auto-dismiss toast ────────────────────────────────────────────────────
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 3000);
@@ -129,7 +124,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
   // ── Revoke invitation ─────────────────────────────────────────────────────
 
   const handleRevoke = useCallback(async (invite: Invitation) => {
-    if (revokingId) return; // prevent double-clicks
+    if (revokingId) return;
 
     setRevokingId(invite.id);
     try {
@@ -149,7 +144,6 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
         );
       }
 
-      // Optimistic removal from local state
       setInvitations((prev) => prev.filter((inv) => inv.id !== invite.id));
       setToast({ message: `Invitation to ${invite.email} revoked.`, type: "success" });
     } catch (err) {
@@ -168,23 +162,23 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
     <>
       {/* ── Loading ────────────────────────────────────────── */}
       {fetchState === "loading" && (
-        <div className={styles.loadingState}>
-          <div className={styles.spinner} aria-hidden />
-          <p className={styles.loadingText}>Loading pending invitations…</p>
+        <div className="flex flex-col items-center justify-center py-16 px-6 gap-4">
+          <div className="w-7 h-7 border-[3px] border-border border-t-crimson rounded-full animate-spin" aria-hidden />
+          <p className="text-sm text-text-muted">Loading pending invitations…</p>
         </div>
       )}
 
       {/* ── Error ──────────────────────────────────────────── */}
       {fetchState === "error" && (
-        <div className={styles.errorState}>
-          <div className={styles.errorIcon}>
+        <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
+          <div className="w-[68px] h-[68px] rounded-full bg-error-bg flex items-center justify-center text-error mb-1">
             <AlertIcon />
           </div>
-          <p className={styles.errorTitle}>Failed to Load Invitations</p>
-          <p className={styles.errorBody}>{errorMessage}</p>
+          <p className="font-serif text-[1.0625rem] font-bold text-text-primary">Failed to Load Invitations</p>
+          <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">{errorMessage}</p>
           <button
             type="button"
-            className={styles.retryBtn}
+            className="mt-2 font-sans text-[0.8125rem] font-semibold text-crimson bg-transparent border border-crimson py-1.5 px-4 rounded-md cursor-pointer transition-[background,color] duration-150 ease-in-out hover:bg-crimson hover:text-white"
             onClick={fetchInvites}
           >
             Try Again
@@ -194,12 +188,12 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
 
       {/* ── Empty ──────────────────────────────────────────── */}
       {fetchState === "success" && invitations.length === 0 && (
-        <div className={styles.emptyState}>
-          <div className={styles.emptyIcon}>
+        <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
+          <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1">
             <MailIcon />
           </div>
-          <p className={styles.emptyTitle}>No pending invitations</p>
-          <p className={styles.emptyBody}>
+          <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No pending invitations</p>
+          <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">
             All invitations have been used or expired. Use the
             &ldquo;Invite Client&rdquo; button to send a new one.
           </p>
@@ -209,80 +203,73 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
       {/* ── Data table ─────────────────────────────────────── */}
       {fetchState === "success" && invitations.length > 0 && (
         <>
-          <div className={styles.tableWrapper}>
-            <table className={styles.table} aria-label="Pending invitations">
+          <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+            <table className="w-full border-collapse text-sm min-w-[560px]" aria-label="Pending invitations">
               <thead>
                 <tr>
-                  <th className={styles.th} scope="col">#</th>
-                  <th className={styles.th} scope="col">Email</th>
-                  <th className={styles.th} scope="col">Sent Date</th>
-                  <th className={styles.th} scope="col">Status</th>
-                  <th className={styles.th} scope="col">Actions</th>
+                  <th className="py-[11px] px-4 first:pl-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">#</th>
+                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Email</th>
+                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Sent Date</th>
+                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Status</th>
+                  <th className="py-[11px] px-4 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {invitations.map((invite, index) => {
                   const expired = isExpired(invite.expiresAt);
                   return (
-                    <tr key={invite.id} className={styles.tr}>
-                      <td className={`${styles.td} ${styles.tdIndex}`}>
+                    <tr key={invite.id} className="border-b border-border last:border-b-0 transition-[background] duration-150 ease-in-out hover:bg-[#fafbfc]">
+                      <td className="py-3.5 px-4 first:pl-6 text-text-muted text-[0.8125rem] font-medium w-10 align-middle">
                         {index + 1}
                       </td>
-                      <td className={`${styles.td} ${styles.tdEmail}`}>
+                      <td className="py-3.5 px-4 font-medium align-middle">
                         {invite.email}
                       </td>
-                      <td className={`${styles.td} ${styles.tdDate}`}>
+                      <td className="py-3.5 px-4 text-text-secondary whitespace-nowrap align-middle">
                         {formatDate(invite.createdAt)}
                       </td>
-                      <td className={styles.td}>
+                      <td className="py-3.5 px-4 align-middle">
                         <span
-                          className={`${styles.statusBadge} ${
-                            expired ? styles.statusExpired : styles.statusActive
+                          className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${
+                            expired
+                              ? "bg-bg-alt text-text-muted"
+                              : "bg-success-bg text-success"
                           }`}
                         >
-                          <span className={styles.statusDot} aria-hidden />
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
                           {expired ? "Expired" : "Active"}
                         </span>
                       </td>
-                      <td className={styles.td}>
-                        <div className={styles.actionsCell}>
+                      <td className="py-3.5 px-4 last:pr-6 align-middle">
+                        <div className="flex items-center gap-2 flex-nowrap max-[640px]:flex-col max-[640px]:gap-1.5">
                           <button
                             type="button"
-                            className={
+                            className={`inline-flex items-center gap-[5px] font-sans text-xs font-semibold py-[5px] px-3 rounded-md border cursor-pointer whitespace-nowrap transition-[background,border-color,color] duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed ${
                               copiedId === invite.id
-                                ? styles.actionBtnCopied
-                                : styles.actionBtn
-                            }
+                                ? "border-success text-success bg-success-bg"
+                                : "border-border bg-white text-text-primary hover:bg-bg hover:border-navy hover:text-navy"
+                            }`}
                             onClick={() => handleCopyLink(invite)}
                             disabled={revokingId === invite.id}
                             aria-label={`Copy registration link for ${invite.email}`}
                           >
                             {copiedId === invite.id ? (
-                              <>
-                                <CheckIcon /> Copied!
-                              </>
+                              <><CheckIcon /> Copied!</>
                             ) : (
-                              <>
-                                <CopyIcon /> Copy Link
-                              </>
+                              <><CopyIcon /> Copy Link</>
                             )}
                           </button>
                           <button
                             type="button"
-                            className={styles.revokeBtn}
+                            className="inline-flex items-center gap-[5px] font-sans text-xs font-semibold py-[5px] px-3 rounded-md border border-transparent bg-[rgba(179,30,60,0.08)] text-crimson cursor-pointer whitespace-nowrap transition-[background,border-color,color] duration-150 ease-in-out hover:bg-crimson hover:border-crimson hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             onClick={() => handleRevoke(invite)}
                             disabled={revokingId === invite.id}
                             aria-label={`Revoke invitation for ${invite.email}`}
                           >
                             {revokingId === invite.id ? (
-                              <>
-                                <span className={styles.spinner} style={{ width: 12, height: 12, borderWidth: 2 }} aria-hidden />
-                                Revoking…
-                              </>
+                              <><span className="w-3 h-3 border-2 border-border border-t-crimson rounded-full animate-spin shrink-0" aria-hidden /> Revoking…</>
                             ) : (
-                              <>
-                                <XIcon /> Revoke
-                              </>
+                              <><XIcon /> Revoke</>
                             )}
                           </button>
                         </div>
@@ -295,8 +282,8 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
           </div>
 
           {/* Table footer */}
-          <div className={styles.tableFooter}>
-            <span className={styles.tableFooterText}>
+          <div className="py-3 px-6 border-t border-border bg-bg flex items-center justify-end">
+            <span className="text-[0.8125rem] text-text-muted">
               {invitations.length} pending{" "}
               {invitations.length === 1 ? "invitation" : "invitations"}
             </span>
@@ -307,9 +294,9 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
       {/* ── Toast notification ─────────────────────────────── */}
       {toast && (
         <div
-          className={
-            toast.type === "success" ? styles.toastSuccess : styles.toastError
-          }
+          className={`fixed bottom-6 right-6 flex items-center gap-2 text-white py-3 px-5 rounded-lg font-sans text-[0.8125rem] font-semibold shadow-[0_8px_32px_rgba(0,0,0,0.18)] z-[1000] animate-[toastIn_300ms_ease-out] ${
+            toast.type === "success" ? "bg-success" : "bg-crimson"
+          }`}
           role="status"
           aria-live="polite"
         >
@@ -324,46 +311,21 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
 // ── Inline SVG Icons ────────────────────────────────────────────────────────
 
 function CopyIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
+  return (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>);
 }
 
 function CheckIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
+  return (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>);
 }
 
 function XIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
+  return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>);
 }
 
 function AlertIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
+  return (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>);
 }
 
 function MailIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M22 7l-10 7L2 7" />
-    </svg>
-  );
+  return (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M22 7l-10 7L2 7" /></svg>);
 }

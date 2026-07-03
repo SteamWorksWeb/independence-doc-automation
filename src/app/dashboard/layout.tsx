@@ -3,21 +3,10 @@
  *
  * Client Dashboard Shell — wraps all /dashboard/* routes.
  *
- * Structure:
- *   ┌──────────────────────────────────────────────────┐
- *   │ [Header: Brand + Secure badge + Sign Out]        │
- *   ├──────────────────────────────────────────────────┤
- *   │                                                  │
- *   │            <children /> (page content)            │
- *   │                                                  │
- *   └──────────────────────────────────────────────────┘
- *
- * The header is simpler than the admin sidebar — clients see a clean,
- * confidence-inspiring bar with the firm brand and a sign-out option.
+ * Migrated from CSS Modules → Tailwind CSS (Phase 2).
  */
 
 import type { Metadata } from "next";
-import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
   title: {
@@ -33,27 +22,37 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className={styles.shell}>
+    <div className="min-h-dvh flex flex-col bg-bg">
       {/* ── Top header ─────────────────────────────────────── */}
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <div className={styles.brand}>
-            <div className={styles.brandIcon}>
+      <header className="bg-navy border-b-[3px] border-crimson px-6 max-[640px]:px-4 sticky top-0 z-[100]">
+        <div className="max-w-[1200px] mx-auto flex items-center justify-between h-16 max-[640px]:h-14 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="shrink-0">
               <ScalesIcon />
             </div>
-            <div className={styles.brandText}>
-              <span className={styles.brandThe}>THE</span>
-              <span className={styles.brandName}>Independence Law Firm</span>
+            <div className="flex flex-col leading-[1.15]">
+              <span className="font-sans text-[0.5625rem] font-bold tracking-[0.25em] uppercase text-white/50">
+                THE
+              </span>
+              <span className="font-serif text-[0.9375rem] max-[640px]:text-[0.8125rem] font-bold text-white">
+                Independence Law Firm
+              </span>
             </div>
           </div>
 
-          <div className={styles.headerRight}>
-            <span className={styles.secureBadge}>
-              <span className={styles.secureDot} aria-hidden />
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold text-white/70 py-1 px-3 rounded-[20px] bg-white/[0.08] border border-white/[0.12] max-[640px]:hidden">
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse shrink-0"
+                aria-hidden
+              />
               Secure Session
             </span>
             <form action="/api/auth/client-logout" method="POST">
-              <button type="submit" className={styles.signOutBtn}>
+              <button
+                type="submit"
+                className="font-sans text-[0.8125rem] font-semibold text-white/60 bg-transparent border border-white/[0.15] rounded-md py-1.5 px-3.5 cursor-pointer transition-all duration-150 ease-in-out hover:text-white hover:border-white/40 hover:bg-white/[0.08]"
+              >
                 Sign Out
               </button>
             </form>
@@ -62,7 +61,9 @@ export default function DashboardLayout({
       </header>
 
       {/* ── Page content ──────────────────────────────────── */}
-      <main className={styles.content}>{children}</main>
+      <main className="flex-1 max-w-[1200px] w-full mx-auto py-8 px-6 max-[640px]:py-5 max-[640px]:px-4">
+        {children}
+      </main>
     </div>
   );
 }

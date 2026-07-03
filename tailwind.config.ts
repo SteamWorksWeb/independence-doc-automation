@@ -99,11 +99,21 @@ export default {
           from: { opacity: "0", transform: "translateY(16px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        stepEnter: {
+          from: { opacity: "0", transform: "translateX(18px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        toastIn: {
+          from: { opacity: "0", transform: "translateY(12px) scale(0.95)" },
+          to: { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
       },
 
       animation: {
         pulse: "pulse 2s ease-in-out infinite",
         "fade-in": "fadeInUp 0.5s ease both",
+        "step-enter": "stepEnter 0.35s cubic-bezier(0.4,0,0.2,1) both",
+        "toast-in": "toastIn 300ms ease-out",
       },
     },
   },

@@ -3,16 +3,7 @@
  *
  * Client Directory — Dedicated Clients Page (Tabbed Interface)
  *
- * This page is a React Server Component. It uses the exact same secure
- * data-fetching pattern perfected in the dashboard:
- *   1. Reads the admin_session cookie via next/headers
- *   2. Fetches clients directly from the Render backend (Bearer token)
- *   3. Robust try/catch with error surfacing to the UI
- *
- * Features:
- *   - Tabbed interface: "Active Clients" (server-rendered) | "Pending Invites" (client-side)
- *   - Invite management: copy registration links, revoke pending invitations
- *   - Full client details with direct profile links
+ * Migrated from CSS Modules → Tailwind CSS (Phase 2).
  */
 
 import type { Metadata } from "next";
@@ -20,13 +11,12 @@ import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import InviteClientModal from "@/components/admin/InviteClientModal";
 import ClientTabs from "@/components/admin/ClientTabs";
-import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "Client Directory",
 };
 
-export const maxDuration = 60; // Allow 60s for Render cold starts
+export const maxDuration = 60;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,10 +67,9 @@ function obfuscateEmail(email: string): string {
   return `${visible}${dots}@${domain}`;
 }
 
-// ── Secure data fetch (mirrors dashboard pattern exactly) ─────────────────────
+// ── Secure data fetch ─────────────────────────────────────────────────────────
 
 async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
-  // ── 1. Read the admin session cookie ──────────────────────────────────
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
@@ -89,13 +78,11 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
     return { clients: null, error: "Unauthorized: No active admin session." };
   }
 
-  // Diagnostic: confirm the token exists (mask middle for security)
   const masked = token.length > 10
     ? `${token.slice(0, 5)}…${token.slice(-5)}`
     : "****";
   console.log(`[clients] admin_session token present: ${masked} (${token.length} chars)`);
 
-  // ── 2. Validate backend env var BEFORE constructing the URL ────────────
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
   if (!backendBase) {
     console.error(
@@ -108,7 +95,6 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
   const targetUrl = `${backendBase}/admin/clients`;
   console.log(`[clients] Fetching directly from backend: ${targetUrl}`);
 
-  // ── 3. Hit backend directly with Bearer token ─────────────────────────
   try {
     const res = await fetch(targetUrl, {
       method: "GET",
@@ -132,7 +118,6 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
     }
 
     const data = await res.json();
-    // Backend returns { clients: Client[] } or Client[] — handle both shapes
     const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
     const clients: ClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
     console.log(`[clients] SUCCESS: Loaded ${clients.length} clients from backend.`);
@@ -149,32 +134,32 @@ export default async function ClientsPage() {
   const headersList = await headers();
   const adminEmail = headersList.get("x-admin-email") ?? "Administrator";
 
-  // Read admin session token for the invite modal (client component)
   const cookieStore = await cookies();
   const adminToken = cookieStore.get("admin_session")?.value ?? "";
 
   const { clients, error } = await fetchClients();
 
-  // Derive counts for the stat strip
   const total = clients?.length ?? 0;
   const ready = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
   const intake = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
   const unverified = clients?.filter((c) => c.status === "Pending Email Verification").length ?? 0;
 
   return (
-    <div className={`${styles.page} animate-fade-in`}>
+    <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
 
       {/* ── Page header ───────────────────────────────────── */}
-      <div className={styles.pageHeader}>
+      <div className="flex items-start justify-between gap-4 flex-wrap max-[640px]:flex-col">
         <div>
-          <h1 className={styles.pageTitle}>Client Directory</h1>
-          <p className={styles.pageSubtitle}>
+          <h1 className="font-serif text-[clamp(1.375rem,2.5vw,1.75rem)] font-black italic text-navy mb-1 leading-[1.1]">
+            Client Directory
+          </h1>
+          <p className="text-sm text-text-muted">
             Signed in as <strong>{adminEmail}</strong>
           </p>
         </div>
-        <div className={styles.headerActions}>
+        <div className="flex items-center gap-3 flex-wrap">
           {adminToken && <InviteClientModal adminToken={adminToken} />}
-          <div className={styles.dateBadge}>
+          <div className="font-sans text-[0.8125rem] text-text-muted bg-white border border-border py-1.5 px-3.5 rounded-[20px] whitespace-nowrap self-start max-[640px]:self-stretch max-[640px]:text-center">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -186,7 +171,7 @@ export default async function ClientsPage() {
       </div>
 
       {/* ── Stat strip ───────────────────────────────────── */}
-      <div className={styles.statsStrip}>
+      <div className="grid grid-cols-4 gap-3 max-[1024px]:grid-cols-2 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
         <StatPill label="Total Clients" value={error ? "—" : String(total)} color="navy" />
         <StatPill label="Ready for Review" value={error ? "—" : String(ready)} color="success" />
         <StatPill label="Intake Pending" value={error ? "—" : String(intake)} color="warning" />
@@ -194,12 +179,14 @@ export default async function ClientsPage() {
       </div>
 
       {/* ── Main table card (tabbed) ─────────────────────── */}
-      <div className={styles.tableCard}>
-        <div className={styles.tableCardHeader}>
+      <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
+        <div className="flex items-start justify-between py-5 px-6 border-b border-border gap-4 flex-wrap max-[640px]:flex-col">
           <div>
-            <h2 className={styles.tableCardTitle}>Client Directory</h2>
+            <h2 className="font-serif text-[1.0625rem] font-bold text-navy mb-0.5">
+              Client Directory
+            </h2>
             {!error && (
-              <p className={styles.tableCardMeta}>
+              <p className="text-[0.8125rem] text-text-muted">
                 Manage active clients and pending invitations
               </p>
             )}
@@ -217,47 +204,47 @@ export default async function ClientsPage() {
 
           {/* Table */}
           {!error && clients && clients.length > 0 && (
-            <div className={styles.tableWrapper}>
-              <table className={styles.table} aria-label="Client directory">
+            <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+              <table className="w-full border-collapse text-sm min-w-[720px]" aria-label="Client directory">
                 <thead>
                   <tr>
-                    <th className={styles.th} scope="col">#</th>
-                    <th className={styles.th} scope="col">Client Email</th>
-                    <th className={styles.th} scope="col">Joined Date</th>
-                    <th className={styles.th} scope="col">Status</th>
-                    <th className={styles.th} scope="col">Intake</th>
-                    <th className={styles.th} scope="col">Action</th>
+                    <th className="py-[11px] px-4 first:pl-6 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">#</th>
+                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Client Email</th>
+                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Joined Date</th>
+                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Status</th>
+                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Intake</th>
+                    <th className="py-[11px] px-4 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {clients.map((client, index) => (
-                    <tr key={client.id} className={styles.tr}>
-                      <td className={`${styles.td} ${styles.tdIndex}`}>{index + 1}</td>
-                      <td className={`${styles.td} ${styles.tdEmail}`}>
+                    <tr key={client.id} className="border-b border-border last:border-b-0 transition-[background] duration-fast hover:bg-[#fafbfc]">
+                      <td className="py-3.5 px-4 first:pl-6 text-text-muted text-[0.8125rem] font-medium w-10 align-middle">{index + 1}</td>
+                      <td className="py-3.5 px-4 font-medium max-w-[280px] align-middle">
                         <Link
                           href={`/admin/clients/${client.id}`}
-                          className={styles.emailLink}
+                          className="text-navy no-underline font-medium transition-[color] duration-fast hover:text-crimson hover:underline"
                           title={client.email}
                         >
-                          <span className={styles.emailFull}>{client.email}</span>
-                          <span className={styles.emailObfuscated} aria-hidden>
+                          <span className="inline max-[640px]:hidden">{client.email}</span>
+                          <span className="hidden max-[640px]:inline" aria-hidden>
                             {obfuscateEmail(client.email)}
                           </span>
                         </Link>
                       </td>
-                      <td className={`${styles.td} ${styles.tdDate}`}>
+                      <td className="py-3.5 px-4 text-text-secondary whitespace-nowrap align-middle">
                         {formatDate(client.createdAt)}
                       </td>
-                      <td className={styles.td}>
+                      <td className="py-3.5 px-4 align-middle">
                         <StatusBadge status={client.status} />
                       </td>
-                      <td className={styles.td}>
+                      <td className="py-3.5 px-4 align-middle">
                         <IntakeIndicator client={client} />
                       </td>
-                      <td className={styles.td}>
+                      <td className="py-3.5 px-4 last:pr-6 align-middle">
                         <Link
                           href={`/admin/clients/${client.id}`}
-                          className={styles.viewLink}
+                          className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
                           aria-label={`View profile for ${client.email}`}
                         >
                           View →
@@ -272,8 +259,8 @@ export default async function ClientsPage() {
 
           {/* Table footer */}
           {!error && clients && clients.length > 0 && (
-            <div className={styles.tableFooter}>
-              <span className={styles.tableFooterText}>
+            <div className="py-3 px-6 border-t border-border bg-bg flex items-center justify-end">
+              <span className="text-[0.8125rem] text-text-muted">
                 Showing all {total} {total === 1 ? "client" : "clients"}
               </span>
             </div>
@@ -286,78 +273,58 @@ export default async function ClientsPage() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatPill({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: "navy" | "success" | "warning" | "muted";
-}) {
+function StatPill({ label, value, color }: { label: string; value: string; color: "navy" | "success" | "warning" | "muted" }) {
+  const borderColorMap: Record<string, string> = { navy: "border-l-navy", success: "border-l-success", warning: "border-l-warning", muted: "border-l-border" };
+  const valueColorMap: Record<string, string> = { navy: "text-navy", success: "text-success", warning: "text-warning", muted: "text-text-muted" };
   return (
-    <div className={`${styles.statPill} ${styles[`statPill--${color}`]}`}>
-      <span className={styles.statPillValue}>{value}</span>
-      <span className={styles.statPillLabel}>{label}</span>
+    <div className={`bg-white border border-border rounded-lg py-4 px-5 flex flex-col gap-1 shadow-sm transition-[box-shadow,transform] duration-200 ease-in-out hover:shadow-md hover:-translate-y-px border-l-[3px] ${borderColorMap[color]}`}>
+      <span className={`font-serif text-[1.875rem] font-black leading-none ${valueColorMap[color]}`}>{value}</span>
+      <span className="text-xs font-semibold tracking-[0.05em] uppercase text-text-muted">{label}</span>
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: ClientStatus }) {
   const variantMap: Record<ClientStatus, string> = {
-    "Pending Email Verification": styles.badgeMuted,
-    "Intake Pending": styles.badgeWarning,
-    "Ready for Review": styles.badgeSuccess,
+    "Pending Email Verification": "bg-bg-alt text-text-muted",
+    "Intake Pending": "bg-warning-bg text-warning",
+    "Ready for Review": "bg-success-bg text-success",
   };
-
   return (
-    <span className={`${styles.badge} ${variantMap[status]}`}>
-      <span className={styles.badgeDot} aria-hidden />
+    <span className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${variantMap[status]}`}>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
       {status}
     </span>
   );
 }
 
 function IntakeIndicator({ client }: { client: Client }) {
-  if (!client.isVerified) {
-    return <span className={styles.intakeNa}>N/A</span>;
-  }
-  if (!client.intakeProfile) {
-    return <span className={styles.intakeNotStarted}>Not started</span>;
-  }
-  if (!client.intakeProfile.isCompleted) {
-    return <span className={styles.intakeInProgress}>In progress</span>;
-  }
+  if (!client.isVerified) return <span className="text-[0.8125rem] font-medium text-text-muted">N/A</span>;
+  if (!client.intakeProfile) return <span className="text-[0.8125rem] font-medium text-text-muted">Not started</span>;
+  if (!client.intakeProfile.isCompleted) return <span className="text-[0.8125rem] font-medium text-warning">In progress</span>;
   return (
-    <span className={styles.intakeComplete}>
-      <CheckIcon />
-      Complete
+    <span className="inline-flex items-center gap-1 text-[0.8125rem] font-medium text-success">
+      <CheckIcon /> Complete
     </span>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
   return (
-    <div className={styles.emptyState}>
-      <div className={`${styles.emptyIcon} ${styles.emptyIconError}`}>
-        <AlertIcon />
-      </div>
-      <p className={styles.emptyTitle}>Failed to Load Clients</p>
-      <p className={styles.emptyBody}>{message}</p>
+    <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
+      <div className="w-[68px] h-[68px] rounded-full bg-error-bg flex items-center justify-center text-error mb-1"><AlertIcon /></div>
+      <p className="font-serif text-[1.0625rem] font-bold text-text-primary">Failed to Load Clients</p>
+      <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">{message}</p>
     </div>
   );
 }
 
 function EmptyState() {
   return (
-    <div className={styles.emptyState}>
-      <div className={styles.emptyIcon}>
-        <UsersIcon />
-      </div>
-      <p className={styles.emptyTitle}>No clients yet</p>
-      <p className={styles.emptyBody}>
-        Client accounts will appear here once they register for the portal.
-      </p>
+    <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
+      <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1"><UsersIcon /></div>
+      <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No clients yet</p>
+      <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">Client accounts will appear here once they register for the portal.</p>
     </div>
   );
 }
@@ -365,29 +332,13 @@ function EmptyState() {
 // ── Inline SVG icons ──────────────────────────────────────────────────────────
 
 function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
+  return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>);
 }
 
 function AlertIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
+  return (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>);
 }
 
 function UsersIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
+  return (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>);
 }
