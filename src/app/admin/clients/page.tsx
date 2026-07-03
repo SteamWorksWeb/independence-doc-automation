@@ -1,16 +1,20 @@
 /**
  * src/app/admin/clients/page.tsx
  *
- * Client Directory — Dedicated Clients Page (Tabbed Interface)
+ * Client Directory — 4-Step Pipeline View
  *
- * Migrated from CSS Modules → Tailwind CSS (Phase 2).
+ * React Server Component that fetches clients and passes them to the
+ * ClientFilterTable client component for interactive filtering.
+ *
+ * Pipeline: Intake Pending → Ready for Review → Approved → Rejected
  */
 
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import Link from "next/link";
 import InviteClientModal from "@/components/admin/InviteClientModal";
 import ClientTabs from "@/components/admin/ClientTabs";
+import ClientFilterTable from "@/components/admin/ClientFilterTable";
+import type { ClientRow, ClientStatus } from "@/components/admin/ClientFilterTable";
 
 export const metadata: Metadata = {
   title: "Client Directory",
@@ -33,19 +37,20 @@ interface Client {
   intakeProfile: IntakeProfile | null;
 }
 
-type ClientStatus = "Pending Email Verification" | "Intake Pending" | "Ready for Review";
+// ── Status derivation (4-step pipeline) ───────────────────────────────────────
 
-interface ClientRow extends Client {
-  status: ClientStatus;
+function getStatus(client: Client): ClientStatus {
+  // Step 1: Unverified / no intake → "Intake Pending"
+  if (!client.isVerified) return "Intake Pending";
+  if (!client.intakeProfile || !client.intakeProfile.isCompleted) return "Intake Pending";
+
+  // Step 2: Intake complete → "Ready for Review" (default for completed intakes)
+  // In Phase 2, the backend will provide explicit status fields.
+  // For now, completed intakes are "Ready for Review" by default.
+  return "Ready for Review";
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getStatus(client: Client): ClientStatus {
-  if (!client.isVerified) return "Pending Email Verification";
-  if (!client.intakeProfile || !client.intakeProfile.isCompleted) return "Intake Pending";
-  return "Ready for Review";
-}
 
 function formatDate(iso: string): string {
   try {
@@ -57,14 +62,6 @@ function formatDate(iso: string): string {
   } catch {
     return "—";
   }
-}
-
-function obfuscateEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return email;
-  const visible = local.slice(0, Math.min(3, local.length));
-  const dots = "•".repeat(Math.max(0, local.length - 3));
-  return `${visible}${dots}@${domain}`;
 }
 
 // ── Secure data fetch ─────────────────────────────────────────────────────────
@@ -119,7 +116,10 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
 
     const data = await res.json();
     const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
-    const clients: ClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
+    const clients: ClientRow[] = raw.map((c) => ({
+      ...c,
+      status: getStatus(c),
+    }));
     console.log(`[clients] SUCCESS: Loaded ${clients.length} clients from backend.`);
     return { clients, error: null };
   } catch (error) {
@@ -139,10 +139,12 @@ export default async function ClientsPage() {
 
   const { clients, error } = await fetchClients();
 
+  // Derive counts for the stat strip
   const total = clients?.length ?? 0;
-  const ready = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
-  const intake = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
-  const unverified = clients?.filter((c) => c.status === "Pending Email Verification").length ?? 0;
+  const intakePending = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
+  const readyForReview = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
+  const approved = clients?.filter((c) => c.status === "Approved").length ?? 0;
+  const rejected = clients?.filter((c) => c.status === "Rejected").length ?? 0;
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
@@ -170,12 +172,13 @@ export default async function ClientsPage() {
         </div>
       </div>
 
-      {/* ── Stat strip ───────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-3 max-[1024px]:grid-cols-2 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
+      {/* ── Pipeline stat strip ───────────────────────────── */}
+      <div className="grid grid-cols-5 gap-3 max-[1024px]:grid-cols-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
         <StatPill label="Total Clients" value={error ? "—" : String(total)} color="navy" />
-        <StatPill label="Ready for Review" value={error ? "—" : String(ready)} color="success" />
-        <StatPill label="Intake Pending" value={error ? "—" : String(intake)} color="warning" />
-        <StatPill label="Unverified" value={error ? "—" : String(unverified)} color="muted" />
+        <StatPill label="Intake Pending" value={error ? "—" : String(intakePending)} color="warning" />
+        <StatPill label="Ready for Review" value={error ? "—" : String(readyForReview)} color="info" />
+        <StatPill label="Approved" value={error ? "—" : String(approved)} color="success" />
+        <StatPill label="Rejected" value={error ? "—" : String(rejected)} color="muted" />
       </div>
 
       {/* ── Main table card (tabbed) ─────────────────────── */}
@@ -183,18 +186,18 @@ export default async function ClientsPage() {
         <div className="flex items-start justify-between py-5 px-6 border-b border-border gap-4 flex-wrap max-[640px]:flex-col">
           <div>
             <h2 className="font-serif text-[1.0625rem] font-bold text-navy mb-0.5">
-              Client Directory
+              Client Pipeline
             </h2>
             {!error && (
               <p className="text-[0.8125rem] text-text-muted">
-                Manage active clients and pending invitations
+                Filter and manage clients across the 4-step pipeline
               </p>
             )}
           </div>
         </div>
 
         <ClientTabs adminToken={adminToken} clientCount={total}>
-          {/* ── Active Clients tab content (server-rendered) ── */}
+          {/* ── Active Clients tab content ── */}
 
           {/* Error state */}
           {error && <ErrorState message={error} />}
@@ -202,68 +205,9 @@ export default async function ClientsPage() {
           {/* Empty state */}
           {!error && clients && clients.length === 0 && <EmptyState />}
 
-          {/* Table */}
+          {/* Filterable table (client component) */}
           {!error && clients && clients.length > 0 && (
-            <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
-              <table className="w-full border-collapse text-sm min-w-[720px]" aria-label="Client directory">
-                <thead>
-                  <tr>
-                    <th className="py-[11px] px-4 first:pl-6 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">#</th>
-                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Client Email</th>
-                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Joined Date</th>
-                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Status</th>
-                    <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Intake</th>
-                    <th className="py-[11px] px-4 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clients.map((client, index) => (
-                    <tr key={client.id} className="border-b border-border last:border-b-0 transition-[background] duration-fast hover:bg-[#fafbfc]">
-                      <td className="py-3.5 px-4 first:pl-6 text-text-muted text-[0.8125rem] font-medium w-10 align-middle">{index + 1}</td>
-                      <td className="py-3.5 px-4 font-medium max-w-[280px] align-middle">
-                        <Link
-                          href={`/admin/clients/${client.id}`}
-                          className="text-navy no-underline font-medium transition-[color] duration-fast hover:text-crimson hover:underline"
-                          title={client.email}
-                        >
-                          <span className="inline max-[640px]:hidden">{client.email}</span>
-                          <span className="hidden max-[640px]:inline" aria-hidden>
-                            {obfuscateEmail(client.email)}
-                          </span>
-                        </Link>
-                      </td>
-                      <td className="py-3.5 px-4 text-text-secondary whitespace-nowrap align-middle">
-                        {formatDate(client.createdAt)}
-                      </td>
-                      <td className="py-3.5 px-4 align-middle">
-                        <StatusBadge status={client.status} />
-                      </td>
-                      <td className="py-3.5 px-4 align-middle">
-                        <IntakeIndicator client={client} />
-                      </td>
-                      <td className="py-3.5 px-4 last:pr-6 align-middle">
-                        <Link
-                          href={`/admin/clients/${client.id}`}
-                          className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
-                          aria-label={`View profile for ${client.email}`}
-                        >
-                          View →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Table footer */}
-          {!error && clients && clients.length > 0 && (
-            <div className="py-3 px-6 border-t border-border bg-bg flex items-center justify-end">
-              <span className="text-[0.8125rem] text-text-muted">
-                Showing all {total} {total === 1 ? "client" : "clients"}
-              </span>
-            </div>
+            <ClientFilterTable clients={clients} />
           )}
         </ClientTabs>
       </div>
@@ -273,9 +217,21 @@ export default async function ClientsPage() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatPill({ label, value, color }: { label: string; value: string; color: "navy" | "success" | "warning" | "muted" }) {
-  const borderColorMap: Record<string, string> = { navy: "border-l-navy", success: "border-l-success", warning: "border-l-warning", muted: "border-l-border" };
-  const valueColorMap: Record<string, string> = { navy: "text-navy", success: "text-success", warning: "text-warning", muted: "text-text-muted" };
+function StatPill({ label, value, color }: { label: string; value: string; color: "navy" | "success" | "warning" | "muted" | "info" }) {
+  const borderColorMap: Record<string, string> = {
+    navy: "border-l-navy",
+    success: "border-l-success",
+    warning: "border-l-warning",
+    muted: "border-l-border",
+    info: "border-l-[#2563eb]",
+  };
+  const valueColorMap: Record<string, string> = {
+    navy: "text-navy",
+    success: "text-success",
+    warning: "text-warning",
+    muted: "text-text-muted",
+    info: "text-[#2563eb]",
+  };
   return (
     <div className={`bg-white border border-border rounded-lg py-4 px-5 flex flex-col gap-1 shadow-sm transition-[box-shadow,transform] duration-200 ease-in-out hover:shadow-md hover:-translate-y-px border-l-[3px] ${borderColorMap[color]}`}>
       <span className={`font-serif text-[1.875rem] font-black leading-none ${valueColorMap[color]}`}>{value}</span>
@@ -284,35 +240,12 @@ function StatPill({ label, value, color }: { label: string; value: string; color
   );
 }
 
-function StatusBadge({ status }: { status: ClientStatus }) {
-  const variantMap: Record<ClientStatus, string> = {
-    "Pending Email Verification": "bg-bg-alt text-text-muted",
-    "Intake Pending": "bg-warning-bg text-warning",
-    "Ready for Review": "bg-success-bg text-success",
-  };
-  return (
-    <span className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${variantMap[status]}`}>
-      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
-      {status}
-    </span>
-  );
-}
-
-function IntakeIndicator({ client }: { client: Client }) {
-  if (!client.isVerified) return <span className="text-[0.8125rem] font-medium text-text-muted">N/A</span>;
-  if (!client.intakeProfile) return <span className="text-[0.8125rem] font-medium text-text-muted">Not started</span>;
-  if (!client.intakeProfile.isCompleted) return <span className="text-[0.8125rem] font-medium text-warning">In progress</span>;
-  return (
-    <span className="inline-flex items-center gap-1 text-[0.8125rem] font-medium text-success">
-      <CheckIcon /> Complete
-    </span>
-  );
-}
-
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
-      <div className="w-[68px] h-[68px] rounded-full bg-error-bg flex items-center justify-center text-error mb-1"><AlertIcon /></div>
+      <div className="w-[68px] h-[68px] rounded-full bg-error-bg flex items-center justify-center text-error mb-1">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+      </div>
       <p className="font-serif text-[1.0625rem] font-bold text-text-primary">Failed to Load Clients</p>
       <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">{message}</p>
     </div>
@@ -322,23 +255,11 @@ function ErrorState({ message }: { message: string }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
-      <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1"><UsersIcon /></div>
+      <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+      </div>
       <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No clients yet</p>
       <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">Client accounts will appear here once they register for the portal.</p>
     </div>
   );
-}
-
-// ── Inline SVG icons ──────────────────────────────────────────────────────────
-
-function CheckIcon() {
-  return (<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>);
-}
-
-function AlertIcon() {
-  return (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>);
-}
-
-function UsersIcon() {
-  return (<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>);
 }
