@@ -1,3 +1,9 @@
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,900;1,700;1,900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /*
  * globals.css
  * Independence Law Firm — Secure Client Portal
@@ -16,8 +22,6 @@
  *
  * Typography (matching site): Merriweather (serif, headings) + Inter (sans, body)
  */
-
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,900;1,700;1,900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ── CSS Custom Properties ────────────────────────────────── */
 :root {
@@ -85,16 +89,8 @@
   --transition-slow: 400ms ease;
 }
 
-/* ── Reset & Base ─────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
+/* ── Base overrides (layered on Tailwind Preflight) ───────── */
 html {
-  font-size: 16px;
-  -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
 }
 

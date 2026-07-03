@@ -11,10 +11,11 @@
  *
  * Logout: submits a hidden form via POST to /api/auth/admin-logout
  *         (POST prevents CSRF via prefetch/link)
+ *
+ * Migrated from CSS Modules → Tailwind CSS (Phase 1).
  */
 
 import React, { useState, useCallback } from "react";
-import styles from "./AdminSidebar.module.css";
 
 // ── Nav items (shell only — features added in future milestones) ──────────────
 
@@ -47,7 +48,7 @@ export default function AdminSidebar() {
     <>
       {/* ── Mobile hamburger trigger ─────────────────────── */}
       <button
-        className={styles.hamburger}
+        className="hidden max-[900px]:flex items-center justify-center bg-transparent border-none text-navy cursor-pointer p-2 rounded-md transition-[background] duration-fast hover:bg-[rgba(26,39,68,0.07)]"
         onClick={openMenu}
         aria-label="Open navigation"
         aria-expanded={mobileOpen}
@@ -59,7 +60,7 @@ export default function AdminSidebar() {
       {/* ── Backdrop (mobile only) ───────────────────────── */}
       {mobileOpen && (
         <div
-          className={styles.backdrop}
+          className="hidden max-[900px]:block fixed inset-0 bg-[rgba(0,0,0,0.45)] z-[19] backdrop-blur-[2px]"
           onClick={closeMenu}
           aria-hidden
         />
@@ -68,12 +69,22 @@ export default function AdminSidebar() {
       {/* ── Sidebar ──────────────────────────────────────── */}
       <aside
         id="admin-sidebar"
-        className={`${styles.sidebar} ${mobileOpen ? styles.sidebarOpen : ""}`}
+        className={`
+          w-[240px] min-h-dvh bg-navy flex flex-col shrink-0 relative z-20
+          shadow-[inset_-1px_0_0_rgba(255,255,255,0.06)]
+          max-[900px]:fixed max-[900px]:top-0 max-[900px]:left-0 max-[900px]:bottom-0
+          max-[900px]:w-[270px] max-[900px]:min-h-dvh max-[900px]:z-30
+          max-[900px]:transition-transform max-[900px]:duration-[280ms] max-[900px]:ease-[cubic-bezier(0.4,0,0.2,1)]
+          ${mobileOpen
+            ? "max-[900px]:translate-x-0 max-[900px]:shadow-[4px_0_32px_rgba(0,0,0,0.3)]"
+            : "max-[900px]:-translate-x-full"
+          }
+        `}
         aria-label="Administration navigation"
       >
         {/* Mobile close button */}
         <button
-          className={styles.closeBtn}
+          className="hidden max-[900px]:flex absolute top-3.5 right-3.5 bg-[rgba(255,255,255,0.08)] border-none rounded-md text-[rgba(255,255,255,0.7)] cursor-pointer p-1.5 leading-none transition-[background] duration-fast hover:bg-[rgba(255,255,255,0.15)]"
           onClick={closeMenu}
           aria-label="Close navigation"
         >
@@ -81,29 +92,37 @@ export default function AdminSidebar() {
         </button>
 
         {/* Brand */}
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>
+        <div className="flex items-center gap-2.5 px-5 pt-6 pb-5 border-b border-[rgba(255,255,255,0.08)]">
+          <div>
             <ScalesIcon />
           </div>
-          <div className={styles.brandText}>
-            <span className={styles.brandThe}>THE</span>
-            <span className={styles.brandName}>Independence</span>
-            <span className={styles.brandName}>Law Firm</span>
+          <div className="flex flex-col">
+            <span className="font-sans text-[0.55rem] font-bold tracking-[0.28em] text-crimson uppercase leading-none">
+              THE
+            </span>
+            <span className="font-serif text-[0.8rem] font-bold text-[rgba(255,255,255,0.9)] leading-[1.25]">
+              Independence
+            </span>
+            <span className="font-serif text-[0.8rem] font-bold text-[rgba(255,255,255,0.9)] leading-[1.25]">
+              Law Firm
+            </span>
           </div>
         </div>
 
         {/* Section label */}
-        <p className={styles.sectionLabel}>Administration</p>
+        <p className="font-sans text-[0.6rem] font-bold tracking-[0.18em] uppercase text-[rgba(255,255,255,0.3)] pt-5 px-5 pb-2">
+          Administration
+        </p>
 
         {/* Nav items */}
-        <nav className={styles.nav} aria-label="Admin navigation">
-          <ul className={styles.navList} role="list">
+        <nav className="px-2.5" aria-label="Admin navigation">
+          <ul className="list-none flex flex-col gap-0.5" role="list">
             {NAV_ITEMS.map(({ id, label, icon: Icon, href, active, soon }) => (
               <li key={id}>
                 {active ? (
                   <a
                     href={href}
-                    className={`${styles.navItem} ${styles.navItemActive}`}
+                    className="flex items-center gap-2.5 py-[9px] px-3 rounded-md font-sans text-[0.875rem] font-semibold text-white no-underline cursor-pointer select-none bg-[rgba(255,255,255,0.1)] transition-[background,color] duration-fast hover:bg-[rgba(255,255,255,0.14)] hover:no-underline"
                     aria-current="page"
                     onClick={closeMenu}
                   >
@@ -112,13 +131,17 @@ export default function AdminSidebar() {
                   </a>
                 ) : (
                   <span
-                    className={`${styles.navItem} ${styles.navItemDisabled}`}
+                    className="flex items-center gap-2.5 py-[9px] px-3 rounded-md font-sans text-[0.875rem] font-medium text-[rgba(255,255,255,0.65)] cursor-default select-none opacity-45"
                     aria-disabled="true"
                     title="Coming soon"
                   >
                     <Icon />
                     <span>{label}</span>
-                    {soon && <span className={styles.soonBadge}>Soon</span>}
+                    {soon && (
+                      <span className="ml-auto text-[0.6rem] font-bold tracking-[0.08em] uppercase bg-[rgba(179,30,60,0.25)] text-[rgba(255,180,190,0.9)] py-0.5 px-[7px] rounded-[20px]">
+                        Soon
+                      </span>
+                    )}
                   </span>
                 )}
               </li>
@@ -127,21 +150,23 @@ export default function AdminSidebar() {
         </nav>
 
         {/* Spacer */}
-        <div className={styles.flex1} />
+        <div className="flex-1" />
 
         {/* Logout form — POST to prevent CSRF via link prefetch */}
-        <div className={styles.logoutArea}>
+        <div className="px-4 pt-4 pb-5 border-t border-[rgba(255,255,255,0.08)] flex flex-col gap-1.5">
           <form action="/api/auth/admin-logout" method="POST">
             <button
               type="submit"
-              className={styles.logoutBtn}
+              className="w-full flex items-center gap-2 py-[9px] px-3 bg-[rgba(179,30,60,0.12)] border border-[rgba(179,30,60,0.2)] rounded-md font-sans text-[0.8125rem] font-semibold text-[rgba(255,150,160,0.9)] cursor-pointer transition-[background,border-color] duration-fast tracking-[0.02em] hover:bg-[rgba(179,30,60,0.22)] hover:border-[rgba(179,30,60,0.35)]"
               id="admin-logout-btn"
             >
               <LogoutIcon />
               Sign Out
             </button>
           </form>
-          <p className={styles.sessionNote}>Admin session · 8h</p>
+          <p className="text-[0.65rem] text-[rgba(255,255,255,0.22)] text-center tracking-[0.04em]">
+            Admin session · 8h
+          </p>
         </div>
       </aside>
     </>
