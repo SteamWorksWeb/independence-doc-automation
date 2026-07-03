@@ -14,18 +14,15 @@
  *                                    null OR intakeProfile.isCompleted === false
  *   - "Ready for Review"           → intakeProfile.isCompleted === true
  *
- * The component renders:
- *   1. Overview header with live client count
- *   2. Status filter tabs (All / Ready / Intake Pending / Unverified)
- *   3. Professional data table with sortable columns
- *   4. Loading skeleton and full error-state UI
- *
- * Migrated from CSS Modules → Tailwind CSS (Phase 1).
+ * The interactive table (filter tabs, status badges) lives in the client
+ * component DashboardClientTable to avoid mixing server-only APIs (cookies)
+ * with client-only APIs (useState).
  */
 
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import Link from "next/link";
+import DashboardClientTable from "@/components/admin/DashboardClientTable";
+import type { DashboardClientRow } from "@/components/admin/DashboardClientTable";
 
 export const metadata: Metadata = {
   title: "Client Roster",
@@ -50,10 +47,6 @@ interface Client {
 
 type ClientStatus = "Pending Email Verification" | "Intake Pending" | "Ready for Review";
 
-interface ClientRow extends Client {
-  status: ClientStatus;
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getStatus(client: Client): ClientStatus {
@@ -62,28 +55,7 @@ function getStatus(client: Client): ClientStatus {
   return "Ready for Review";
 }
 
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return "—";
-  }
-}
-
-function obfuscateEmail(email: string): string {
-  // Show first 2 chars + domain for privacy in display
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return email;
-  const visible = local.slice(0, Math.min(3, local.length));
-  const dots = "•".repeat(Math.max(0, local.length - 3));
-  return `${visible}${dots}@${domain}`;
-}
-
-async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
+async function fetchClients(): Promise<{ clients: DashboardClientRow[] | null; error: string | null }> {
   // ── 1. Read the admin session cookie ──────────────────────────────────
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
@@ -138,7 +110,7 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
     const data = await res.json();
     // Backend returns { clients: Client[] } or Client[] — handle both shapes
     const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
-    const clients: ClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
+    const clients: DashboardClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
     console.log(`[dashboard] SUCCESS: Loaded ${clients.length} clients from AWS.`);
     return { clients, error: null };
   } catch (error) {
@@ -213,75 +185,16 @@ export default async function ClientRosterPage() {
         {/* Empty state */}
         {!error && clients && clients.length === 0 && <EmptyState />}
 
-        {/* Table */}
+        {/* Interactive table (Client Component) */}
         {!error && clients && clients.length > 0 && (
-          <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
-            <table className="w-full border-collapse text-sm min-w-[640px]" aria-label="Client roster">
-              <thead>
-                <tr>
-                  <th className="py-[11px] px-4 first:pl-6 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">#</th>
-                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Client Email</th>
-                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Joined Date</th>
-                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Status</th>
-                  <th className="py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Intake</th>
-                  <th className="py-[11px] px-4 last:pr-6 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none" scope="col">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {clients.map((client, index) => (
-                  <tr key={client.id} className="border-b border-border last:border-b-0 transition-[background] duration-fast hover:bg-[#fafbfc]">
-                    <td className="py-3.5 px-4 first:pl-6 text-text-muted text-[0.8125rem] font-medium w-10 align-middle">{index + 1}</td>
-                    <td className="py-3.5 px-4 font-medium max-w-[280px] align-middle">
-                      <Link
-                        href={`/admin/clients/${client.id}`}
-                        className="text-navy no-underline font-medium transition-[color] duration-fast hover:text-crimson hover:underline"
-                        title={client.email}
-                      >
-                        <span className="inline max-[640px]:hidden">{client.email}</span>
-                        <span className="hidden max-[640px]:inline" aria-hidden>
-                          {obfuscateEmail(client.email)}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="py-3.5 px-4 text-text-secondary whitespace-nowrap align-middle">
-                      {formatDate(client.createdAt)}
-                    </td>
-                    <td className="py-3.5 px-4 align-middle">
-                      <StatusBadge status={client.status} />
-                    </td>
-                    <td className="py-3.5 px-4 align-middle">
-                      <IntakeIndicator client={client} />
-                    </td>
-                    <td className="py-3.5 px-4 last:pr-6 align-middle">
-                      <Link
-                        href={`/admin/clients/${client.id}`}
-                        className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
-                        aria-label={`View profile for ${client.email}`}
-                      >
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Table footer */}
-        {!error && clients && clients.length > 0 && (
-          <div className="py-3 px-6 border-t border-border bg-bg flex items-center justify-end">
-            <span className="text-[0.8125rem] text-text-muted">
-              Showing all {total} {total === 1 ? "client" : "clients"}
-            </span>
-          </div>
+          <DashboardClientTable clients={clients} />
         )}
       </div>
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components (Server-safe — no hooks) ───────────────────────────────────
 
 function StatPill({
   label,
@@ -320,44 +233,15 @@ function StatPill({
   );
 }
 
-function StatusBadge({ status }: { status: ClientStatus }) {
-  const variantMap: Record<ClientStatus, string> = {
-    "Pending Email Verification": "bg-bg-alt text-text-muted",
-    "Intake Pending": "bg-warning-bg text-warning",
-    "Ready for Review": "bg-success-bg text-success",
-  };
-
-  return (
-    <span className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${variantMap[status]}`}>
-      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
-      {status}
-    </span>
-  );
-}
-
-function IntakeIndicator({ client }: { client: Client }) {
-  if (!client.isVerified) {
-    return <span className="text-[0.8125rem] font-medium text-text-muted">N/A</span>;
-  }
-  if (!client.intakeProfile) {
-    return <span className="text-[0.8125rem] font-medium text-text-muted">Not started</span>;
-  }
-  if (!client.intakeProfile.isCompleted) {
-    return <span className="text-[0.8125rem] font-medium text-warning">In progress</span>;
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-[0.8125rem] font-medium text-success">
-      <CheckIcon />
-      Complete
-    </span>
-  );
-}
-
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
       <div className="w-[68px] h-[68px] rounded-full bg-error-bg flex items-center justify-center text-error mb-1">
-        <AlertIcon />
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
       </div>
       <p className="font-serif text-[1.0625rem] font-bold text-text-primary">Failed to Load Clients</p>
       <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">{message}</p>
@@ -369,42 +253,16 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
       <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1">
-        <UsersIcon />
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
       </div>
       <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No clients yet</p>
       <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">
         Client accounts will appear here once they register for the portal.
       </p>
     </div>
-  );
-}
-
-// ── Inline SVG icons ──────────────────────────────────────────────────────────
-
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function AlertIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
-
-function UsersIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
   );
 }
