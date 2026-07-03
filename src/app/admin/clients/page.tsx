@@ -35,18 +35,27 @@ interface Client {
   createdAt: string;
   isVerified: boolean;
   intakeProfile: IntakeProfile | null;
+  status?: string; // Backend may provide an explicit pipeline status
 }
 
 // ── Status derivation (4-step pipeline) ───────────────────────────────────────
 
+const VALID_STATUSES: ClientStatus[] = [
+  "Intake Pending",
+  "Ready for Review",
+  "Approved",
+  "Rejected",
+];
+
 function getStatus(client: Client): ClientStatus {
-  // Step 1: Unverified / no intake → "Intake Pending"
+  // Prefer the backend's explicit status if it's a valid pipeline value
+  if (client.status && VALID_STATUSES.includes(client.status as ClientStatus)) {
+    return client.status as ClientStatus;
+  }
+
+  // Fallback: derive from verification + intake state
   if (!client.isVerified) return "Intake Pending";
   if (!client.intakeProfile || !client.intakeProfile.isCompleted) return "Intake Pending";
-
-  // Step 2: Intake complete → "Ready for Review" (default for completed intakes)
-  // In Phase 2, the backend will provide explicit status fields.
-  // For now, completed intakes are "Ready for Review" by default.
   return "Ready for Review";
 }
 
@@ -207,7 +216,7 @@ export default async function ClientsPage() {
 
           {/* Filterable table (client component) */}
           {!error && clients && clients.length > 0 && (
-            <ClientFilterTable clients={clients} />
+            <ClientFilterTable clients={clients} adminToken={adminToken} />
           )}
         </ClientTabs>
       </div>

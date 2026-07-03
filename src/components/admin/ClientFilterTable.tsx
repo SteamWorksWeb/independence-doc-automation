@@ -7,11 +7,14 @@
  * client-side filtering with pill-style status filter buttons.
  *
  * Pipeline statuses: Intake Pending → Ready for Review → Approved → Rejected
+ *
+ * The Action column provides a dropdown to update a client's pipeline status
+ * via PATCH /admin/clients/:id/status.
  */
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -35,7 +38,33 @@ type FilterOption = "All" | ClientStatus;
 
 interface ClientFilterTableProps {
   clients: ClientRow[];
+  adminToken: string;
 }
+
+interface Toast {
+  message: string;
+  type: "success" | "error";
+}
+
+// ── Status transition map (context-aware actions per status) ──────────────────
+
+const STATUS_TRANSITIONS: Record<ClientStatus, { label: string; target: ClientStatus; style: string }[]> = {
+  "Intake Pending": [
+    { label: "Mark Ready for Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
+  ],
+  "Ready for Review": [
+    { label: "Approve", target: "Approved", style: "text-success hover:bg-success-bg" },
+    { label: "Reject", target: "Rejected", style: "text-crimson hover:bg-crimson-light" },
+  ],
+  Approved: [
+    { label: "Revert to Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
+    { label: "Reject", target: "Rejected", style: "text-crimson hover:bg-crimson-light" },
+  ],
+  Rejected: [
+    { label: "Revert to Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
+    { label: "Approve", target: "Approved", style: "text-success hover:bg-success-bg" },
+  ],
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -105,8 +134,95 @@ const STATUS_BADGE_STYLES: Record<ClientStatus, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ClientFilterTable({ clients }: ClientFilterTableProps) {
+export default function ClientFilterTable({ clients: initialClients, adminToken }: ClientFilterTableProps) {
+  const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("All");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync with server data if it changes (e.g. page re-render)
+  useEffect(() => {
+    setClients(initialClients);
+  }, [initialClients]);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleOutsideClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdown(null);
+      }
+    }
+    if (openDropdown) {
+      document.addEventListener("mousedown", handleOutsideClick);
+      return () => document.removeEventListener("mousedown", handleOutsideClick);
+    }
+  }, [openDropdown]);
+
+  // ── Status change handler ─────────────────────────────────────────────────
+
+  const handleStatusChange = useCallback(
+    async (clientId: string, newStatus: ClientStatus) => {
+      if (updatingId) return;
+
+      setUpdatingId(clientId);
+      setOpenDropdown(null);
+
+      // Store original state for rollback
+      const previousClients = [...clients];
+
+      // Optimistic update
+      setClients((prev) =>
+        prev.map((c) => (c.id === clientId ? { ...c, status: newStatus } : c))
+      );
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
+        const res = await fetch(`${apiUrl}/admin/clients/${clientId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            (body as Record<string, string>).error ||
+            (body as Record<string, string>).message ||
+            `Server responded with ${res.status}`
+          );
+        }
+
+        const clientEmail =
+          clients.find((c) => c.id === clientId)?.email ?? "Client";
+        setToast({
+          message: `${clientEmail} → ${newStatus}`,
+          type: "success",
+        });
+      } catch (err) {
+        // Rollback on failure
+        setClients(previousClients);
+        setToast({
+          message: err instanceof Error ? err.message : "Failed to update status.",
+          type: "error",
+        });
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [adminToken, clients, updatingId]
+  );
 
   // Derive counts per status (always from full list)
   const counts = useMemo(() => {
@@ -240,13 +356,14 @@ export default function ClientFilterTable({ clients }: ClientFilterTableProps) {
                     <IntakeIndicator client={client} />
                   </td>
                   <td className="py-3.5 px-4 pr-6 align-middle">
-                    <Link
-                      href={`/admin/clients/${client.id}`}
-                      className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
-                      aria-label={`View profile for ${client.email}`}
-                    >
-                      View →
-                    </Link>
+                    <StatusActionCell
+                      client={client}
+                      isOpen={openDropdown === client.id}
+                      isUpdating={updatingId === client.id}
+                      onToggle={() => setOpenDropdown(openDropdown === client.id ? null : client.id)}
+                      onStatusChange={handleStatusChange}
+                      dropdownRef={openDropdown === client.id ? dropdownRef : undefined}
+                    />
                   </td>
                 </tr>
               ))}
@@ -275,11 +392,105 @@ export default function ClientFilterTable({ clients }: ClientFilterTableProps) {
           )}
         </div>
       )}
+
+      {/* ── Toast notification ──────────────────────────────── */}
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 flex items-center gap-2 text-white py-3 px-5 rounded-lg font-sans text-[0.8125rem] font-semibold shadow-[0_8px_32px_rgba(0,0,0,0.18)] z-[1000] animate-toast-in ${
+            toast.type === "success" ? "bg-success" : "bg-crimson"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {toast.type === "success" ? <CheckIcon /> : <AlertIcon />}
+          {toast.message}
+        </div>
+      )}
     </>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+/** Per-row action cell: View link + status dropdown */
+function StatusActionCell({
+  client,
+  isOpen,
+  isUpdating,
+  onToggle,
+  onStatusChange,
+  dropdownRef,
+}: {
+  client: ClientRow;
+  isOpen: boolean;
+  isUpdating: boolean;
+  onToggle: () => void;
+  onStatusChange: (clientId: string, newStatus: ClientStatus) => void;
+  dropdownRef?: React.RefObject<HTMLDivElement | null>;
+}) {
+  const transitions = STATUS_TRANSITIONS[client.status] ?? [];
+
+  return (
+    <div className="flex items-center gap-2" ref={dropdownRef}>
+      {/* View profile link */}
+      <Link
+        href={`/admin/clients/${client.id}`}
+        className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
+        aria-label={`View profile for ${client.email}`}
+      >
+        View
+      </Link>
+
+      {/* Status dropdown trigger */}
+      {transitions.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            id={`status-menu-trigger-${client.id}`}
+            onClick={onToggle}
+            disabled={isUpdating}
+            className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-border bg-white text-text-secondary cursor-pointer transition-all duration-150 ease-in-out hover:bg-bg hover:border-navy hover:text-navy disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-haspopup="true"
+            aria-expanded={isOpen}
+            aria-label={`Change status for ${client.email}`}
+          >
+            {isUpdating ? (
+              <span className="w-3.5 h-3.5 border-2 border-border border-t-crimson rounded-full animate-spin" aria-hidden />
+            ) : (
+              <ChevronDownIcon />
+            )}
+          </button>
+
+          {/* Dropdown menu */}
+          {isOpen && !isUpdating && (
+            <div
+              className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[180px] bg-white rounded-lg border border-border shadow-lg py-1 animate-fade-in"
+              role="menu"
+              aria-labelledby={`status-menu-trigger-${client.id}`}
+            >
+              <div className="px-3 py-2 border-b border-border">
+                <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
+                  Move to
+                </span>
+              </div>
+              {transitions.map((t) => (
+                <button
+                  key={t.target}
+                  type="button"
+                  role="menuitem"
+                  className={`w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out ${t.style}`}
+                  onClick={() => onStatusChange(client.id, t.target)}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function IntakeIndicator({ client }: { client: ClientRow }) {
   if (!client.isVerified) return <span className="text-[0.8125rem] font-medium text-text-muted">N/A</span>;
@@ -290,5 +501,31 @@ function IntakeIndicator({ client }: { client: ClientRow }) {
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>
       Complete
     </span>
+  );
+}
+
+// ── Inline SVG Icons ────────────────────────────────────────────────────────
+
+function ChevronDownIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
   );
 }
