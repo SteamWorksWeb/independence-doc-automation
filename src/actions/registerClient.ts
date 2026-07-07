@@ -34,24 +34,22 @@ export type ActionResult =
 
 // ── Environment guard ─────────────────────────────────────────────────────────
 
-function getEnv(): { apiUrl: string; secret: string; lawyerId: string } {
-  const apiUrl   = process.env.NEXT_PUBLIC_AWS_API_URL;
-  const secret   = process.env.AWS_API_SECRET;
-  const lawyerId = process.env.DEFAULT_LAWYER_ID; // set after running seed-dummy-lawyer.js
+function getEnv(): { apiUrl: string; secret: string } {
+  const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
+  const secret = process.env.AWS_API_SECRET;
 
   const missing: string[] = [];
-  if (!apiUrl)   missing.push("NEXT_PUBLIC_AWS_API_URL");
-  if (!secret)   missing.push("AWS_API_SECRET");
-  if (!lawyerId) missing.push("DEFAULT_LAWYER_ID");
+  if (!apiUrl) missing.push("NEXT_PUBLIC_AWS_API_URL");
+  if (!secret) missing.push("AWS_API_SECRET");
 
   if (missing.length > 0) {
     throw new Error(
       `[registerClient] Missing server env vars: ${missing.join(", ")}. ` +
-      "Check .env.local and ensure seed-dummy-lawyer.js has been run."
+      "Check Vercel environment variables."
     );
   }
 
-  return { apiUrl: apiUrl!.replace(/\/$/, ""), secret: secret!, lawyerId: lawyerId! };
+  return { apiUrl: apiUrl!.replace(/\/$/, ""), secret: secret! };
 }
 
 // ── Input validation (lightweight — backend validates too) ────────────────────
@@ -89,12 +87,12 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
     };
   }
 
-  const { apiUrl, secret, lawyerId } = env;
+  const { apiUrl, secret } = env;
 
   // ── POST /api/v1/clients ──────────────────────────────────────────────────
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}/clients`, {
+    response = await fetch(`${apiUrl}/api/v1/clients`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -106,7 +104,6 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
         name:     input.name.trim(),
         email:    input.email.trim().toLowerCase(),
         password: input.password,   // backend hashes this with bcrypt cost 12
-        lawyerId,                   // injected server-side, never from form
         ...(input.token ? { token: input.token } : {}),  // Velvet Rope invitation token
       }),
       // Disable Next.js caching — mutation must always be fresh
