@@ -107,6 +107,14 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
     fetchInvites();
   }, [fetchInvites]);
 
+  // ── Re-fetch when a new invite is sent from the modal ────────────────────
+
+  useEffect(() => {
+    const handleInviteSent = () => fetchInvites();
+    window.addEventListener("inviteSent", handleInviteSent);
+    return () => window.removeEventListener("inviteSent", handleInviteSent);
+  }, [fetchInvites]);
+
   // ── Copy invite link ──────────────────────────────────────────────────────
 
   const handleCopyLink = useCallback(async (invite: Invitation) => {

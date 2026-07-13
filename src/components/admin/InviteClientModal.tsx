@@ -121,6 +121,8 @@ export default function InviteClientModal({ adminToken }: InviteClientModalProps
           message: data.message,
         });
         setModalState("success");
+        // Notify PendingInvitesTable (sibling) to re-fetch
+        window.dispatchEvent(new CustomEvent("inviteSent"));
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : "Failed to send invite."
