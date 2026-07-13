@@ -45,15 +45,17 @@ function getAdminEnv(): {
   adminEmail: string;
   adminPasswordHash: string;
   adminJwtSecret: Uint8Array;
+  adminLawyerId: string;
 } {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
   const adminJwtSecret = process.env.JWT_SECRET;
+  const adminLawyerId = process.env.ADMIN_LAWYER_ID;
 
-  if (!adminEmail || !adminPasswordHash || !adminJwtSecret) {
+  if (!adminEmail || !adminPasswordHash || !adminJwtSecret || !adminLawyerId) {
     throw new Error(
       "[admin-login] Missing required environment variables: " +
-        "ADMIN_EMAIL, ADMIN_PASSWORD_HASH, JWT_SECRET. " +
+        "ADMIN_EMAIL, ADMIN_PASSWORD_HASH, JWT_SECRET, ADMIN_LAWYER_ID. " +
         "See .env.example for setup instructions."
     );
   }
@@ -62,6 +64,7 @@ function getAdminEnv(): {
     adminEmail,
     adminPasswordHash,
     adminJwtSecret: new TextEncoder().encode(adminJwtSecret),
+    adminLawyerId,
   };
 }
 
@@ -146,13 +149,16 @@ export async function POST(request: NextRequest) {
   }
 
   // ── 6. Issue admin-scoped JWT ────────────────────────────────────────────
-  // Signed with ADMIN_JWT_SECRET — a completely separate secret from
-  // client session tokens. Role claim explicitly set to "admin".
+  // Signed with JWT_SECRET (same secret as the backend) so the backend's
+  // requireLawyerJwt middleware can verify it.
+  // `sub` is set to the lawyer's DB UUID so the backend can extract lawyerId
+  // from payload.sub (required for Invitation FK constraint).
   const token = await new SignJWT({
     role: "lawyer",
     email: env.adminEmail,
   })
     .setProtectedHeader({ alg: "HS256" })
+    .setSubject(env.adminLawyerId)   // ← backend reads this as lawyerId
     .setIssuedAt()
     .setExpirationTime("8h") // Short-lived admin session
     .setIssuer("independence-law-admin")
