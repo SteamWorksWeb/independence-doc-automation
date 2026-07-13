@@ -9,26 +9,16 @@
  *
  * ── Credential strategy ──────────────────────────────────────────────────────
  *
- * Admin credentials are stored exclusively in server-side environment variables:
- *
- *   ADMIN_EMAIL          — the admin's email address
- *   ADMIN_PASSWORD_HASH  — bcrypt hash of the admin password
- *
- * The raw admin password is NEVER stored anywhere. To generate the hash:
- *
- *   node -e "require('bcryptjs').hash('your-password', 12).then(console.log)"
- *
- * This means:
- *   - No admin user row in the database (no attack surface there)
- *   - Credential rotation = update env vars + redeploy
- *   - The client-side payload declares role: "admin" so the server can
- *     explicitly reject any mismatch before touching credentials
+ * Credentials are validated exclusively by the backend database.
+ * The frontend never touches raw passwords or bcrypt hashes.
+ * This endpoint acts as a secure proxy: it receives the user's credentials,
+ * forwards them to the backend's POST /auth/login endpoint, and — on success —
+ * plants the backend-issued JWT as an HttpOnly cookie.
  *
  * ── Session strategy ─────────────────────────────────────────────────────────
  *
  * Admin sessions use a SEPARATE cookie name ("admin_session") with a distinct
- * JWT claim (role: "admin") signed by ADMIN_JWT_SECRET — a different secret
- * from NEXTAUTH_SECRET used for client sessions. This means:
+ * JWT claim (role: "admin") issued by the backend. This means:
  *
  *   - A valid client token cannot be replayed to access admin routes
  *   - A compromised client session does not escalate to admin access
@@ -36,36 +26,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPassword } from "@/lib/auth";
-import { SignJWT } from "jose";
 
 // ── Environment validation ────────────────────────────────────────────────────
 
-function getAdminEnv(): {
-  adminEmail: string;
-  adminPasswordHash: string;
-  adminJwtSecret: Uint8Array;
-  adminLawyerId: string;
-} {
-  const adminEmail = process.env.ADMIN_EMAIL;
-  const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
-  const adminJwtSecret = process.env.JWT_SECRET;
-  const adminLawyerId = process.env.ADMIN_LAWYER_ID;
-
-  if (!adminEmail || !adminPasswordHash || !adminJwtSecret || !adminLawyerId) {
+function getBackendUrl(): string {
+  const url = process.env.NEXT_PUBLIC_AWS_API_URL;
+  if (!url) {
     throw new Error(
-      "[admin-login] Missing required environment variables: " +
-        "ADMIN_EMAIL, ADMIN_PASSWORD_HASH, JWT_SECRET, ADMIN_LAWYER_ID. " +
-        "See .env.example for setup instructions."
+      "[admin-login] Missing required environment variable: NEXT_PUBLIC_AWS_API_URL"
     );
   }
-
-  return {
-    adminEmail,
-    adminPasswordHash,
-    adminJwtSecret: new TextEncoder().encode(adminJwtSecret),
-    adminLawyerId,
-  };
+  return url;
 }
 
 // ── Request validation ────────────────────────────────────────────────────────
@@ -90,10 +61,10 @@ function parseBody(body: unknown): AdminLoginBody | null {
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  // ── 1. Load and validate environment config ──────────────────────────────
-  let env: ReturnType<typeof getAdminEnv>;
+  // ── 1. Resolve backend URL ───────────────────────────────────────────────
+  let backendUrl: string;
   try {
-    env = getAdminEnv();
+    backendUrl = getBackendUrl();
   } catch (err) {
     console.error("[admin-login] Environment misconfiguration:", err);
     return NextResponse.json(
@@ -123,48 +94,59 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Access denied." }, { status: 403 });
   }
 
-  // ── 4. Constant-time email comparison ────────────────────────────────────
-  // Compare emails in constant time to prevent timing-based enumeration.
-  const submittedEmailBuf = Buffer.from(parsed.email.padEnd(256));
-  const adminEmailBuf = Buffer.from(env.adminEmail.toLowerCase().padEnd(256));
-  const emailMatch =
-    submittedEmailBuf.length === adminEmailBuf.length &&
-    require("crypto").timingSafeEqual(submittedEmailBuf, adminEmailBuf);
-
-  if (!emailMatch) {
-    // Still run bcrypt to prevent timing attacks that reveal email validity
-    await verifyPassword(parsed.password, env.adminPasswordHash);
-    return NextResponse.json({ message: "Access denied." }, { status: 401 });
+  // ── 4. Forward credentials to the backend database auth endpoint ─────────
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(`${backendUrl}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: parsed.email,
+        password: parsed.password,
+      }),
+    });
+  } catch (err) {
+    console.error("[admin-login] Backend request failed:", err);
+    return NextResponse.json(
+      { message: "Authentication service unavailable. Please try again." },
+      { status: 503 }
+    );
   }
 
-  // ── 5. Verify password against stored hash ───────────────────────────────
-  const passwordValid = await verifyPassword(
-    parsed.password,
-    env.adminPasswordHash
-  );
-
-  if (!passwordValid) {
-    console.warn(`[admin-login] Failed password attempt for admin`);
-    return NextResponse.json({ message: "Access denied." }, { status: 401 });
+  // ── 5. Handle backend rejection ──────────────────────────────────────────
+  if (!backendRes.ok) {
+    if (backendRes.status === 401) {
+      console.warn("[admin-login] Backend rejected credentials (401)");
+      return NextResponse.json(
+        { message: "Invalid credentials." },
+        { status: 401 }
+      );
+    }
+    // Surface any other non-200 response generically
+    console.error(`[admin-login] Backend returned unexpected status: ${backendRes.status}`);
+    return NextResponse.json(
+      { message: "Authentication failed. Please try again." },
+      { status: 502 }
+    );
   }
 
-  // ── 6. Issue admin-scoped JWT ────────────────────────────────────────────
-  // Signed with JWT_SECRET (same secret as the backend) so the backend's
-  // requireLawyerJwt middleware can verify it.
-  // `sub` is set to the lawyer's DB UUID so the backend can extract lawyerId
-  // from payload.sub (required for Invitation FK constraint).
-  const token = await new SignJWT({
-    role: "lawyer",
-    email: env.adminEmail,
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(env.adminLawyerId)   // ← backend reads this as lawyerId
-    .setIssuedAt()
-    .setExpirationTime("8h") // Short-lived admin session
-    .setIssuer("independence-law-admin")
-    .sign(env.adminJwtSecret);
+  // ── 6. Extract token from backend response ───────────────────────────────
+  let token: string;
+  try {
+    const data = await backendRes.json() as { token?: string };
+    if (!data.token || typeof data.token !== "string") {
+      throw new Error("Backend response missing 'token' field");
+    }
+    token = data.token;
+  } catch (err) {
+    console.error("[admin-login] Failed to parse backend token response:", err);
+    return NextResponse.json(
+      { message: "Authentication service error. Please try again." },
+      { status: 502 }
+    );
+  }
 
-  console.log("[admin-login] Admin authentication successful");
+  console.log("[admin-login] Admin authentication successful (backend-issued token)");
 
   // ── 7. Set HttpOnly admin session cookie ─────────────────────────────────
   // Cookie name "admin_session" is distinct from any client cookie.
@@ -178,7 +160,7 @@ export async function POST(request: NextRequest) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 60 * 60 * 8, // 8 hours
+    maxAge: 60 * 60 * 8, // 8 hours — matches backend token lifetime
     path: "/admin",       // Scoped to /admin/* only — not accessible from client routes
   });
 
