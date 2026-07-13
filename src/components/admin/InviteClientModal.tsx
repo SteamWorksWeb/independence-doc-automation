@@ -7,7 +7,7 @@
  * Clients page. It handles:
  *   1. Button click → open modal
  *   2. Email input + submit
- *   3. POST to /admin/invites with Bearer token from admin_session cookie
+ *   3. POST to /api/v1/admin/invites with Bearer token from admin_session cookie
  *   4. Display success (invite link/token) or error feedback
  */
 
