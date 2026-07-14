@@ -3,139 +3,152 @@
 /**
  * src/components/admin/EligibilityEngine.tsx
  *
- * Brunner Test Eligibility Engine — client-side interactive analysis tool.
+ * Eligibility Engine — client-side scoring algorithm + scorecard UI.
  *
- * Renders a "Run Eligibility Analysis" trigger button on mount, fetches the
- * backend Brunner score via the Next.js proxy route, then presents the results
- * as a premium report card with colour-coded verdict (HIGH / MEDIUM / LOW).
+ * Receives the client's full intakeProfile as a prop and runs a
+ * 100-point scoring algorithm locally (no network call). The scorecard
+ * shows a large numeric score, a coloured status badge, an animated
+ * progress bar, and a detailed reasons breakdown table.
  *
- * Props:
- *   clientId — the UUID of the client to analyse
+ * Algorithm (out of 100):
+ *   Base score  = 50
+ *   Income      < $3 000/mo  → +20   |   > $5 000/mo  → -20
+ *   Disability  = true       → +15
+ *   Unemployed  (isEmployed=false) → +15
+ *   Vehicle     (hasCar)     → -5
+ *   Tax refund  (expectingRefund) → -5
+ *   Score is clamped to [0, 100].
+ *
+ * Status:
+ *   ≥ 80  → Highly Eligible   (green)
+ *   50–79 → Review Required   (amber)
+ *   < 50  → Ineligible        (red)
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import styles from "./Eligibility.module.css";
+import type { IntakeProfile } from "./ClientProfileTabs";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Algorithm ─────────────────────────────────────────────────────────────────
 
 interface EligibilityResult {
-  totalExpenses: number;
-  disposableIncome: number;
-  isProng1Met: boolean;
-  isProng2Met: boolean;
-  overallScore: "HIGH_PROBABILITY" | "MEDIUM_PROBABILITY" | "LOW_PROBABILITY";
+  totalScore: number;
+  status: "Highly Eligible" | "Review Required" | "Ineligible";
+  reasons: Array<{ label: string; delta: number }>;
 }
 
-type State =
-  | { phase: "idle" }
-  | { phase: "loading" }
-  | { phase: "error"; message: string }
-  | { phase: "result"; data: EligibilityResult; fetchedAt: Date };
+function calculateEligibility(ip: IntakeProfile | null): EligibilityResult {
+  if (!ip) {
+    return {
+      totalScore: 0,
+      status: "Ineligible",
+      reasons: [{ label: "No intake questionnaire on file", delta: 0 }],
+    };
+  }
+
+  let score = 50;
+  const reasons: Array<{ label: string; delta: number }> = [
+    { label: "Base score", delta: 50 },
+  ];
+
+  // ── Income ────────────────────────────────────────────────────────────────
+  const income = ip.monthlyIncome ?? 0;
+  if (income > 0 && income < 3_000) {
+    score += 20;
+    reasons.push({ label: `Low income (${fmt(income)}/mo < $3,000)`, delta: 20 });
+  } else if (income > 5_000) {
+    score -= 20;
+    reasons.push({ label: `High income (${fmt(income)}/mo > $5,000)`, delta: -20 });
+  }
+
+  // ── Disability ────────────────────────────────────────────────────────────
+  if (ip.hasDisability) {
+    score += 15;
+    reasons.push({ label: "Has a qualifying disability", delta: 15 });
+  }
+
+  // ── Employment ────────────────────────────────────────────────────────────
+  if (!ip.isEmployed) {
+    score += 15;
+    reasons.push({ label: "Currently unemployed", delta: 15 });
+  }
+
+  // ── Assets ────────────────────────────────────────────────────────────────
+  if (ip.hasCar) {
+    score -= 5;
+    reasons.push({ label: "Owns a vehicle", delta: -5 });
+  }
+  if (ip.expectingRefund) {
+    score -= 5;
+    reasons.push({ label: "Expecting a tax refund", delta: -5 });
+  }
+
+  // ── Clamp ─────────────────────────────────────────────────────────────────
+  const totalScore = Math.max(0, Math.min(100, score));
+
+  const status: EligibilityResult["status"] =
+    totalScore >= 80 ? "Highly Eligible" :
+    totalScore >= 50 ? "Review Required" :
+                       "Ineligible";
+
+  return { totalScore, status, reasons };
+}
+
+function fmt(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+// ── Props ─────────────────────────────────────────────────────────────────────
+
+interface Props {
+  // Legacy prop — kept for compatibility if clientId is still passed somewhere
+  clientId?: string;
+  // New prop — full intake profile passed directly from the server component
+  intakeProfile?: IntakeProfile | null;
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function EligibilityEngine({ clientId }: { clientId: string }) {
-  const [state, setState] = useState<State>({ phase: "idle" });
+export default function EligibilityEngine({ intakeProfile }: Props) {
+  const [ran, setRan] = useState(false);
+  const result = useMemo(
+    () => (ran ? calculateEligibility(intakeProfile ?? null) : null),
+    [ran, intakeProfile]
+  );
+  const run    = useCallback(() => setRan(true),  []);
+  const reset  = useCallback(() => setRan(false), []);
 
-  const runAnalysis = useCallback(async () => {
-    setState({ phase: "loading" });
-
-    try {
-      const res = await fetch(`/api/admin/clients/${clientId}/eligibility`, {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      if (!res.ok) {
-        let msg = `Server returned ${res.status}`;
-        try {
-          const body = await res.json();
-          if (body?.message) msg = body.message;
-        } catch { /* ignore */ }
-        setState({ phase: "error", message: msg });
-        return;
-      }
-
-      const data: EligibilityResult = await res.json();
-      setState({ phase: "result", data, fetchedAt: new Date() });
-    } catch (err) {
-      setState({
-        phase: "error",
-        message: err instanceof Error ? err.message : "Unknown network error.",
-      });
-    }
-  }, [clientId]);
-
-  const reset = useCallback(() => setState({ phase: "idle" }), []);
-
-  if (state.phase === "idle") return <IdleView onRun={runAnalysis} />;
-  if (state.phase === "loading") return <LoadingView />;
-  if (state.phase === "error") return <ErrorView message={state.message} onRetry={runAnalysis} />;
-  return <ResultView data={state.data} fetchedAt={state.fetchedAt} onRerun={reset} />;
+  if (!ran || !result) return <IdleView onRun={run} hasIntake={!!intakeProfile} />;
+  return <ResultView result={result} onRerun={reset} />;
 }
 
 // ── Idle view ─────────────────────────────────────────────────────────────────
 
-function IdleView({ onRun }: { onRun: () => void }) {
+function IdleView({ onRun, hasIntake }: { onRun: () => void; hasIntake: boolean }) {
   return (
     <div className={styles.container}>
       <div className={styles.idleState}>
         <div className={styles.engineIcon}>
           <ScaleIcon />
         </div>
-        <p className={styles.idleTitle}>Brunner Test Eligibility Engine</p>
+        <p className={styles.idleTitle}>Eligibility Engine</p>
         <p className={styles.idleSubtitle}>
-          Run an automated analysis of this client&apos;s financial data against the
-          three-prong Brunner Test to assess their eligibility for student loan
-          discharge under 11 U.S.C. § 523(a)(8).
+          {hasIntake
+            ? "Run the automated scoring algorithm to assess this client's eligibility for student loan discharge. The engine analyses income, disability status, employment, and assets to generate a 0–100 eligibility score."
+            : "This client has not yet completed their intake questionnaire. Eligibility scoring requires intake data."}
         </p>
         <button
           id="eligibility-run-btn"
           className={styles.runBtn}
           onClick={onRun}
+          disabled={!hasIntake}
         >
           <RunIcon />
-          Run Eligibility Analysis
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Loading view ──────────────────────────────────────────────────────────────
-
-function LoadingView() {
-  return (
-    <div className={styles.container}>
-      <div className={styles.loadingState}>
-        <div className={styles.spinner} aria-hidden />
-        <p className={styles.loadingLabel}>
-          Calculating Brunner Variables
-          <span className={styles.loadingDots} aria-label="Loading" />
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Error view ────────────────────────────────────────────────────────────────
-
-function ErrorView({
-  message,
-  onRetry,
-}: {
-  message: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className={styles.container}>
-      <div className={styles.errorState}>
-        <span className={styles.errorBadge}>
-          <ErrorIcon /> Analysis Failed
-        </span>
-        <p className={styles.errorMessage}>{message}</p>
-        <button className={styles.runBtn} onClick={onRetry}>
-          <RunIcon /> Retry Analysis
+          {hasIntake ? "Run Eligibility Analysis" : "Awaiting Intake Data"}
         </button>
       </div>
     </div>
@@ -145,64 +158,52 @@ function ErrorView({
 // ── Result view ───────────────────────────────────────────────────────────────
 
 function ResultView({
-  data,
-  fetchedAt,
+  result,
   onRerun,
 }: {
-  data: EligibilityResult;
-  fetchedAt: Date;
+  result: EligibilityResult;
   onRerun: () => void;
 }) {
-  const { totalExpenses, disposableIncome, isProng1Met, isProng2Met, overallScore } = data;
+  const { totalScore, status, reasons } = result;
 
-  const scoreConfig = {
-    HIGH_PROBABILITY: {
+  const cfg = {
+    "Highly Eligible": {
       bannerClass: styles.scoreBannerHigh,
-      pillClass: styles.scorePillHigh,
       verdictClass: styles.scoreVerdictHigh,
-      verdict: "HIGH ELIGIBILITY",
+      pillClass: styles.scorePillHigh,
+      barClass: styles.progressBarHigh,
       description:
-        "This client presents a strong case for discharge. Both financial prongs are met, indicating genuine and persistent undue hardship.",
+        "This client presents strong indicators for student loan discharge. Recommend proceeding with a full case evaluation.",
     },
-    MEDIUM_PROBABILITY: {
+    "Review Required": {
       bannerClass: styles.scoreBannerMedium,
-      pillClass: styles.scorePillMedium,
       verdictClass: styles.scoreVerdictMedium,
-      verdict: "MEDIUM ELIGIBILITY",
+      pillClass: styles.scorePillMedium,
+      barClass: styles.progressBarMedium,
       description:
-        "This client meets some but not all prongs. Additional evidence or legal strategy may be required to demonstrate undue hardship.",
+        "Mixed indicators. Additional documentation or legal strategy may be needed to build a viable hardship case.",
     },
-    LOW_PROBABILITY: {
+    Ineligible: {
       bannerClass: styles.scoreBannerLow,
-      pillClass: styles.scorePillLow,
       verdictClass: styles.scoreVerdictLow,
-      verdict: "LOW ELIGIBILITY",
+      pillClass: styles.scorePillLow,
+      barClass: styles.progressBarLow,
       description:
-        "This client currently does not meet the Brunner Test criteria. Further financial counselling or stronger documentation is recommended.",
+        "Current financial profile does not meet discharge criteria. Consider financial counselling or revisiting in 12 months.",
     },
-  }[overallScore];
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 2,
-    }).format(n);
-
-  const timeStr = fetchedAt.toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  }[status];
 
   return (
     <div className={styles.container}>
       <div className={styles.report}>
 
-        {/* ── Header ───────────────────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className={styles.reportHeader}>
           <div>
-            <p className={styles.reportTitle}>Brunner Test — Eligibility Report</p>
-            <p className={styles.reportMeta}>Generated at {timeStr}</p>
+            <p className={styles.reportTitle}>Eligibility Score Report</p>
+            <p className={styles.reportMeta}>
+              Generated {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            </p>
           </div>
           <button
             id="eligibility-rerun-btn"
@@ -213,50 +214,77 @@ function ResultView({
           </button>
         </div>
 
-        {/* ── Overall score banner ──────────────────────────────────────── */}
-        <div className={`${styles.scoreBanner} ${scoreConfig.bannerClass}`}>
+        {/* ── Score banner ─────────────────────────────────────────────────── */}
+        <div className={`${styles.scoreBanner} ${cfg.bannerClass}`}>
           <div className={styles.scoreBannerLeft}>
             <span className={styles.scoreLabel}>Overall Verdict</span>
-            <p className={`${styles.scoreVerdict} ${scoreConfig.verdictClass}`}>
-              {scoreConfig.verdict}
+            <p className={`${styles.scoreVerdict} ${cfg.verdictClass}`}>
+              {status}
             </p>
-            <p className={styles.scoreDescription}>{scoreConfig.description}</p>
+            <p className={styles.scoreDescription}>{cfg.description}</p>
           </div>
-          <span className={`${styles.scorePill} ${scoreConfig.pillClass}`}>
-            {overallScore}
-          </span>
+
+          {/* Big numeric score */}
+          <div className={styles.scoreCircle}>
+            <span className={`${styles.scoreNumber} ${cfg.verdictClass}`}>
+              {totalScore}
+            </span>
+            <span className={styles.scoreDenom}>/100</span>
+          </div>
         </div>
 
-        {/* ── Prong cards ───────────────────────────────────────────────── */}
-        <div className={styles.prongGrid}>
-          <ProngCard
-            name="Prong 1"
-            title="Minimal Standard of Living"
-            description="Debtor cannot maintain a minimal standard of living for themselves and their dependents if forced to repay the loans."
-            isMet={isProng1Met}
-          />
-          <ProngCard
-            name="Prong 2"
-            title="Persistence of Hardship"
-            description="Additional circumstances exist indicating that this state of affairs is likely to persist for a significant portion of the repayment period."
-            isMet={isProng2Met}
-          />
+        {/* ── Progress bar ─────────────────────────────────────────────────── */}
+        <div className={styles.progressSection}>
+          <div className={styles.progressHeader}>
+            <span className={styles.progressLabel}>Score</span>
+            <span className={`${styles.scorePill} ${cfg.pillClass}`}>
+              {totalScore} pts
+            </span>
+          </div>
+          <div className={styles.progressTrack} role="progressbar" aria-valuenow={totalScore} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className={`${styles.progressBar} ${cfg.barClass}`}
+              style={{ width: `${totalScore}%` }}
+            />
+          </div>
+          <div className={styles.progressTicks}>
+            <span>0</span>
+            <span>Ineligible</span>
+            <span className={styles.tickMid}>50 — Review</span>
+            <span>80 — Eligible</span>
+            <span>100</span>
+          </div>
         </div>
 
-        {/* ── Financial breakdown ───────────────────────────────────────── */}
+        {/* ── Score breakdown ──────────────────────────────────────────────── */}
         <div className={styles.financialsSection}>
-          <p className={styles.sectionLabel}>Financial Variables</p>
-          <div className={styles.financialsGrid}>
-            <FinancialCard
-              label="Total Monthly Expenses"
-              value={fmt(totalExpenses)}
-              sentiment="neutral"
-            />
-            <FinancialCard
-              label="Disposable Income"
-              value={fmt(disposableIncome)}
-              sentiment={disposableIncome <= 0 ? "negative" : "positive"}
-            />
+          <p className={styles.sectionLabel}>Score Breakdown</p>
+          <div className={styles.reasonsTable}>
+            {reasons.map((r, i) => (
+              <div key={i} className={styles.reasonRow}>
+                <span className={styles.reasonLabel}>{r.label}</span>
+                <span
+                  className={`${styles.reasonDelta} ${
+                    r.delta > 0
+                      ? styles.reasonDeltaPos
+                      : r.delta < 0
+                      ? styles.reasonDeltaNeg
+                      : styles.reasonDeltaBase
+                  }`}
+                >
+                  {r.delta > 0 ? `+${r.delta}` : r.delta === 0 ? `${r.delta}` : r.delta}
+                </span>
+              </div>
+            ))}
+            {/* Total row */}
+            <div className={`${styles.reasonRow} ${styles.reasonRowTotal}`}>
+              <span className={styles.reasonLabel}>
+                <strong>Final Score</strong>
+              </span>
+              <span className={`${styles.reasonDelta} ${cfg.verdictClass}`}>
+                <strong>{totalScore} / 100</strong>
+              </span>
+            </div>
           </div>
         </div>
 
@@ -265,67 +293,7 @@ function ResultView({
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function ProngCard({
-  name,
-  title,
-  description,
-  isMet,
-}: {
-  name: string;
-  title: string;
-  description: string;
-  isMet: boolean;
-}) {
-  return (
-    <div
-      className={`${styles.prongCard} ${
-        isMet ? styles.prongCardMet : styles.prongCardNotMet
-      }`}
-    >
-      <div className={styles.prongHeader}>
-        <span className={styles.prongName}>{name}</span>
-        <span
-          className={`${styles.prongStatus} ${
-            isMet ? styles.prongStatusMet : styles.prongStatusNotMet
-          }`}
-        >
-          {isMet ? <CheckIcon /> : <XIcon />}
-          {isMet ? "Met" : "Not Met"}
-        </span>
-      </div>
-      <p className={styles.prongTitle}>{title}</p>
-      <p className={styles.prongDesc}>{description}</p>
-    </div>
-  );
-}
-
-function FinancialCard({
-  label,
-  value,
-  sentiment,
-}: {
-  label: string;
-  value: string;
-  sentiment: "positive" | "negative" | "neutral";
-}) {
-  const valueClass =
-    sentiment === "negative"
-      ? styles.financialCardValueNegative
-      : sentiment === "positive"
-      ? styles.financialCardValuePositive
-      : styles.financialCardValue;
-
-  return (
-    <div className={styles.financialCard}>
-      <span className={styles.financialCardLabel}>{label}</span>
-      <span className={valueClass}>{value}</span>
-    </div>
-  );
-}
-
-// ── Inline SVG icons ──────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 
 function ScaleIcon() {
   return (
@@ -350,32 +318,6 @@ function RerunIcon() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points="1 4 1 10 7 10" />
       <path d="M3.51 15a9 9 0 1 0 .49-4" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function ErrorIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
   );
 }

@@ -489,3 +489,162 @@
 .financialCardValuePositive {
   color: #34d399;
 }
+
+/* ── Score circle ──────────────────────────────────────────────────────────── */
+
+.scoreCircle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 50%;
+  width: 108px;
+  height: 108px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.scoreNumber {
+  font-size: 2.5rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreDenom {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.04em;
+}
+
+/* ── Progress bar ──────────────────────────────────────────────────────────── */
+
+.progressSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progressLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.progressTrack {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.progressBarHigh {
+  background: linear-gradient(90deg, #059669 0%, #34d399 100%);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+.progressBarMedium {
+  background: linear-gradient(90deg, #d97706 0%, #fcd34d 100%);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+.progressBarLow {
+  background: linear-gradient(90deg, #be123c 0%, #f87171 100%);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.progressTicks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: #334155;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.tickMid {
+  color: #475569;
+}
+
+/* ── Reasons breakdown table ───────────────────────────────────────────────── */
+
+.reasonsTable {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.reasonRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.12s ease;
+}
+
+.reasonRow:last-child {
+  border-bottom: none;
+}
+
+.reasonRow:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.reasonRowTotal {
+  background: rgba(255, 255, 255, 0.035);
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.reasonLabel {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  flex: 1;
+}
+
+.reasonRowTotal .reasonLabel {
+  color: #e2e8f0;
+}
+
+.reasonDelta {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: right;
+  letter-spacing: -0.01em;
+}
+
+.reasonDeltaPos {
+  color: #34d399;
+}
+
+.reasonDeltaNeg {
+  color: #f87171;
+}
+
+.reasonDeltaBase {
+  color: #64748b;
+}
