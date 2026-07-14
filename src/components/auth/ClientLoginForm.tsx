@@ -406,6 +406,39 @@ export default function ClientLoginForm() {
               "Create Account & Enter Portal"
             )}
           </button>
+
+          {/* Escape hatch — for clients who already created an account and
+              returned via their original invite link. Strips the token param
+              by navigating to bare /login, triggering a re-render in Login Mode. */}
+          <p style={{ textAlign: "center", marginTop: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                font: "inherit",
+                fontSize: "0.8125rem",
+                color: "var(--text-muted, #6b7280)",
+                cursor: "pointer",
+                textDecoration: "none",
+              }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.textDecoration =
+                  "underline")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.textDecoration =
+                  "none")
+              }
+            >
+              Already have an account?{" "}
+              <span style={{ color: "var(--crimson, #b31e3c)", fontWeight: 600 }}>
+                Log in.
+              </span>
+            </button>
+          </p>
         </form>
       ) : (
         /* ════════════════════════════════════════════════════════
