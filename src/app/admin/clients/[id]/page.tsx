@@ -17,7 +17,7 @@
  */
 
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import ClientProfileTabs, {
   type ClientData,
@@ -41,13 +41,34 @@ interface PageProps {
 async function fetchClient(
   id: string
 ): Promise<{ client: ClientData | null; error: string | null }> {
-  // Absolute URL required for server-side fetch inside a React Server Component
-  const host = (await headers()).get("host") ?? "localhost:3000";
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const url = `${protocol}://${host}/api/admin/clients/${id}`;
+  // Read the admin session cookie directly — server components have full
+  // access to cookies(). We call the backend directly here because a
+  // server component's fetch() does NOT forward the browser's Cookie header,
+  // so routing through /api/admin/clients/[id] always fails with 401.
+  const cookieStore = await cookies();
+  const token = cookieStore.get("admin_session")?.value;
+
+  if (!token) {
+    return { client: null, error: "Unauthorized: No active admin session." };
+  }
+
+  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
+  if (!backendBase) {
+    console.error("[client-profile] NEXT_PUBLIC_AWS_API_URL is not set.");
+    return { client: null, error: "Server configuration error." };
+  }
+
+  const url = `${backendBase}/admin/clients/${id}`;
 
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
 
     if (res.status === 404) {
       return { client: null, error: "Client not found. They may have been removed." };
@@ -56,7 +77,9 @@ async function fetchClient(
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       const message =
-        (body as { message?: string }).message ?? `Server error (${res.status})`;
+        (body as { message?: string; error?: string }).error ??
+        (body as { message?: string }).message ??
+        `Server error (${res.status})`;
       return { client: null, error: message };
     }
 
