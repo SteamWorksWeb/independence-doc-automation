@@ -40,9 +40,23 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const openMenu  = useCallback(() => setMobileOpen(true),  []);
   const closeMenu = useCallback(() => setMobileOpen(false), []);
+
+  const handleLogout = useCallback(async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/admin-logout", { method: "POST" });
+    } catch {
+      // Ignore network errors — still clear the client and redirect
+    }
+    // Hard redirect: bypasses Next.js router so middleware cannot intercept
+    // and loop back to the dashboard before the cleared cookie propagates.
+    window.location.href = "/admin/login";
+  }, [isLoggingOut]);
 
   return (
     <>
@@ -152,18 +166,18 @@ export default function AdminSidebar() {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Logout form — POST to prevent CSRF via link prefetch */}
+        {/* Logout — fetch POST so we control the redirect explicitly */}
         <div className="px-4 pt-4 pb-5 border-t border-[rgba(255,255,255,0.08)] flex flex-col gap-1.5">
-          <form action="/api/auth/admin-logout" method="POST">
-            <button
-              type="submit"
-              className="w-full flex items-center gap-2 py-[9px] px-3 bg-[rgba(179,30,60,0.12)] border border-[rgba(179,30,60,0.2)] rounded-md font-sans text-[0.8125rem] font-semibold text-[rgba(255,150,160,0.9)] cursor-pointer transition-[background,border-color] duration-fast tracking-[0.02em] hover:bg-[rgba(179,30,60,0.22)] hover:border-[rgba(179,30,60,0.35)]"
-              id="admin-logout-btn"
-            >
-              <LogoutIcon />
-              Sign Out
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center gap-2 py-[9px] px-3 bg-[rgba(179,30,60,0.12)] border border-[rgba(179,30,60,0.2)] rounded-md font-sans text-[0.8125rem] font-semibold text-[rgba(255,150,160,0.9)] cursor-pointer transition-[background,border-color] duration-fast tracking-[0.02em] hover:bg-[rgba(179,30,60,0.22)] hover:border-[rgba(179,30,60,0.35)] disabled:opacity-50 disabled:cursor-wait"
+            id="admin-logout-btn"
+          >
+            <LogoutIcon />
+            {isLoggingOut ? "Signing out…" : "Sign Out"}
+          </button>
           <p className="text-[0.65rem] text-[rgba(255,255,255,0.22)] text-center tracking-[0.04em]">
             Admin session · 8h
           </p>
