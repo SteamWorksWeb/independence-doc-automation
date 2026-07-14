@@ -75,13 +75,11 @@ async function handleAdminRoute(
 
   if (cookie?.value && secret) {
     try {
+      // Backend signs with { sub: lawyerId, email, role: 'lawyer' } — no issuer claim.
       const { payload } = await jwtVerify(
         cookie.value,
         new TextEncoder().encode(secret),
-        {
-          issuer: "independence-law-admin",
-          algorithms: ["HS256"],
-        }
+        { algorithms: ["HS256"] }
       );
       if (payload.role === "lawyer") {
         isAuthenticated = true;
@@ -132,7 +130,7 @@ async function handleAdminRoute(
       const { payload } = await jwtVerify(
         cookie.value,
         new TextEncoder().encode(secret),
-        { issuer: "independence-law-admin", algorithms: ["HS256"] }
+        { algorithms: ["HS256"] }
       );
       if (typeof payload.email === "string") {
         response.headers.set("x-admin-email", payload.email);
