@@ -6,8 +6,9 @@
  * Server-side proxy for the backend route GET /api/v1/admin/clients/:id/eligibility.
  *
  * Reads the admin_session HttpOnly cookie, attaches it as a Bearer token,
- * and forwards the request to the backend Brunner Test eligibility calculator.
- * Returns the full eligibility analysis JSON to the frontend.
+ * and forwards the request to the backend EligibilityEngine service.
+ * Returns the full eligibility result JSON to the frontend:
+ *   { client_id, eligibility: { score, status, reasons[] } }
  *
  * This proxy pattern is required because HttpOnly cookies are not accessible
  * to browser JavaScript — only the Next.js server can read them.

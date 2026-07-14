@@ -3,152 +3,167 @@
 /**
  * src/components/admin/EligibilityEngine.tsx
  *
- * Eligibility Engine — client-side scoring algorithm + scorecard UI.
+ * Eligibility Engine — backend-powered scorecard UI.
  *
- * Receives the client's full intakeProfile as a prop and runs a
- * 100-point scoring algorithm locally (no network call). The scorecard
- * shows a large numeric score, a coloured status badge, an animated
- * progress bar, and a detailed reasons breakdown table.
+ * On mount, automatically fetches the eligibility score from the backend
+ * via the internal Next.js proxy at:
+ *   GET /api/admin/clients/{clientId}/eligibility
  *
- * Algorithm (out of 100):
- *   Base score  = 50
- *   Income      < $3 000/mo  → +20   |   > $5 000/mo  → -20
- *   Disability  = true       → +15
- *   Unemployed  (isEmployed=false) → +15
- *   Vehicle     (hasCar)     → -5
- *   Tax refund  (expectingRefund) → -5
- *   Score is clamped to [0, 100].
+ * The proxy reads the HttpOnly admin_session cookie server-side and forwards
+ * it as a Bearer token to the Render backend. This component never touches
+ * the cookie directly — it simply calls the internal proxy URL.
  *
- * Status:
- *   ≥ 80  → Highly Eligible   (green)
- *   50–79 → Review Required   (amber)
- *   < 50  → Ineligible        (red)
+ * UI states:
+ *   loading  — Spinner while the fetch is in-flight
+ *   error    — Generic error with a retry button
+ *   no-intake — 422 from backend (client hasn't completed intake yet)
+ *   result   — Full scorecard (score, status band, reasons breakdown)
+ *
+ * Props:
+ *   clientId — UUID of the client to evaluate (required)
  */
 
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import styles from "./Eligibility.module.css";
-import type { IntakeProfile } from "./ClientProfileTabs";
 
-// ── Algorithm ─────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type EligibilityStatus = "Highly Eligible" | "Review Required" | "Ineligible";
 
 interface EligibilityResult {
-  totalScore: number;
-  status: "Highly Eligible" | "Review Required" | "Ineligible";
-  reasons: Array<{ label: string; delta: number }>;
+  score: number;
+  status: EligibilityStatus;
+  reasons: string[];
 }
 
-function calculateEligibility(ip: IntakeProfile | null): EligibilityResult {
-  if (!ip) {
-    return {
-      totalScore: 0,
-      status: "Ineligible",
-      reasons: [{ label: "No intake questionnaire on file", delta: 0 }],
-    };
-  }
-
-  let score = 50;
-  const reasons: Array<{ label: string; delta: number }> = [
-    { label: "Base score", delta: 50 },
-  ];
-
-  // ── Income ────────────────────────────────────────────────────────────────
-  const income = ip.monthlyIncome ?? 0;
-  if (income > 0 && income < 3_000) {
-    score += 20;
-    reasons.push({ label: `Low income (${fmt(income)}/mo < $3,000)`, delta: 20 });
-  } else if (income > 5_000) {
-    score -= 20;
-    reasons.push({ label: `High income (${fmt(income)}/mo > $5,000)`, delta: -20 });
-  }
-
-  // ── Disability ────────────────────────────────────────────────────────────
-  if (ip.hasDisability) {
-    score += 15;
-    reasons.push({ label: "Has a qualifying disability", delta: 15 });
-  }
-
-  // ── Employment ────────────────────────────────────────────────────────────
-  if (!ip.isEmployed) {
-    score += 15;
-    reasons.push({ label: "Currently unemployed", delta: 15 });
-  }
-
-  // ── Assets ────────────────────────────────────────────────────────────────
-  if (ip.hasCar) {
-    score -= 5;
-    reasons.push({ label: "Owns a vehicle", delta: -5 });
-  }
-  if (ip.expectingRefund) {
-    score -= 5;
-    reasons.push({ label: "Expecting a tax refund", delta: -5 });
-  }
-
-  // ── Clamp ─────────────────────────────────────────────────────────────────
-  const totalScore = Math.max(0, Math.min(100, score));
-
-  const status: EligibilityResult["status"] =
-    totalScore >= 80 ? "Highly Eligible" :
-    totalScore >= 50 ? "Review Required" :
-                       "Ineligible";
-
-  return { totalScore, status, reasons };
-}
-
-function fmt(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
+type Phase =
+  | { kind: "loading" }
+  | { kind: "no-intake" }
+  | { kind: "error"; message: string }
+  | { kind: "result"; data: EligibilityResult; fetchedAt: Date };
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface Props {
-  // Legacy prop — kept for compatibility if clientId is still passed somewhere
-  clientId?: string;
-  // New prop — full intake profile passed directly from the server component
-  intakeProfile?: IntakeProfile | null;
+  clientId: string;
+  // Legacy prop — retained so existing call-sites that still pass intakeProfile
+  // don't break. Not used for scoring (backend owns the algorithm).
+  intakeProfile?: unknown;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function EligibilityEngine({ intakeProfile }: Props) {
-  const [ran, setRan] = useState(false);
-  const result = useMemo(
-    () => (ran ? calculateEligibility(intakeProfile ?? null) : null),
-    [ran, intakeProfile]
-  );
-  const run    = useCallback(() => setRan(true),  []);
-  const reset  = useCallback(() => setRan(false), []);
+export default function EligibilityEngine({ clientId }: Props) {
+  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
 
-  if (!ran || !result) return <IdleView onRun={run} hasIntake={!!intakeProfile} />;
-  return <ResultView result={result} onRerun={reset} />;
+  const runFetch = useCallback(async () => {
+    setPhase({ kind: "loading" });
+
+    try {
+      const res = await fetch(`/api/admin/clients/${clientId}/eligibility`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        // No-cache: always get a fresh score when the tab is revisited.
+        cache: "no-store",
+      });
+
+      // 422 → client hasn't submitted intake yet
+      if (res.status === 422) {
+        setPhase({ kind: "no-intake" });
+        return;
+      }
+
+      // 404 → client record not found (edge case)
+      if (res.status === 404) {
+        setPhase({ kind: "no-intake" });
+        return;
+      }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { message?: string };
+        setPhase({
+          kind: "error",
+          message: body.message ?? `Unexpected error (HTTP ${res.status}).`,
+        });
+        return;
+      }
+
+      const json = await res.json() as {
+        eligibility?: EligibilityResult;
+        // legacy Brunner shape (backward-compat in case proxy returns old format)
+        analysis?: { overallScore?: string; isProng1Met?: boolean; isProng2Met?: boolean };
+      };
+
+      if (json.eligibility) {
+        setPhase({ kind: "result", data: json.eligibility, fetchedAt: new Date() });
+      } else {
+        // Shouldn't happen with the updated backend, but guard gracefully
+        setPhase({ kind: "error", message: "Received an unrecognised response from the server." });
+      }
+    } catch {
+      setPhase({ kind: "error", message: "Network error. Check your connection and try again." });
+    }
+  }, [clientId]);
+
+  // Fetch automatically on mount (and when clientId changes)
+  useEffect(() => {
+    runFetch();
+  }, [runFetch]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (phase.kind === "loading") return <LoadingView />;
+  if (phase.kind === "no-intake") return <NoIntakeView />;
+  if (phase.kind === "error") return <ErrorView message={phase.message} onRetry={runFetch} />;
+  return <ResultView result={phase.data} fetchedAt={phase.fetchedAt} onRefresh={runFetch} />;
 }
 
-// ── Idle view ─────────────────────────────────────────────────────────────────
+// ── Loading view ──────────────────────────────────────────────────────────────
 
-function IdleView({ onRun, hasIntake }: { onRun: () => void; hasIntake: boolean }) {
+function LoadingView() {
   return (
     <div className={styles.container}>
-      <div className={styles.idleState}>
-        <div className={styles.engineIcon}>
-          <ScaleIcon />
-        </div>
-        <p className={styles.idleTitle}>Eligibility Engine</p>
-        <p className={styles.idleSubtitle}>
-          {hasIntake
-            ? "Run the automated scoring algorithm to assess this client's eligibility for student loan discharge. The engine analyses income, disability status, employment, and assets to generate a 0–100 eligibility score."
-            : "This client has not yet completed their intake questionnaire. Eligibility scoring requires intake data."}
+      <div className={styles.loadingState}>
+        <div className={styles.spinner} aria-hidden />
+        <p className={`${styles.loadingLabel} ${styles.loadingDots}`}>
+          Calculating eligibility score
         </p>
-        <button
-          id="eligibility-run-btn"
-          className={styles.runBtn}
-          onClick={onRun}
-          disabled={!hasIntake}
-        >
-          <RunIcon />
-          {hasIntake ? "Run Eligibility Analysis" : "Awaiting Intake Data"}
+      </div>
+    </div>
+  );
+}
+
+// ── No-intake view ────────────────────────────────────────────────────────────
+
+function NoIntakeView() {
+  return (
+    <div className={styles.container}>
+      <div className={styles.errorState}>
+        <div className={styles.engineIcon}>
+          <ClockIcon />
+        </div>
+        <p className={styles.idleTitle}>Intake Incomplete</p>
+        <p className={styles.idleSubtitle}>
+          Intake incomplete. Waiting on client data to generate score.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Error view ────────────────────────────────────────────────────────────────
+
+function ErrorView({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className={styles.container}>
+      <div className={styles.errorState}>
+        <div className={styles.errorBadge}>
+          <AlertIcon />
+          <span>Error</span>
+        </div>
+        <p className={styles.idleSubtitle}>{message}</p>
+        <button id="eligibility-retry-btn" className={styles.runBtn} onClick={onRetry}>
+          <RerunIcon /> Retry
         </button>
       </div>
     </div>
@@ -159,12 +174,14 @@ function IdleView({ onRun, hasIntake }: { onRun: () => void; hasIntake: boolean 
 
 function ResultView({
   result,
-  onRerun,
+  fetchedAt,
+  onRefresh,
 }: {
   result: EligibilityResult;
-  onRerun: () => void;
+  fetchedAt: Date;
+  onRefresh: () => void;
 }) {
-  const { totalScore, status, reasons } = result;
+  const { score, status, reasons } = result;
 
   const cfg = {
     "Highly Eligible": {
@@ -202,15 +219,19 @@ function ResultView({
           <div>
             <p className={styles.reportTitle}>Eligibility Score Report</p>
             <p className={styles.reportMeta}>
-              Generated {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              Generated{" "}
+              {fetchedAt.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           </div>
           <button
-            id="eligibility-rerun-btn"
+            id="eligibility-refresh-btn"
             className={styles.rerunBtn}
-            onClick={onRerun}
+            onClick={onRefresh}
           >
-            <RerunIcon /> Re-run Analysis
+            <RerunIcon /> Refresh
           </button>
         </div>
 
@@ -218,17 +239,13 @@ function ResultView({
         <div className={`${styles.scoreBanner} ${cfg.bannerClass}`}>
           <div className={styles.scoreBannerLeft}>
             <span className={styles.scoreLabel}>Overall Verdict</span>
-            <p className={`${styles.scoreVerdict} ${cfg.verdictClass}`}>
-              {status}
-            </p>
+            <p className={`${styles.scoreVerdict} ${cfg.verdictClass}`}>{status}</p>
             <p className={styles.scoreDescription}>{cfg.description}</p>
           </div>
 
           {/* Big numeric score */}
           <div className={styles.scoreCircle}>
-            <span className={`${styles.scoreNumber} ${cfg.verdictClass}`}>
-              {totalScore}
-            </span>
+            <span className={`${styles.scoreNumber} ${cfg.verdictClass}`}>{score}</span>
             <span className={styles.scoreDenom}>/100</span>
           </div>
         </div>
@@ -237,21 +254,25 @@ function ResultView({
         <div className={styles.progressSection}>
           <div className={styles.progressHeader}>
             <span className={styles.progressLabel}>Score</span>
-            <span className={`${styles.scorePill} ${cfg.pillClass}`}>
-              {totalScore} pts
-            </span>
+            <span className={`${styles.scorePill} ${cfg.pillClass}`}>{score} pts</span>
           </div>
-          <div className={styles.progressTrack} role="progressbar" aria-valuenow={totalScore} aria-valuemin={0} aria-valuemax={100}>
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-valuenow={score}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
             <div
               className={`${styles.progressBar} ${cfg.barClass}`}
-              style={{ width: `${totalScore}%` }}
+              style={{ width: `${score}%` }}
             />
           </div>
           <div className={styles.progressTicks}>
             <span>0</span>
             <span>Ineligible</span>
-            <span className={styles.tickMid}>50 — Review</span>
-            <span>80 — Eligible</span>
+            <span className={styles.tickMid}>45 — Review</span>
+            <span>70 — Eligible</span>
             <span>100</span>
           </div>
         </div>
@@ -260,29 +281,34 @@ function ResultView({
         <div className={styles.financialsSection}>
           <p className={styles.sectionLabel}>Score Breakdown</p>
           <div className={styles.reasonsTable}>
-            {reasons.map((r, i) => (
-              <div key={i} className={styles.reasonRow}>
-                <span className={styles.reasonLabel}>{r.label}</span>
-                <span
-                  className={`${styles.reasonDelta} ${
-                    r.delta > 0
-                      ? styles.reasonDeltaPos
-                      : r.delta < 0
-                      ? styles.reasonDeltaNeg
-                      : styles.reasonDeltaBase
-                  }`}
-                >
-                  {r.delta > 0 ? `+${r.delta}` : r.delta === 0 ? `${r.delta}` : r.delta}
-                </span>
-              </div>
-            ))}
+            {reasons.map((reason, i) => {
+              // Parse the delta sign from the reason string so we can apply
+              // the correct colour class (backend sends plain text reasons).
+              const isPositive = reason.includes("(+") || reason.includes("+");
+              const isNegative = reason.includes("(−") || reason.includes("−") || reason.includes("(-") || reason.includes("-20") || reason.includes("-5");
+              const deltaClass =
+                i === 0
+                  ? styles.reasonDeltaBase   // "Base score" row
+                  : isNegative
+                  ? styles.reasonDeltaNeg
+                  : isPositive
+                  ? styles.reasonDeltaPos
+                  : styles.reasonDeltaBase;
+
+              return (
+                <div key={i} className={styles.reasonRow}>
+                  <span className={styles.reasonLabel}>{reason}</span>
+                  <span className={`${styles.reasonDelta} ${deltaClass}`} aria-hidden />
+                </div>
+              );
+            })}
             {/* Total row */}
             <div className={`${styles.reasonRow} ${styles.reasonRowTotal}`}>
               <span className={styles.reasonLabel}>
                 <strong>Final Score</strong>
               </span>
               <span className={`${styles.reasonDelta} ${cfg.verdictClass}`}>
-                <strong>{totalScore} / 100</strong>
+                <strong>{score} / 100</strong>
               </span>
             </div>
           </div>
@@ -295,27 +321,58 @@ function ResultView({
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
-function ScaleIcon() {
+function ClockIcon() {
   return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="16 16 12 12 8 16" />
-      <line x1="12" y1="12" x2="12" y2="21" />
-      <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#818cf8"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
     </svg>
   );
 }
 
-function RunIcon() {
+function AlertIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polygon points="5 3 19 12 5 21 5 3" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
   );
 }
 
 function RerunIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <polyline points="1 4 1 10 7 10" />
       <path d="M3.51 15a9 9 0 1 0 .49-4" />
     </svg>

@@ -280,7 +280,7 @@ export default function ClientProfileTabs({ client }: { client: ClientData }) {
         hidden={activeTab !== "documents"}
       >
         {activeTab === "documents" && (
-          <EligibilityEngine intakeProfile={ip} />
+          <EligibilityEngine clientId={client.id} intakeProfile={ip} />
         )}
       </div>
 
