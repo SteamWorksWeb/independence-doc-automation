@@ -21,6 +21,7 @@
  */
 
 import { useState, useCallback, useId } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./AdminAuthForm.module.css";
 
 interface FieldErrors {
@@ -78,6 +79,7 @@ function EyeIcon({ open }: { open: boolean }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AdminAuthForm() {
+  const router = useRouter();
   const uid = useId();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -117,7 +119,8 @@ export default function AdminAuthForm() {
           setErrors({ general: "Access denied." });
         } else {
           // Hardcoded — never rely on data.redirectTo to avoid any missing-field foot-guns
-          window.location.href = "/admin/dashboard";
+          // Use router.push for smooth SPA navigation (no hard reload / race condition)
+          router.push("/admin/dashboard");
         }
       } catch {
         setErrors({ general: "Connection error. Try again." });
