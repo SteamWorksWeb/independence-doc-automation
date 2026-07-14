@@ -8,19 +8,19 @@
  * Tabs:
  *   1. Personal & Financials  — demographic data, income, itemized DOJ expenses
  *   2. Debt & Hardship        — total debt, student loans, schools, narrative
- *   3. Eligibility Engine     — Brunner Test automated eligibility analysis
- *   4. Messages               — placeholder (Secure Messaging Coming Soon)
+ *   3. Eligibility Engine     — backend-powered automated eligibility scoring
+ *   4. Messages               — secure attorney-client messaging (live)
  *
  * Props:
  *   client — the full client record returned by GET /api/v1/admin/clients/:id
  *
  * This is a Client Component because it manages tab-switching state.
- * All data rendering is pure — no client-side fetching happens here.
  */
 
 import React, { useState } from "react";
 import styles from "./ClientProfile.module.css";
 import EligibilityEngine from "./EligibilityEngine";
+import MessagesTab from "./MessagesTab";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -284,7 +284,7 @@ export default function ClientProfileTabs({ client }: { client: ClientData }) {
         )}
       </div>
 
-      {/* Tab 4: Messages (placeholder) */}
+      {/* Tab 4: Messages */}
       <div
         id="panel-messages"
         role="tabpanel"
@@ -292,18 +292,7 @@ export default function ClientProfileTabs({ client }: { client: ClientData }) {
         hidden={activeTab !== "messages"}
       >
         {activeTab === "messages" && (
-          <div className={styles.placeholder}>
-            <div className={styles.placeholderIcon}>
-              <MessageIconLg />
-            </div>
-            <p className={styles.placeholderTitle}>Secure Messaging</p>
-            <p className={styles.placeholderBody}>
-              End-to-end encrypted messaging between the attorney and this client
-              will be available here. All communications will be logged and
-              protected under attorney-client privilege.
-            </p>
-            <span className={styles.placeholderBadge}>Coming Soon</span>
-          </div>
+          <MessagesTab clientId={client.id} />
         )}
       </div>
     </div>
