@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 60 * 60 * 8, // 8 hours — matches backend token lifetime
-    path: "/admin",       // Scoped to /admin/* only — not accessible from client routes
+    path: "/",            // Must be "/" so the cookie is sent on /api/admin/* proxy routes
   });
 
   return response;
