@@ -7,6 +7,7 @@
  */
 
 import type { Metadata } from "next";
+import Link from "next/link";
 import { cookies, headers } from "next/headers";
 
 export const metadata: Metadata = {
@@ -232,12 +233,13 @@ export default async function CasesPage() {
                       {formatDate(caseRow.lastUpdated)}
                     </td>
                     <td className="py-3.5 px-4 last:pr-6 align-middle">
-                      <span
-                        className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast cursor-pointer hover:text-crimson-hover hover:underline"
+                      <Link
+                        href={`/admin/cases/${caseRow.clientId}`}
+                        className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
                         title={`Manage case ${caseRow.caseId}`}
                       >
                         Manage →
-                      </span>
+                      </Link>
                     </td>
                   </tr>
                 ))}
