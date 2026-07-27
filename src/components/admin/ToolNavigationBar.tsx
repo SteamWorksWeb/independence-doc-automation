@@ -39,6 +39,7 @@ interface NavItem {
   id: string;
   label: string;
   icon: React.ReactNode;
+  href?: string;        // if set (and no dropdown), renders a direct <Link>
   dropdown?: SubItem[];
 }
 
@@ -49,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "home",
     label: "Home",
     icon: <HomeIcon />,
+    href: "/admin/dashboard",
   },
   {
     id: "discharge-snapshot",
@@ -124,6 +126,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "student-loan-calc",
     label: "Student Loan Calculator",
     icon: <CalculatorIcon />,
+    href: "/admin/student-loan-calculator",
   },
 ];
 
@@ -264,10 +267,10 @@ export default function ToolNavigationBar() {
             return (
               <div key={item.id} className="relative">
                 {/* Home links to /admin/dashboard; others are dropdown buttons */}
-                {item.id === "home" ? (
+                {item.href ? (
                   <Link
-                    href="/admin/dashboard"
-                    id="tool-nav-home"
+                    href={item.href}
+                    id={`tool-nav-${item.id}`}
                     className={baseClass}
                     onClick={() => setActiveNav(null)}
                   >
