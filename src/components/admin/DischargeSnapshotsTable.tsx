@@ -7,22 +7,21 @@
  * Mirrors the Client Pipeline dashboard layout:
  *   • Stat-pill strip (Total, Incomplete, Dischargeable, Not Dischargeable)
  *   • Horizontal filter-tab bar (All | Incomplete | Yes | No)
- *   • Styled data table with badge pills + Action dropdown
- *   • Edit modal on "View" click
- *   • Confirmation modals for Archive, Delete, and Change Status actions
+ *   • Styled data table with badge pills
+ *   • "Manage" button per row → centralized action modal (no dropdown)
+ *   • Confirmation modals for Archive, Delete, and Change Status
  *
  * Auth / data-fetching stays upstream in the Server Component (page.tsx).
  * This component is purely presentational + interactive.
  */
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import ReactDOM from "react-dom";
+import React, { useState, useMemo, useEffect } from "react";
 import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type DischargeFilter = "All" | "Incomplete" | "Yes" | "No";
-type ModalType = "archive" | "delete" | "status";
+type ModalType = "manage" | "archive" | "delete" | "status";
 
 interface ActiveModal {
   type: ModalType;
@@ -132,7 +131,6 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
   const [borrowers, setBorrowers] = useState<SnapshotBorrower[]>(initialBorrowers);
 
   const [activeFilter, setActiveFilter] = useState<DischargeFilter>("All");
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [editBorrower, setEditBorrower] = useState<SnapshotBorrower | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("Incomplete");
@@ -167,7 +165,6 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
 
   // ── Modal helpers ───────────────────────────────────────────────────────────
   function openModal(type: ModalType, snapshot: SnapshotBorrower) {
-    setOpenDropdown(null);
     setSelectedStatus(snapshot.dischargeable);
     setActiveModal({ type, snapshot });
   }
@@ -184,9 +181,6 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
 
   function handleArchive() {
     if (!activeModal) return;
-    // Optimistically mark as "No" (Not Dischargeable / archived) — backend will
-    // track the real "Archived" status; this keeps the UI consistent with the
-    // existing dischargeable type until we expand the type system.
     setBorrowers((prev) =>
       prev.map((b) =>
         b.id === activeModal.snapshot.id ? { ...b, dischargeable: "No" } : b
@@ -202,10 +196,12 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
         ? "Yes"
         : selectedStatus === "Not Started" || selectedStatus === "Archived"
         ? "No"
-        : "Incomplete"; // "Incomplete" maps directly
+        : "Incomplete";
     setBorrowers((prev) =>
       prev.map((b) =>
-        b.id === activeModal.snapshot.id ? { ...b, dischargeable: mapped as SnapshotBorrower["dischargeable"] } : b
+        b.id === activeModal.snapshot.id
+          ? { ...b, dischargeable: mapped as SnapshotBorrower["dischargeable"] }
+          : b
       )
     );
     closeModal();
@@ -320,11 +316,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
         )}
 
         {/* ── Data table ─────────────────────────────────────────────────── */}
-        {/* Outer div is overflow-visible so the Action dropdown can escape the
-             card's bounding box without creating a scrollbar. The inner div
-             handles horizontal scroll for narrow viewports. */}
         {hasData && filtered.length > 0 && (
-          <div className="overflow-visible">
           <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
             <table
               className="w-full border-collapse text-sm min-w-[720px]"
@@ -360,7 +352,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
                         id={`ds-row-${borrower.id}`}
                         type="button"
                         onClick={() => setEditBorrower(borrower)}
-                        className="text-navy font-medium no-underline transition-[color] duration-150 hover:text-crimson hover:underline cursor-pointer bg-transparent border-none text-left text-[0.9375rem]"
+                        className="text-navy font-medium transition-[color] duration-150 hover:text-crimson hover:underline cursor-pointer bg-transparent border-none text-left text-[0.9375rem]"
                       >
                         {borrower.lastName}, {borrower.firstName}
                       </button>
@@ -396,28 +388,25 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
                       </span>
                     </td>
 
-                    {/* Action */}
+                    {/* Action — single Manage button, no dropdown */}
                     <td className="py-3.5 px-4 pr-6 align-middle">
-                      <SnapshotActionCell
-                        borrower={borrower}
-                        isOpen={openDropdown === borrower.id}
-                        onToggle={() =>
-                          setOpenDropdown(openDropdown === borrower.id ? null : borrower.id)
-                        }
-                        onView={() => {
-                          setOpenDropdown(null);
-                          setEditBorrower(borrower);
-                        }}
-                        onChangeStatus={() => openModal("status", borrower)}
-                        onArchive={() => openModal("archive", borrower)}
-                        onDelete={() => openModal("delete", borrower)}
-                      />
+                      <button
+                        id={`ds-manage-${borrower.id}`}
+                        type="button"
+                        onClick={() => openModal("manage", borrower)}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md border border-[#2563eb] text-[#2563eb] text-[0.8125rem] font-semibold bg-white hover:bg-[#eff4ff] transition-colors duration-150 cursor-pointer whitespace-nowrap"
+                        aria-label={`Manage snapshot for ${borrower.firstName} ${borrower.lastName}`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <circle cx="12" cy="12" r="3" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+                        </svg>
+                        Manage
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
           </div>
         )}
 
@@ -454,25 +443,137 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
         />
       )}
 
-      {/* ── Confirmation Modals (rendered at fragment root to escape table overflow) ── */}
+      {/* ═══════════════════════════════════════════════════════════════════════
+          MODALS — rendered at fragment root to escape table overflow entirely
+          ═══════════════════════════════════════════════════════════════════════ */}
 
-      {/* DELETE modal */}
+      {/* ── MANAGE modal ─────────────────────────────────────────────────── */}
+      {activeModal?.type === "manage" && (
+        <ModalOverlay onClose={closeModal}>
+          <div className="w-full max-w-[460px] bg-white rounded-xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-navy px-6 py-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-white/60 text-[0.6875rem] font-semibold tracking-[0.07em] uppercase mb-0.5">
+                  Manage Snapshot
+                </p>
+                <h3 className="font-serif font-bold text-white text-[1.125rem] leading-tight">
+                  {activeModal.snapshot.firstName} {activeModal.snapshot.lastName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-white/60 hover:text-white transition-colors duration-150 cursor-pointer mt-0.5 shrink-0"
+                aria-label="Close"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body — action list */}
+            <div className="px-5 py-4 flex flex-col gap-1">
+
+              {/* ── Primary actions ── */}
+              <p className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted px-1 mb-1">
+                Primary Actions
+              </p>
+
+              <ManageActionBtn
+                icon={<EditIcon />}
+                label="Edit Snapshot"
+                color="blue"
+                onClick={() => {
+                  closeModal();
+                  setEditBorrower(activeModal.snapshot);
+                }}
+              />
+              <ManageActionBtn
+                icon={<PrintIcon />}
+                label="Print Snapshot"
+                color="default"
+                onClick={() => console.log("Action Triggered")}
+              />
+              <ManageActionBtn
+                icon={<DownloadIcon />}
+                label="Download Snapshot"
+                color="default"
+                onClick={() => console.log("Action Triggered")}
+              />
+              <ManageActionBtn
+                icon={<ConvertIcon />}
+                label="Convert to Client"
+                color="purple"
+                onClick={() => console.log("Action Triggered")}
+              />
+
+              {/* ── Divider ── */}
+              <hr className="my-2 border-border" />
+
+              {/* ── State / admin actions ── */}
+              <p className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted px-1 mb-1">
+                Pipeline Actions
+              </p>
+
+              <ManageActionBtn
+                icon={<StatusIcon />}
+                label="Change Status"
+                color="navy"
+                onClick={() =>
+                  setActiveModal({ type: "status", snapshot: activeModal.snapshot })
+                }
+              />
+              <ManageActionBtn
+                icon={<ArchiveIcon />}
+                label="Archive Snapshot"
+                color="warning"
+                onClick={() =>
+                  setActiveModal({ type: "archive", snapshot: activeModal.snapshot })
+                }
+              />
+
+              {/* ── Divider ── */}
+              <hr className="my-2 border-border" />
+
+              {/* ── Destructive ── */}
+              <ManageActionBtn
+                icon={<TrashIcon />}
+                label="Delete Snapshot"
+                color="danger"
+                onClick={() =>
+                  setActiveModal({ type: "delete", snapshot: activeModal.snapshot })
+                }
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 pb-5 pt-1">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="w-full py-2.5 rounded-lg border border-border text-[0.875rem] font-semibold text-text-secondary bg-white hover:bg-bg transition-colors duration-150 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </ModalOverlay>
+      )}
+
+      {/* ── DELETE modal ─────────────────────────────────────────────────── */}
       {activeModal?.type === "delete" && (
         <ModalOverlay onClose={closeModal}>
           <div className="w-full max-w-[440px] bg-white rounded-xl shadow-2xl overflow-hidden">
-            {/* Header */}
             <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                </svg>
+                <TrashIcon color="white" />
               </div>
               <h3 className="font-serif font-bold text-white text-[1.0625rem]">
                 Permanently Delete Snapshot
               </h3>
             </div>
-
-            {/* Body */}
             <div className="px-6 py-5">
               <p className="text-[0.9rem] text-text-secondary leading-relaxed">
                 Are you sure you want to delete the snapshot for{" "}
@@ -482,15 +583,13 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
                 ? This action cannot be undone and all borrower data will be permanently erased.
               </p>
             </div>
-
-            {/* Footer */}
             <div className="px-6 pb-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={() => setActiveModal({ type: "manage", snapshot: activeModal.snapshot })}
                 className="px-5 py-2.5 rounded-lg border border-border text-[0.875rem] font-semibold text-text-secondary bg-white hover:bg-bg transition-colors duration-150 cursor-pointer"
               >
-                Cancel
+                ← Back
               </button>
               <button
                 type="button"
@@ -504,23 +603,18 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
         </ModalOverlay>
       )}
 
-      {/* ARCHIVE modal */}
+      {/* ── ARCHIVE modal ────────────────────────────────────────────────── */}
       {activeModal?.type === "archive" && (
         <ModalOverlay onClose={closeModal}>
           <div className="w-full max-w-[440px] bg-white rounded-xl shadow-2xl overflow-hidden">
-            {/* Header */}
             <div className="bg-warning px-6 py-4 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
-                </svg>
+                <ArchiveIcon color="white" />
               </div>
               <h3 className="font-serif font-bold text-white text-[1.0625rem]">
                 Archive Snapshot
               </h3>
             </div>
-
-            {/* Body */}
             <div className="px-6 py-5">
               <p className="text-[0.9rem] text-text-secondary leading-relaxed">
                 Archiving the snapshot for{" "}
@@ -530,15 +624,13 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
                 will remove it from the active pipeline view. You can restore it later by filtering for archived records.
               </p>
             </div>
-
-            {/* Footer */}
             <div className="px-6 pb-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={() => setActiveModal({ type: "manage", snapshot: activeModal.snapshot })}
                 className="px-5 py-2.5 rounded-lg border border-border text-[0.875rem] font-semibold text-text-secondary bg-white hover:bg-bg transition-colors duration-150 cursor-pointer"
               >
-                Cancel
+                ← Back
               </button>
               <button
                 type="button"
@@ -552,23 +644,18 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
         </ModalOverlay>
       )}
 
-      {/* CHANGE STATUS modal */}
+      {/* ── CHANGE STATUS modal ──────────────────────────────────────────── */}
       {activeModal?.type === "status" && (
         <ModalOverlay onClose={closeModal}>
           <div className="w-full max-w-[440px] bg-white rounded-xl shadow-2xl overflow-hidden">
-            {/* Header */}
             <div className="bg-navy px-6 py-4 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
+                <StatusIcon color="white" />
               </div>
               <h3 className="font-serif font-bold text-white text-[1.0625rem]">
                 Override Pipeline Status
               </h3>
             </div>
-
-            {/* Body */}
             <div className="px-6 py-5 flex flex-col gap-4">
               <p className="text-[0.9rem] text-text-secondary leading-relaxed">
                 Manually set the pipeline status for{" "}
@@ -578,10 +665,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
                 .
               </p>
               <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="ds-status-select"
-                  className="text-[0.8125rem] font-semibold text-text-primary"
-                >
+                <label htmlFor="ds-status-select" className="text-[0.8125rem] font-semibold text-text-primary">
                   New Status
                 </label>
                 <div className="relative">
@@ -604,15 +688,13 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
                 </div>
               </div>
             </div>
-
-            {/* Footer */}
             <div className="px-6 pb-6 flex items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={() => setActiveModal({ type: "manage", snapshot: activeModal.snapshot })}
                 className="px-5 py-2.5 rounded-lg border border-border text-[0.875rem] font-semibold text-text-secondary bg-white hover:bg-bg transition-colors duration-150 cursor-pointer"
               >
-                Cancel
+                ← Back
               </button>
               <button
                 type="button"
@@ -638,7 +720,6 @@ function ModalOverlay({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  // Lock background scroll while modal is open
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
@@ -657,217 +738,94 @@ function ModalOverlay({
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Manage action button ──────────────────────────────────────────────────────
 
-function SnapshotActionCell({
-  borrower,
-  isOpen,
-  onToggle,
-  onView,
-  onChangeStatus,
-  onArchive,
-  onDelete,
+const COLOR_MAP: Record<string, string> = {
+  blue:    "text-[#2563eb] hover:bg-[#eff4ff]",
+  purple:  "text-[#7c3aed] hover:bg-[#f5f3ff]",
+  navy:    "text-navy hover:bg-bg",
+  warning: "text-warning hover:bg-warning-bg",
+  danger:  "text-red-600 hover:bg-red-50",
+  default: "text-text-secondary hover:bg-bg hover:text-navy",
+};
+
+function ManageActionBtn({
+  icon,
+  label,
+  color = "default",
+  onClick,
 }: {
-  borrower: SnapshotBorrower;
-  isOpen: boolean;
-  onToggle: () => void;
-  onView: () => void;
-  onChangeStatus: () => void;
-  onArchive: () => void;
-  onDelete: () => void;
+  icon: React.ReactNode;
+  label: string;
+  color?: string;
+  onClick: () => void;
 }) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
-
-  // Compute fixed position from trigger's bounding rect each time the menu opens.
-  // Using position:fixed + viewport coords means NO ancestor overflow rule can clip it.
-  useEffect(() => {
-    if (!isOpen || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    setMenuStyle({
-      position: "fixed",
-      top: rect.bottom + 4,
-      // Align right edge of menu with right edge of button
-      right: window.innerWidth - rect.right,
-      zIndex: 9999,
-      minWidth: 210,
-    });
-  }, [isOpen]);
-
-  // Outside-click: close if click lands outside BOTH the trigger AND the portal menu
-  useEffect(() => {
-    if (!isOpen) return;
-    function handleOutside(e: MouseEvent) {
-      const target = e.target as Node;
-      if (
-        triggerRef.current?.contains(target) ||
-        menuRef.current?.contains(target)
-      ) return;
-      onToggle();
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [isOpen, onToggle]);
-
-  // Close on scroll or resize — menu position would be stale
-  useEffect(() => {
-    if (!isOpen) return;
-    const close = () => onToggle();
-    window.addEventListener("scroll", close, { passive: true, capture: true });
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("scroll", close, { capture: true });
-      window.removeEventListener("resize", close);
-    };
-  }, [isOpen, onToggle]);
-
-  // The portal menu content — rendered into document.body via createPortal
-  const menuContent = (
-    <div
-      ref={menuRef}
-      style={menuStyle}
-      className="bg-white rounded-lg border border-border shadow-lg py-1 animate-fade-in"
-      role="menu"
-      aria-labelledby={`ds-menu-trigger-${borrower.id}`}
-    >
-      <div className="px-3 py-2 border-b border-border">
-        <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
-          Actions
-        </span>
-      </div>
-
-      {/* Edit Snapshot */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-[#2563eb] hover:bg-[#eff4ff]"
-        onClick={onView}
-      >
-        Edit Snapshot
-      </button>
-
-      {/* Print Snapshot */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-text-secondary hover:bg-bg hover:text-navy inline-flex items-center gap-2"
-        onClick={() => console.log("Action Triggered")}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
-        </svg>
-        Print Snapshot
-      </button>
-
-      {/* Convert to Client */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-[#7c3aed] hover:bg-[#f5f3ff] inline-flex items-center gap-2"
-        onClick={() => console.log("Action Triggered")}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
-        </svg>
-        Convert to Client
-      </button>
-
-      {/* Download Snapshot */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-success hover:bg-success-bg inline-flex items-center gap-2"
-        onClick={() => console.log("Action Triggered")}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-        Download Snapshot
-      </button>
-
-      {/* ── Divider before admin / destructive actions ── */}
-      <div className="my-1 border-t border-border" />
-
-      {/* Change Status */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-navy hover:bg-bg inline-flex items-center gap-2"
-        onClick={onChangeStatus}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-        Change Status
-      </button>
-
-      {/* Archive Snapshot */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-warning hover:bg-warning-bg inline-flex items-center gap-2"
-        onClick={onArchive}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
-        </svg>
-        Archive Snapshot
-      </button>
-
-      {/* Delete Snapshot */}
-      <button
-        type="button"
-        role="menuitem"
-        className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-red-600 hover:bg-red-50 inline-flex items-center gap-2"
-        onClick={onDelete}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-        </svg>
-        Delete Snapshot
-      </button>
-    </div>
-  );
-
   return (
-    <div className="flex items-center gap-2">
-      {/* View / edit */}
-      <button
-        id={`ds-view-${borrower.id}`}
-        type="button"
-        onClick={onView}
-        className="text-[0.8125rem] font-semibold text-crimson whitespace-nowrap transition-[color] duration-150 hover:underline cursor-pointer bg-transparent border-none"
-        aria-label={`View snapshot for ${borrower.firstName} ${borrower.lastName}`}
-      >
-        View
-      </button>
-
-      {/* Chevron trigger — portal menu is rendered at document.body */}
-      <button
-        ref={triggerRef}
-        type="button"
-        id={`ds-menu-trigger-${borrower.id}`}
-        onClick={onToggle}
-        className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-border bg-white text-text-secondary cursor-pointer transition-all duration-150 ease-in-out hover:bg-bg hover:border-navy hover:text-navy"
-        aria-haspopup="true"
-        aria-expanded={isOpen}
-        aria-label={`Actions for ${borrower.firstName} ${borrower.lastName}`}
-      >
-        <ChevronDownIcon />
-      </button>
-
-      {/* Portal: menu is mounted on document.body — no ancestor overflow can clip it */}
-      {isOpen && typeof document !== "undefined" &&
-        ReactDOM.createPortal(menuContent, document.body)}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[0.875rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-left ${COLOR_MAP[color] ?? COLOR_MAP.default}`}
+    >
+      <span className="shrink-0 w-4 flex items-center justify-center">{icon}</span>
+      {label}
+    </button>
   );
 }
 
-function ChevronDownIcon() {
+// ── Inline SVG Icons ──────────────────────────────────────────────────────────
+
+function EditIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="6 9 12 15 18 9" />
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function PrintIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function ConvertIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
+  );
+}
+
+function StatusIcon({ color = "currentColor" }: { color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function ArchiveIcon({ color = "currentColor" }: { color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="21 8 21 21 3 21 3 8" /><rect x="1" y="3" width="22" height="5" /><line x1="10" y1="12" x2="14" y2="12" />
+    </svg>
+  );
+}
+
+function TrashIcon({ color = "currentColor" }: { color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   );
 }
