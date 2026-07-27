@@ -67,6 +67,7 @@ const NAV_ITEMS: NavItem[] = [
     dropdown: [
       {
         label: "General Info",
+        icon: <InfoIcon />,
         items: [
           { label: "About",          icon: <InfoIcon /> },
           { label: "Instructions",   icon: <BookOpenIcon /> },
@@ -79,6 +80,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Submit to AUSA", icon: <SendIcon /> },
       {
         label: "View",
+        icon: <FolderIcon />,
         items: [
           { label: "View Archived", icon: <ArchiveIcon /> },
           { label: "View Existing", icon: <SubListIcon /> },
@@ -93,6 +95,7 @@ const NAV_ITEMS: NavItem[] = [
     dropdown: [
       {
         label: "General Info",
+        icon: <InfoIcon />,
         items: [
           { label: "About",         icon: <InfoIcon /> },
           { label: "Instructions",  icon: <BookOpenIcon /> },
@@ -104,6 +107,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Submit to Servicer",  icon: <SendIcon /> },
       {
         label: "View",
+        icon: <FolderIcon />,
         items: [
           { label: "View Archived", icon: <ArchiveIcon /> },
           { label: "View Existing", icon: <SubListIcon /> },
@@ -791,6 +795,14 @@ function SubListIcon() {
       <line x1="3" y1="6" x2="3.01" y2="6" />
       <line x1="3" y1="12" x2="3.01" y2="12" />
       <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
