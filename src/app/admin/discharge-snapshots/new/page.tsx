@@ -15,7 +15,11 @@
  *   6 — Employment & Health (4 × Yes/No dropdowns)
  *   7 — Education & Age    (3 × Yes/No + date + Yes/No)
  *
- * On final step "Submit Discharge Snapshot" → console.log + router.push back to list.
+ * On final step "Submit Discharge Snapshot":
+ *   - POSTs to the Next.js proxy  POST /api/admin/discharge-snapshots
+ *   - Proxy forwards to backend   POST /api/v1/admin/discharge-snapshots
+ *   - 201 success  → router.push + router.refresh to list page
+ *   - Non-201      → inline error banner shown to the user
  */
 
 import React, { useState } from "react";
@@ -247,6 +251,8 @@ export default function NewDischargeSnapshotPage() {
   const [step, setStep] = useState(1);
   const [showWarning, setShowWarning] = useState(false);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const set = (key: keyof FormData) => (value: string) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -265,9 +271,42 @@ export default function NewDischargeSnapshotPage() {
     }
   }
 
-  function handleSubmit() {
-    console.log("Discharge Snapshot Form Data:", formData);
-    router.push("/admin/discharge-snapshots");
+  async function handleSubmit() {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await fetch("/api/admin/discharge-snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Credentials not required for same-origin proxy calls, but kept for
+        // safety so cookies (including admin_session) are always forwarded.
+        credentials: "same-origin",
+        body: JSON.stringify(formData),
+      });
+
+      if (res.status === 201) {
+        // Success — navigate back to the list and bust the RSC cache
+        router.push("/admin/discharge-snapshots");
+        router.refresh();
+        return;
+      }
+
+      // Non-201: surface the backend error message if available
+      let errMsg = `Submission failed (HTTP ${res.status}). Please try again.`;
+      try {
+        const errBody = await res.json();
+        if (errBody?.message) errMsg = errBody.message;
+      } catch {
+        // ignore JSON parse errors on error responses
+      }
+      setSubmitError(errMsg);
+    } catch (networkErr) {
+      console.error("[wizard/handleSubmit] Network error:", networkErr);
+      setSubmitError("Network error — please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -607,14 +646,40 @@ export default function NewDischargeSnapshotPage() {
             />
           </div>
 
-          {/* Final submit button */}
-          <div className="mt-8 max-w-[480px]">
+          {/* Final submit button + error banner */}
+          <div className="mt-8 max-w-[480px] space-y-3">
+            {submitError && (
+              <div
+                role="alert"
+                className="flex items-start gap-3 rounded-lg border border-[#fca5a5] bg-[#fff1f2] px-4 py-3"
+              >
+                <svg
+                  className="mt-0.5 shrink-0 text-[#dc2626]"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <p className="text-[0.875rem] text-[#dc2626] leading-snug">{submitError}</p>
+              </div>
+            )}
+
             <button
               id="wizard-submit-btn"
               onClick={handleSubmit}
-              className="w-full py-4 bg-[#1d4ed8] text-white font-bold text-[0.9375rem] tracking-widest uppercase rounded hover:bg-[#1e40af] transition-colors duration-150 cursor-pointer shadow-md"
+              disabled={isSubmitting}
+              className="w-full py-4 bg-[#1d4ed8] text-white font-bold text-[0.9375rem] tracking-widest uppercase rounded hover:bg-[#1e40af] disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer shadow-md"
             >
-              Submit Discharge Snapshot
+              {isSubmitting ? "Submitting…" : "Submit Discharge Snapshot"}
             </button>
           </div>
         </section>
