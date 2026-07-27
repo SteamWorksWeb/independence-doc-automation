@@ -47,7 +47,19 @@ interface ApiSnapshot {
     /** Legacy / fallback: some older records may have a combined name field */
     name?: string | null;
     email?: string | null;
+    /**
+     * Phone on the Client model itself — present if the backend stores it there.
+     * Many backends store phone on IntakeProfile instead; see intakeProfile below.
+     */
     phone?: string | null;
+    /**
+     * Prisma `include: { client: { include: { intakeProfile: true } } }` will
+     * embed this nested object. Phone is authoritative here for the discharge
+     * snapshot flow because the wizard persists it to IntakeProfile.
+     */
+    intakeProfile?: {
+      phone?: string | null;
+    } | null;
   } | null;
   /** Optional: if the backend embeds admin user info for audit trail */
   createdByUser?: { firstName?: string; lastName?: string; name?: string } | null;
@@ -134,7 +146,12 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
       ? {
           id: snap.client.id ?? undefined,
           email: snap.client.email ?? undefined,
-          phone: snap.client.phone ?? undefined,
+          // Phone lives on IntakeProfile in the discharge-snapshot flow.
+          // Fall back to client.phone for any backend that stores it there directly.
+          phone:
+            snap.client.intakeProfile?.phone ??
+            snap.client.phone ??
+            undefined,
         }
       : undefined,
   };
