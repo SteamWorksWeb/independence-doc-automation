@@ -22,6 +22,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 
 interface SubItem {
   label: string;
+  href?: string;          // if set, renders a <Link> instead of a <button>
   items?: string[];
 }
 
@@ -46,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
     icon: <DischargeIcon />,
     dropdown: [
       { label: "Start New" },
-      { label: "View Existing" },
+      { label: "View Existing", href: "/admin/discharge-snapshots" },
     ],
   },
   {
@@ -314,18 +315,30 @@ function ToolNavDropdown({
     >
       {items.map((item, i) => (
         <div key={i} className="relative group/sub">
-          <button
-            role="menuitem"
-            className="w-full flex items-center justify-between px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer"
-            onClick={() => !item.items && onClose()}
-          >
-            <span>{item.label}</span>
-            {item.items && (
-              <span className="text-[#9ca3af]">
-                <ChevronRightIcon />
-              </span>
-            )}
-          </button>
+          {/* Render Link if href present, otherwise plain button */}
+          {item.href ? (
+            <Link
+              href={item.href}
+              role="menuitem"
+              className="w-full flex items-center justify-between px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100"
+              onClick={onClose}
+            >
+              {item.label}
+            </Link>
+          ) : (
+            <button
+              role="menuitem"
+              className="w-full flex items-center justify-between px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer"
+              onClick={() => !item.items && onClose()}
+            >
+              <span>{item.label}</span>
+              {item.items && (
+                <span className="text-[#9ca3af]">
+                  <ChevronRightIcon />
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Cascading sub-menu */}
           {item.items && (
