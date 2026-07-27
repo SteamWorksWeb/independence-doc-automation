@@ -171,7 +171,7 @@ export default function EditSnapshotModal({
     /* Overlay */
     <div
       id="edit-snapshot-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
@@ -247,7 +247,7 @@ export default function EditSnapshotModal({
         </div>
 
         {/* ── Scrollable form ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-2">
+        <div className="flex-1 overflow-y-auto px-6 py-2 pb-24 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full">
 
           <FieldRow label="Does borrower have federal student loans?">
             <YesNoSelect id="es-federal-loans" value={form.hasFederalLoans} onChange={set("hasFederalLoans")} />
