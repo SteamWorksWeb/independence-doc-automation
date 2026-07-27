@@ -24,6 +24,7 @@ export interface SnapshotBorrower {
   lastUpdatedBy: string;
   dischargeable: "Yes" | "Incomplete" | "No";
   lowestMonthlyPayment?: string;
+  pipelineStatus?: string; // e.g. "Archived" — separate from discharge eligibility
   client?: {
     id?: string;
     email?: string;

@@ -25,6 +25,7 @@ interface SubItem {
   label: string;
   href?: string;          // if set, renders a <Link> instead of a <button>
   action?: string;        // if set, fires a named callback instead of navigating
+  icon?: React.ReactNode; // optional leading icon
   items?: string[];
 }
 
@@ -48,9 +49,9 @@ const NAV_ITEMS: NavItem[] = [
     label: "Discharge SnapShot",
     icon: <DischargeIcon />,
     dropdown: [
-      { label: "Start New",     href: "/admin/discharge-snapshots/new" },
+      { label: "Start New",     href: "/admin/discharge-snapshots/new",  icon: <FilePlusIcon /> },
       { label: "Invite New",    action: "invite-borrower" },
-      { label: "View Existing", href: "/admin/discharge-snapshots" },
+      { label: "View Existing", href: "/admin/discharge-snapshots",      icon: <ListIcon /> },
     ],
   },
   {
@@ -354,9 +355,14 @@ function ToolNavDropdown({
             <Link
               href={item.href}
               role="menuitem"
-              className="w-full flex items-center justify-between px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100"
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100"
               onClick={onClose}
             >
+              {item.icon && (
+                <span className="text-[#b31e3c] opacity-70 shrink-0">
+                  {item.icon}
+                </span>
+              )}
               {item.label}
             </Link>
           ) : item.action ? (
@@ -618,6 +624,30 @@ function InviteIcon() {
       <circle cx="9" cy="7" r="4" />
       <line x1="19" y1="8" x2="19" y2="14" />
       <line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
+  );
+}
+
+function FilePlusIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="12" y1="18" x2="12" y2="12" />
+      <line x1="9" y1="15" x2="15" y2="15" />
+    </svg>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
     </svg>
   );
 }

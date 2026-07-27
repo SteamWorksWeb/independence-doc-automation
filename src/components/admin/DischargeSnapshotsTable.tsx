@@ -20,7 +20,7 @@ import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnap
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type DischargeFilter = "All" | "Incomplete" | "Yes" | "No";
+type DischargeFilter = "All" | "Incomplete" | "Yes" | "No" | "Archived";
 type ModalType = "manage" | "archive" | "delete" | "status";
 
 interface ActiveModal {
@@ -65,6 +65,17 @@ const FILTER_OPTIONS: { value: DischargeFilter; label: string; icon?: React.Reac
       </svg>
     ),
   },
+  {
+    value: "Archived",
+    label: "Archived",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <polyline points="21 8 21 21 3 21 3 8" />
+        <rect x="1" y="3" width="22" height="5" />
+        <line x1="10" y1="12" x2="14" y2="12" />
+      </svg>
+    ),
+  },
 ];
 
 const ACTIVE_PILL_STYLES: Record<DischargeFilter, string> = {
@@ -72,6 +83,7 @@ const ACTIVE_PILL_STYLES: Record<DischargeFilter, string> = {
   Incomplete: "bg-warning text-white shadow-sm",
   Yes: "bg-success text-white shadow-sm",
   No: "bg-text-muted text-white shadow-sm",
+  Archived: "bg-[#6b7280] text-white shadow-sm",
 };
 
 const STATUS_BADGE_STYLES: Record<SnapshotBorrower["dischargeable"], string> = {
@@ -145,8 +157,13 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
   // ── Derived counts ──────────────────────────────────────────────────────────
   const counts = useMemo(() => {
-    const map: Record<DischargeFilter, number> = { All: 0, Incomplete: 0, Yes: 0, No: 0 };
+    const map: Record<DischargeFilter, number> = { All: 0, Incomplete: 0, Yes: 0, No: 0, Archived: 0 };
     for (const b of borrowers) {
+      if (b.pipelineStatus === "Archived") {
+        map.Archived += 1;
+        // Archived records are intentionally excluded from All and sub-counts
+        continue;
+      }
       map.All += 1;
       if (b.dischargeable === "Incomplete") map.Incomplete += 1;
       else if (b.dischargeable === "Yes") map.Yes += 1;
@@ -159,8 +176,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   const filtered = useMemo(
     () =>
       activeFilter === "All"
-        ? borrowers
-        : borrowers.filter((b) => b.dischargeable === activeFilter),
+        ? borrowers.filter((b) => b.pipelineStatus !== "Archived")
+        : activeFilter === "Archived"
+        ? borrowers.filter((b) => b.pipelineStatus === "Archived")
+        : borrowers.filter((b) => b.dischargeable === activeFilter && b.pipelineStatus !== "Archived"),
     [borrowers, activeFilter]
   );
 
@@ -235,10 +254,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
         return;
       }
 
-      // Success — update local state and close
+      // Success — update pipelineStatus to Archived, leave dischargeable intact
       setBorrowers((prev) =>
         prev.map((b) =>
-          b.id === snapshotId ? { ...b, dischargeable: "No" } : b
+          b.id === snapshotId ? { ...b, pipelineStatus: "Archived" } : b
         )
       );
       closeModal();
