@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 /**
  * src/components/admin/ToolNavigationBar.tsx
  *
@@ -187,33 +189,49 @@ export default function ToolNavigationBar() {
         >
           {NAV_ITEMS.map((item) => {
             const isActive = activeNav === item.id;
+            const baseClass = `
+              flex flex-col items-center justify-center gap-1
+              px-4 py-3 min-w-[68px] border-b-2 transition-all duration-150
+              cursor-pointer text-center focus-visible:outline-none
+              ${isActive
+                ? "border-[#b31e3c] text-[#b31e3c] bg-[#fdf0ee]"
+                : "border-transparent text-[#4b5563] hover:text-[#b31e3c] hover:border-[#b31e3c] hover:bg-[#fdf8f7]"
+              }
+            `;
             return (
               <div key={item.id} className="relative">
-                <button
-                  id={`tool-nav-${item.id}`}
-                  onClick={() => handleNavClick(item.id, !!item.dropdown)}
-                  className={`
-                    flex flex-col items-center justify-center gap-1
-                    px-4 py-3 min-w-[68px] border-b-2 transition-all duration-150
-                    cursor-pointer text-center focus-visible:outline-none
-                    ${isActive
-                      ? "border-[#b31e3c] text-[#b31e3c] bg-[#fdf0ee]"
-                      : "border-transparent text-[#4b5563] hover:text-[#b31e3c] hover:border-[#b31e3c] hover:bg-[#fdf8f7]"
-                    }
-                  `}
-                  aria-haspopup={item.dropdown ? "true" : undefined}
-                  aria-expanded={isActive}
-                >
-                  <span className="text-current">{item.icon}</span>
-                  <span className="text-[0.6875rem] font-medium leading-tight whitespace-nowrap flex items-center gap-0.5">
-                    {item.label}
-                    {item.dropdown && (
-                      <span className={`ml-0.5 transition-transform duration-150 ${isActive ? "rotate-180" : ""}`}>
-                        <ChevronDownSmIcon />
-                      </span>
-                    )}
-                  </span>
-                </button>
+                {/* Home links to /admin/dashboard; others are dropdown buttons */}
+                {item.id === "home" ? (
+                  <Link
+                    href="/admin/dashboard"
+                    id="tool-nav-home"
+                    className={baseClass}
+                    onClick={() => setActiveNav(null)}
+                  >
+                    <span className="text-current">{item.icon}</span>
+                    <span className="text-[0.6875rem] font-medium leading-tight whitespace-nowrap">
+                      {item.label}
+                    </span>
+                  </Link>
+                ) : (
+                  <button
+                    id={`tool-nav-${item.id}`}
+                    onClick={() => handleNavClick(item.id, !!item.dropdown)}
+                    className={baseClass}
+                    aria-haspopup={item.dropdown ? "true" : undefined}
+                    aria-expanded={isActive}
+                  >
+                    <span className="text-current">{item.icon}</span>
+                    <span className="text-[0.6875rem] font-medium leading-tight whitespace-nowrap flex items-center gap-0.5">
+                      {item.label}
+                      {item.dropdown && (
+                        <span className={`ml-0.5 transition-transform duration-150 ${isActive ? "rotate-180" : ""}`}>
+                          <ChevronDownSmIcon />
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                )}
 
                 {/* Dropdown */}
                 {item.dropdown && isActive && (
