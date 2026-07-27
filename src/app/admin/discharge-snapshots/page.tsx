@@ -35,8 +35,8 @@ interface ApiSnapshot {
   status?: string;
   lowestMonthlyPayment?: number | string | null;
   client: {
-    firstName: string;
-    lastName: string;
+    /** Single combined name field as stored in the Prisma Client model */
+    name: string;
   };
   /** Optional: if the backend embeds admin user info for audit trail */
   createdByUser?: { firstName?: string; lastName?: string; name?: string } | null;
@@ -95,10 +95,15 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
     }
   }
 
+  // The DB stores a single `name` field (e.g. "John Doe"). Split on the
+  // first space so the table can show firstName / lastName columns.
+  const [first = '', ...rest] = snap.client.name?.trim().split(' ') ?? [];
+  const last = rest.join(' ');
+
   return {
     id: snap.id,
-    firstName: snap.client.firstName,
-    lastName: snap.client.lastName,
+    firstName: first,
+    lastName: last,
     created: formatTimestamp(snap.createdAt),
     createdBy: resolveUserName(snap.createdByUser),
     lastUpdated: formatTimestamp(snap.updatedAt),
