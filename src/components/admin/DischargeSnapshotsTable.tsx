@@ -136,6 +136,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("Incomplete");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingStatus, setIsSavingStatus] = useState(false);
 
   // Sync if server re-renders with fresh props
   useEffect(() => {
@@ -209,32 +210,91 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
     }
   }
 
-  function handleArchive() {
+  async function handleArchive() {
     if (!activeModal) return;
-    setBorrowers((prev) =>
-      prev.map((b) =>
-        b.id === activeModal.snapshot.id ? { ...b, dischargeable: "No" } : b
-      )
-    );
-    closeModal();
+    const snapshotId = activeModal.snapshot.id;
+
+    setIsSavingStatus(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots/${snapshotId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: "Archived" }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[archive-snapshot] Backend error:", res.status, body);
+        alert("Failed to archive snapshot. Please try again.");
+        return;
+      }
+
+      // Success — update local state and close
+      setBorrowers((prev) =>
+        prev.map((b) =>
+          b.id === snapshotId ? { ...b, dischargeable: "No" } : b
+        )
+      );
+      closeModal();
+    } catch (err) {
+      console.error("[archive-snapshot] Network error:", err);
+      alert("Failed to archive snapshot. Please check your connection and try again.");
+    } finally {
+      setIsSavingStatus(false);
+    }
   }
 
-  function handleStatusSave() {
+  async function handleStatusSave() {
     if (!activeModal) return;
-    const mapped =
+    const snapshotId = activeModal.snapshot.id;
+
+    const mapped: SnapshotBorrower["dischargeable"] =
       selectedStatus === "Complete"
         ? "Yes"
         : selectedStatus === "Not Started" || selectedStatus === "Archived"
         ? "No"
         : "Incomplete";
-    setBorrowers((prev) =>
-      prev.map((b) =>
-        b.id === activeModal.snapshot.id
-          ? { ...b, dischargeable: mapped as SnapshotBorrower["dischargeable"] }
-          : b
-      )
-    );
-    closeModal();
+
+    setIsSavingStatus(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots/${snapshotId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: selectedStatus }),
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[change-status] Backend error:", res.status, body);
+        alert("Failed to update status. Please try again.");
+        return;
+      }
+
+      // Success — update local state and close
+      setBorrowers((prev) =>
+        prev.map((b) =>
+          b.id === snapshotId ? { ...b, dischargeable: mapped } : b
+        )
+      );
+      closeModal();
+    } catch (err) {
+      console.error("[change-status] Network error:", err);
+      alert("Failed to update status. Please check your connection and try again.");
+    } finally {
+      setIsSavingStatus(false);
+    }
   }
 
   return (
@@ -666,9 +726,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
               <button
                 type="button"
                 onClick={handleArchive}
-                className="px-5 py-2.5 rounded-lg bg-warning text-white text-[0.875rem] font-bold hover:bg-[#d97706] transition-colors duration-150 cursor-pointer shadow-sm"
+                disabled={isSavingStatus}
+                className="px-5 py-2.5 rounded-lg bg-warning text-white text-[0.875rem] font-bold hover:bg-[#d97706] transition-colors duration-150 cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Archive Snapshot
+                {isSavingStatus ? "Archiving…" : "Archive Snapshot"}
               </button>
             </div>
           </div>
@@ -730,9 +791,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
               <button
                 type="button"
                 onClick={handleStatusSave}
-                className="px-5 py-2.5 rounded-lg bg-[#2563eb] text-white text-[0.875rem] font-bold hover:bg-[#1d4ed8] transition-colors duration-150 cursor-pointer shadow-sm"
+                disabled={isSavingStatus}
+                className="px-5 py-2.5 rounded-lg bg-[#2563eb] text-white text-[0.875rem] font-bold hover:bg-[#1d4ed8] transition-colors duration-150 cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Save Status
+                {isSavingStatus ? "Saving…" : "Save Status"}
               </button>
             </div>
           </div>
