@@ -21,12 +21,18 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface SubSubItem {
+  label: string;
+  icon?: React.ReactNode;
+  href?: string;
+}
+
 interface SubItem {
   label: string;
   href?: string;          // if set, renders a <Link> instead of a <button>
   action?: string;        // if set, fires a named callback instead of navigating
   icon?: React.ReactNode; // optional leading icon
-  items?: string[];
+  items?: SubSubItem[];   // if set, renders a cascading fly-out sub-menu
 }
 
 interface NavItem {
@@ -59,10 +65,25 @@ const NAV_ITEMS: NavItem[] = [
     label: "Bankruptcy Discharge Analyzer",
     icon: <BKAnalyzerIcon />,
     dropdown: [
-      { label: "General Info", items: ["View"] },
-      { label: "Start New" },
-      { label: "Submit to AUSA" },
-      { label: "View", items: ["List"] },
+      {
+        label: "General Info",
+        items: [
+          { label: "About",          icon: <InfoIcon /> },
+          { label: "Instructions",   icon: <BookOpenIcon /> },
+          { label: "Pricing",        icon: <DollarSignIcon /> },
+          { label: "Questionnaire",  icon: <FileTextIcon /> },
+          { label: "Sample Retainer",icon: <FileSignatureIcon /> },
+        ],
+      },
+      { label: "Start New",      icon: <PlusCircleIcon /> },
+      { label: "Submit to AUSA", icon: <SendIcon /> },
+      {
+        label: "View",
+        items: [
+          { label: "View Archived", icon: <ArchiveIcon /> },
+          { label: "View Existing", icon: <SubListIcon /> },
+        ],
+      },
     ],
   },
   {
@@ -70,10 +91,24 @@ const NAV_ITEMS: NavItem[] = [
     label: "Repayment Plan Analyzer",
     icon: <RepaymentIcon />,
     dropdown: [
-      { label: "General Info", items: ["View"] },
-      { label: "Start New" },
-      { label: "Submit to Servicer" },
-      { label: "View", items: ["List"] },
+      {
+        label: "General Info",
+        items: [
+          { label: "About",         icon: <InfoIcon /> },
+          { label: "Instructions",  icon: <BookOpenIcon /> },
+          { label: "Pricing",       icon: <DollarSignIcon /> },
+          { label: "Questionnaire", icon: <FileTextIcon /> },
+        ],
+      },
+      { label: "Start New",           icon: <PlusCircleIcon /> },
+      { label: "Submit to Servicer",  icon: <SendIcon /> },
+      {
+        label: "View",
+        items: [
+          { label: "View Archived", icon: <ArchiveIcon /> },
+          { label: "View Existing", icon: <SubListIcon /> },
+        ],
+      },
     ],
   },
   {
@@ -380,10 +415,19 @@ function ToolNavDropdown({
           ) : (
             <button
               role="menuitem"
-              className="w-full flex items-center justify-between px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer"
+              className={`w-full flex items-center gap-2 px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer ${
+                item.items ? "justify-between" : ""
+              }`}
               onClick={() => !item.items && onClose()}
             >
-              <span>{item.label}</span>
+              <span className="flex items-center gap-2">
+                {item.icon && (
+                  <span className="text-[#b31e3c] opacity-70 shrink-0">
+                    {item.icon}
+                  </span>
+                )}
+                {item.label}
+              </span>
               {item.items && (
                 <span className="text-[#9ca3af]">
                   <ChevronRightIcon />
@@ -396,16 +440,21 @@ function ToolNavDropdown({
           {item.items && (
             <div
               role="menu"
-              className="absolute left-full top-0 w-36 bg-white border border-[#dde2ea] rounded-lg shadow-lg py-1 opacity-0 invisible group-hover/sub:opacity-100 group-hover/sub:visible transition-all duration-150 z-[210]"
+              className="absolute left-full top-0 w-44 bg-white border border-[#dde2ea] rounded-lg shadow-lg py-1 opacity-0 invisible group-hover/sub:opacity-100 group-hover/sub:visible transition-all duration-150 z-[210]"
             >
               {item.items.map((sub, j) => (
                 <button
                   key={j}
                   role="menuitem"
-                  className="w-full text-left px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer"
+                  className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer"
                   onClick={onClose}
                 >
-                  {sub}
+                  {sub.icon && (
+                    <span className="text-[#b31e3c] opacity-70 shrink-0">
+                      {sub.icon}
+                    </span>
+                  )}
+                  {sub.label}
                 </button>
               ))}
             </div>
@@ -640,6 +689,100 @@ function FilePlusIcon() {
 }
 
 function ListIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+}
+
+// ── Analyzer dropdown icons ────────────────────────────────────────────────────
+
+function InfoIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+}
+
+function BookOpenIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+
+function DollarSignIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
+function FileTextIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  );
+}
+
+function FileSignatureIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 19.5v.5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8.5L18 5.5" />
+      <path d="M8 18h1l7-7-1-1-7 7z" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3" />
+    </svg>
+  );
+}
+
+function PlusCircleIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="16" />
+      <line x1="8" y1="12" x2="16" y2="12" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+function ArchiveIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="21 8 21 21 3 21 3 8" />
+      <rect x="1" y="3" width="22" height="5" />
+      <line x1="10" y1="12" x2="14" y2="12" />
+    </svg>
+  );
+}
+
+function SubListIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <line x1="8" y1="6" x2="21" y2="6" />
