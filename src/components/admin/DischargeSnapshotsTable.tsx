@@ -269,7 +269,11 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
         )}
 
         {/* ── Data table ─────────────────────────────────────────────────── */}
+        {/* Outer div is overflow-visible so the Action dropdown can escape the
+             card's bounding box without creating a scrollbar. The inner div
+             handles horizontal scroll for narrow viewports. */}
         {hasData && filtered.length > 0 && (
+          <div className="overflow-visible">
           <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
             <table
               className="w-full border-collapse text-sm min-w-[720px]"
@@ -361,6 +365,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
               </tbody>
             </table>
           </div>
+          </div>
         )}
 
         {/* ── Table footer ───────────────────────────────────────────────── */}
@@ -443,7 +448,7 @@ function SnapshotActionCell({
 
         {isOpen && (
           <div
-            className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[180px] bg-white rounded-lg border border-border shadow-lg py-1 animate-fade-in"
+            className="absolute right-0 top-[calc(100%+4px)] z-[200] min-w-[200px] bg-white rounded-lg border border-border shadow-lg py-1 animate-fade-in"
             role="menu"
             aria-labelledby={`ds-menu-trigger-${borrower.id}`}
           >
@@ -453,7 +458,7 @@ function SnapshotActionCell({
               </span>
             </div>
 
-            {/* Edit */}
+            {/* Edit Snapshot */}
             <button
               type="button"
               role="menuitem"
@@ -463,19 +468,44 @@ function SnapshotActionCell({
               Edit Snapshot
             </button>
 
-            {/* Download PDF — only when dischargeable */}
-            {borrower.dischargeable === "Yes" && (
-              <button
-                type="button"
-                role="menuitem"
-                className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-success hover:bg-success-bg inline-flex items-center gap-2"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Download PDF
-              </button>
-            )}
+            {/* Print Snapshot */}
+            <button
+              type="button"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-text-secondary hover:bg-bg hover:text-navy inline-flex items-center gap-2"
+              onClick={() => console.log('Action Triggered')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" />
+              </svg>
+              Print Snapshot
+            </button>
+
+            {/* Convert to Client */}
+            <button
+              type="button"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-[#7c3aed] hover:bg-[#f5f3ff] inline-flex items-center gap-2"
+              onClick={() => console.log('Action Triggered')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+              </svg>
+              Convert to Client
+            </button>
+
+            {/* Download Snapshot */}
+            <button
+              type="button"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-success hover:bg-success-bg inline-flex items-center gap-2"
+              onClick={() => console.log('Action Triggered')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Snapshot
+            </button>
           </div>
         )}
       </div>
