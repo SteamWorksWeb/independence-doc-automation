@@ -46,7 +46,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Discharge SnapShot",
     icon: <DischargeIcon />,
     dropdown: [
-      { label: "Start New" },
+      { label: "Start New", href: "/admin/discharge-snapshots/new" },
       { label: "View Existing", href: "/admin/discharge-snapshots" },
     ],
   },
