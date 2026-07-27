@@ -171,17 +171,17 @@ export default function EditSnapshotModal({
     /* Overlay */
     <div
       id="edit-snapshot-overlay"
-      className="fixed inset-0 z-[100] flex items-start pt-24 pb-6 px-4 sm:pt-28 sm:px-6 justify-center bg-black/50 overflow-y-auto"
+      className="fixed inset-0 z-[100] flex items-start pt-12 pb-6 px-4 sm:pt-16 sm:px-6 justify-center bg-black/50 overflow-y-auto"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-label="Edit Borrower Info"
     >
       {/* Modal panel */}
-      <div className="relative w-full max-w-3xl max-h-full bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+      <div className="relative w-full max-w-3xl max-h-full bg-white rounded-xl shadow-2xl overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full">
 
         {/* ── Header bar ── */}
-        <div className="bg-[#1d4ed8] px-6 py-4 flex items-center justify-between shrink-0">
+        <div className="bg-[#1d4ed8] px-6 py-4 flex items-center justify-between shrink-0 sticky top-0 z-10">
           <h2 className="font-bold text-white text-[1.125rem]">Edit Borrower Info</h2>
           <button
             id="edit-snapshot-close-btn"
@@ -247,7 +247,7 @@ export default function EditSnapshotModal({
         </div>
 
         {/* ── Scrollable form ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-2 pb-24 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-thumb]:bg-gray-400 [&::-webkit-scrollbar-thumb]:rounded-full">
+        <div className="px-6 py-2">
 
           <FieldRow label="Does borrower have federal student loans?">
             <YesNoSelect id="es-federal-loans" value={form.hasFederalLoans} onChange={set("hasFederalLoans")} />
