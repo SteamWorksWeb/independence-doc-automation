@@ -10,48 +10,98 @@
  *  - Page heading "Borrowers"
  *  - First Name / Last Name search box + SEARCH button
  *  - Data grid: BORROWER | CREATED | LAST UPDATED | DISCHARGEABLE?
- *  - Mock data: Connie (Incomplete), Richard (Yes + Download), Natalia (Incomplete)
+ *  - Live data fetched from GET /api/v1/admin/discharge-snapshots
  *  - Clicking borrower name opens EditSnapshotModal slide-out drawer
  */
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── API response shape ────────────────────────────────────────────────────────
 
-const MOCK_BORROWERS: SnapshotBorrower[] = [
-  {
-    id: "1",
-    lastName: "Comadoll",
-    firstName: "Connie",
-    created: "06-24-2026 03:07:42 PM (ET)",
-    createdBy: "Armando Rodriguez",
-    lastUpdated: "06-24-2026 03:08:16 PM (ET)",
-    lastUpdatedBy: "Armando Rodriguez",
-    dischargeable: "Incomplete",
-  },
-  {
-    id: "2",
-    lastName: "Regello",
-    firstName: "Richard",
-    created: "06-24-2026 02:09:20 PM (ET)",
-    createdBy: "Armando Rodriguez",
-    lastUpdated: "06-24-2026 02:15:50 PM (ET)",
-    lastUpdatedBy: "Armando Rodriguez",
-    dischargeable: "Yes",
-    lowestMonthlyPayment: "$314.25",
-  },
-  {
-    id: "3",
-    lastName: "Tamez",
-    firstName: "Natalia",
-    created: "06-24-2026 01:53:26 PM (ET)",
-    createdBy: "Armando Rodriguez",
-    lastUpdated: "06-24-2026 01:56:31 PM (ET)",
-    lastUpdatedBy: "Armando Rodriguez",
-    dischargeable: "Incomplete",
-  },
-];
+interface ApiSnapshot {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  isDischargeable: boolean | null;
+  status?: string;
+  lowestMonthlyPayment?: number | string | null;
+  client: {
+    firstName: string;
+    lastName: string;
+  };
+  /** Optional: if the backend embeds admin user info for audit trail */
+  createdByUser?: { firstName?: string; lastName?: string; name?: string } | null;
+  updatedByUser?: { firstName?: string; lastName?: string; name?: string } | null;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Format an ISO timestamp → "MM-DD-YYYY HH:MM:SS AM/PM (ET)" */
+function formatTimestamp(iso: string): string {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    // Display in Eastern Time
+    return d.toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    }).replace(",", "") + " (ET)";
+  } catch {
+    return iso;
+  }
+}
+
+/** Resolve the user display name from an embedded user object */
+function resolveUserName(
+  userObj?: { firstName?: string; lastName?: string; name?: string } | null
+): string {
+  if (!userObj) return "—";
+  if (userObj.firstName || userObj.lastName) {
+    return [userObj.firstName, userObj.lastName].filter(Boolean).join(" ");
+  }
+  return userObj.name ?? "—";
+}
+
+/** Map a raw API snapshot to the SnapshotBorrower shape the UI/modal expect */
+function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
+  // Determine dischargeable label
+  let dischargeable: SnapshotBorrower["dischargeable"] = "Incomplete";
+  if (snap.isDischargeable === true || snap.status === "dischargeable") {
+    dischargeable = "Yes";
+  } else if (snap.isDischargeable === false || snap.status === "not_dischargeable") {
+    dischargeable = "No";
+  }
+
+  // Lowest monthly payment → dollar string
+  let lowestMonthlyPayment: string | undefined;
+  if (snap.lowestMonthlyPayment != null) {
+    const raw = Number(snap.lowestMonthlyPayment);
+    if (!isNaN(raw)) {
+      lowestMonthlyPayment = `$${raw.toFixed(2)}`;
+    } else {
+      lowestMonthlyPayment = String(snap.lowestMonthlyPayment);
+    }
+  }
+
+  return {
+    id: snap.id,
+    firstName: snap.client.firstName,
+    lastName: snap.client.lastName,
+    created: formatTimestamp(snap.createdAt),
+    createdBy: resolveUserName(snap.createdByUser),
+    lastUpdated: formatTimestamp(snap.updatedAt),
+    lastUpdatedBy: resolveUserName(snap.updatedByUser),
+    dischargeable,
+    lowestMonthlyPayment,
+  };
+}
 
 // ── Column header ─────────────────────────────────────────────────────────────
 
@@ -69,7 +119,9 @@ function TimeCell({ timestamp, by }: { timestamp: string; by: string }) {
   return (
     <div>
       <div className="text-[0.875rem] text-[#374151]">{timestamp}</div>
-      <div className="text-[0.75rem] text-[#9ca3af] mt-0.5">By: {by}</div>
+      {by !== "—" && (
+        <div className="text-[0.75rem] text-[#9ca3af] mt-0.5">By: {by}</div>
+      )}
     </div>
   );
 }
@@ -94,20 +146,62 @@ export default function DischargeSnapshotsPage() {
   const [query, setQuery] = useState<{ first: string; last: string } | null>(null);
   const [editBorrower, setEditBorrower] = useState<SnapshotBorrower | null>(null);
 
-  // Filter mock data against submitted search query
+  // ── Live data state ────────────────────────────────────────────────────────
+  const [allBorrowers, setAllBorrowers] = useState<SnapshotBorrower[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const fetchSnapshots = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/api/v1/admin/discharge-snapshots`,
+        {
+          credentials: "include", // sends admin_session cookie automatically
+          cache: "no-store",
+        }
+      );
+      if (!res.ok) {
+        throw new Error(`Server responded with ${res.status}`);
+      }
+      const data = await res.json();
+      // Support both { snapshots: [...] } and a bare array
+      const raw: ApiSnapshot[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data.snapshots)
+        ? data.snapshots
+        : [];
+      setAllBorrowers(raw.map(mapSnapshot));
+    } catch (err) {
+      console.error("[DischargeSnapshots] fetch error:", err);
+      setFetchError(
+        err instanceof Error ? err.message : "Failed to load snapshots."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSnapshots();
+  }, [fetchSnapshots]);
+
+  // ── Client-side search filter ──────────────────────────────────────────────
   const rows = useMemo(() => {
-    if (!query) return MOCK_BORROWERS;
-    return MOCK_BORROWERS.filter((b) => {
+    if (!query) return allBorrowers;
+    return allBorrowers.filter((b) => {
       const fnMatch = !query.first || b.firstName.toLowerCase().includes(query.first.toLowerCase());
       const lnMatch = !query.last || b.lastName.toLowerCase().includes(query.last.toLowerCase());
       return fnMatch && lnMatch;
     });
-  }, [query]);
+  }, [query, allBorrowers]);
 
   function handleSearch() {
     setQuery({ first: firstName.trim(), last: lastName.trim() });
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       {/* ── Page heading ────────────────────────────────────────────────── */}
@@ -144,6 +238,22 @@ export default function DischargeSnapshotsPage() {
         </button>
       </div>
 
+      {/* ── Error banner ─────────────────────────────────────────────────── */}
+      {fetchError && (
+        <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 rounded-lg px-5 py-3 text-[0.875rem] text-red-700">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span>Could not load snapshots: {fetchError}</span>
+          <button
+            onClick={fetchSnapshots}
+            className="ml-auto text-red-700 underline hover:no-underline cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* ── Data grid ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-lg border border-[#e5e7eb] overflow-hidden shadow-sm">
         <table className="w-full">
@@ -158,14 +268,34 @@ export default function DischargeSnapshotsPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {/* Loading skeleton */}
+            {loading && (
               <tr>
                 <td colSpan={5} className="px-5 py-10 text-center text-[0.875rem] text-[#9ca3af]">
-                  No borrowers match your search.
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" strokeOpacity="0.25"/>
+                      <path d="M21 12a9 9 0 0 1-9 9" strokeLinecap="round"/>
+                    </svg>
+                    Loading snapshots…
+                  </div>
                 </td>
               </tr>
             )}
-            {rows.map((borrower) => (
+
+            {/* Empty state (after load, no error) */}
+            {!loading && !fetchError && rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-5 py-10 text-center text-[0.875rem] text-[#9ca3af]">
+                  {query
+                    ? "No borrowers match your search."
+                    : "No discharge snapshots found."}
+                </td>
+              </tr>
+            )}
+
+            {/* Data rows */}
+            {!loading && rows.map((borrower) => (
               <tr
                 key={borrower.id}
                 className="border-b border-[#f3f4f6] last:border-0 hover:bg-[#fafbfc] transition-colors duration-100"
