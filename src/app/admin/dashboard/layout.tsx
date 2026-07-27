@@ -5,22 +5,16 @@
  *
  * Structure:
  *   ┌─────────────────────────────────────────┐
- *   │ [Sidebar 240px] │ [Top bar + Main area]  │
- *   │                 │                         │
- *   │  Brand          │  ≡ Hamburger (mobile)  │
- *   │  Nav items      │  Page header           │
- *   │  ...            │  <children />          │
- *   │  [Logout]       │                         │
+ *   │ [Sidebar 240px] │ [Top bar + Tool nav]   │
+ *   │                 │ [Main area / children]  │
  *   └─────────────────────────────────────────┘
- *
- * Mobile: Sidebar collapses to off-canvas drawer.
- *         Top bar shows hamburger + firm name.
  *
  * Migrated from CSS Modules → Tailwind CSS (Phase 1).
  */
 
 import type { Metadata } from "next";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import ToolNavigationBar from "@/components/admin/ToolNavigationBar";
 
 export const metadata: Metadata = {
   title: {
@@ -45,7 +39,6 @@ export default function DashboardLayout({
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-border flex items-center justify-between px-7 max-[900px]:px-4 shrink-0 sticky top-0 z-10">
           <div className="flex items-center gap-3.5 max-[900px]:gap-2.5">
-            {/* This slot is filled by the hamburger button from AdminSidebar on mobile */}
             <span className="font-sans text-[0.8125rem] font-semibold text-text-muted tracking-[0.08em] uppercase max-[480px]:hidden">
               Administration
             </span>
@@ -60,6 +53,9 @@ export default function DashboardLayout({
             </span>
           </div>
         </header>
+
+        {/* ── Tool navigation bar — below top header, above page content ── */}
+        <ToolNavigationBar />
 
         {/* Page content area */}
         <div className="flex-1 py-8 px-7 max-[900px]:py-5 max-[900px]:px-4 overflow-y-auto">
