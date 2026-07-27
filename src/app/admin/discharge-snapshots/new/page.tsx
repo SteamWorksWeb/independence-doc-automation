@@ -296,9 +296,22 @@ export default function NewDischargeSnapshotPage() {
       let errMsg = `Submission failed (HTTP ${res.status}). Please try again.`;
       try {
         const errBody = await res.json();
-        if (errBody?.message) errMsg = errBody.message;
+        if (res.status === 409) {
+          // Duplicate email — give a clear, actionable message
+          errMsg =
+            errBody?.message ||
+            `A borrower with the email "${formData.email}" already exists. ` +
+              `Please use a different email address or manage the existing client record.`;
+        } else if (errBody?.message) {
+          errMsg = errBody.message;
+        }
       } catch {
         // ignore JSON parse errors on error responses
+        if (res.status === 409) {
+          errMsg =
+            `A borrower with the email "${formData.email}" already exists. ` +
+            `Please use a different email address or manage the existing client record.`;
+        }
       }
       setSubmitError(errMsg);
     } catch (networkErr) {
