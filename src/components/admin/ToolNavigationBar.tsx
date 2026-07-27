@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
 
 /**
  * src/components/admin/ToolNavigationBar.tsx
@@ -23,6 +24,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 interface SubItem {
   label: string;
   href?: string;          // if set, renders a <Link> instead of a <button>
+  action?: string;        // if set, fires a named callback instead of navigating
   items?: string[];
 }
 
@@ -46,7 +48,8 @@ const NAV_ITEMS: NavItem[] = [
     label: "Discharge SnapShot",
     icon: <DischargeIcon />,
     dropdown: [
-      { label: "Start New", href: "/admin/discharge-snapshots/new" },
+      { label: "Start New",     href: "/admin/discharge-snapshots/new" },
+      { label: "Invite New",    action: "invite-borrower" },
       { label: "View Existing", href: "/admin/discharge-snapshots" },
     ],
   },
@@ -134,10 +137,21 @@ interface AdvancedSearchParams {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+/** Read a cookie value by name from document.cookie (client-side only). */
+function getClientCookie(name: string): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${name}=([^;]*)`)  
+  );
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 export default function ToolNavigationBar() {
   const [activeNav, setActiveNav] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showBorrowerInvite, setShowBorrowerInvite] = useState(false);
+  const [adminToken, setAdminToken] = useState("");
   const [advForm, setAdvForm] = useState<AdvancedSearchParams>({
     firstName: "",
     lastName: "",
@@ -169,6 +183,14 @@ export default function ToolNavigationBar() {
       setActiveNav(prev => (prev === id ? null : id));
     } else {
       setActiveNav(null);
+    }
+  }, []);
+
+  const handleDropdownAction = useCallback((action: string) => {
+    setActiveNav(null); // always close the dropdown first
+    if (action === "invite-borrower") {
+      setAdminToken(getClientCookie("admin_session"));
+      setShowBorrowerInvite(true);
     }
   }, []);
 
@@ -239,6 +261,7 @@ export default function ToolNavigationBar() {
                   <ToolNavDropdown
                     items={item.dropdown}
                     onClose={() => setActiveNav(null)}
+                    onAction={handleDropdownAction}
                   />
                 )}
               </div>
@@ -295,6 +318,15 @@ export default function ToolNavigationBar() {
           onClose={() => setShowModal(false)}
         />
       )}
+
+      {/* ── Invite Borrower Modal (Discharge SnapShot → Invite New) ───────────── */}
+      {showBorrowerInvite && (
+        <InviteBorrowerModal
+          adminToken={adminToken}
+          autoOpen
+          onClose={() => setShowBorrowerInvite(false)}
+        />
+      )}
     </>
   );
 }
@@ -304,9 +336,11 @@ export default function ToolNavigationBar() {
 function ToolNavDropdown({
   items,
   onClose,
+  onAction,
 }: {
   items: SubItem[];
   onClose: () => void;
+  onAction: (action: string) => void;
 }) {
   return (
     <div
@@ -315,7 +349,7 @@ function ToolNavDropdown({
     >
       {items.map((item, i) => (
         <div key={i} className="relative group/sub">
-          {/* Render Link if href present, otherwise plain button */}
+          {/* Render Link if href present, action button if action set, otherwise plain button */}
           {item.href ? (
             <Link
               href={item.href}
@@ -325,6 +359,18 @@ function ToolNavDropdown({
             >
               {item.label}
             </Link>
+          ) : item.action ? (
+            <button
+              role="menuitem"
+              id={`tool-nav-action-${item.action}`}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-[0.875rem] text-[#374151] hover:bg-[#fdf0ee] hover:text-[#b31e3c] transition-colors duration-100 cursor-pointer"
+              onClick={() => onAction(item.action!)}
+            >
+              <span className="text-[#b31e3c] opacity-70">
+                <InviteIcon />
+              </span>
+              {item.label}
+            </button>
           ) : (
             <button
               role="menuitem"
@@ -561,6 +607,17 @@ function CloseIcon() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function InviteIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
     </svg>
   );
 }

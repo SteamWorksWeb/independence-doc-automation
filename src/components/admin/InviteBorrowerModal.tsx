@@ -29,11 +29,15 @@ interface InviteResult {
 
 interface InviteBorrowerModalProps {
   adminToken: string;
+  /** When true the modal opens automatically on mount (used by the nav bar trigger). */
+  autoOpen?: boolean;
+  /** Called when the dialog closes, so the parent can unmount this component. */
+  onClose?: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function InviteBorrowerModal({ adminToken }: InviteBorrowerModalProps) {
+export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: InviteBorrowerModalProps) {
   const uid = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -68,9 +72,18 @@ export default function InviteBorrowerModal({ adminToken }: InviteBorrowerModalP
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    const handleClose = () => setModalState("closed");
+    const handleClose = () => {
+      setModalState("closed");
+      onClose?.();
+    };
     dialog.addEventListener("close", handleClose);
     return () => dialog.removeEventListener("close", handleClose);
+  }, [onClose]);
+
+  // Auto-open when mounted from an external trigger (e.g. nav bar)
+  useEffect(() => {
+    if (autoOpen) openModal();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Submit ────────────────────────────────────────────────────────────────
