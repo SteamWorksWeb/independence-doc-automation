@@ -34,10 +34,17 @@ interface ApiSnapshot {
   isDischargeable: boolean | null;
   status?: string;
   lowestMonthlyPayment?: number | string | null;
-  client: {
-    /** Single combined name field as stored in the Prisma Client model */
-    name: string;
-  };
+  /**
+   * Prisma `include: { client: true }` returns the full Client record.
+   * The Client model stores first/last as separate fields.
+   * All fields are optional here to guard against any partial responses.
+   */
+  client?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    /** Legacy / fallback: some older records may have a combined name field */
+    name?: string | null;
+  } | null;
   /** Optional: if the backend embeds admin user info for audit trail */
   createdByUser?: { firstName?: string; lastName?: string; name?: string } | null;
   updatedByUser?: { firstName?: string; lastName?: string; name?: string } | null;
@@ -95,15 +102,24 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
     }
   }
 
-  // The DB stores a single `name` field (e.g. "John Doe"). Split on the
-  // first space so the table can show firstName / lastName columns.
-  const [first = '', ...rest] = snap.client.name?.trim().split(' ') ?? [];
-  const last = rest.join(' ');
+  // Prisma returns `client.firstName` and `client.lastName` as separate fields
+  // when using `include: { client: true }`. Read those directly and fall back
+  // gracefully so the table never renders a bare comma.
+  const clientFirstName =
+    snap.client?.firstName?.trim() ||
+    // Legacy fallback: split a combined `name` field if present
+    snap.client?.name?.trim().split(' ')[0] ||
+    'Unknown';
+  const clientLastName =
+    snap.client?.lastName?.trim() ||
+    // Legacy fallback: take everything after the first space
+    snap.client?.name?.trim().split(' ').slice(1).join(' ') ||
+    'Borrower';
 
   return {
     id: snap.id,
-    firstName: first,
-    lastName: last,
+    firstName: clientFirstName,
+    lastName: clientLastName,
     created: formatTimestamp(snap.createdAt),
     createdBy: resolveUserName(snap.createdByUser),
     lastUpdated: formatTimestamp(snap.updatedAt),
