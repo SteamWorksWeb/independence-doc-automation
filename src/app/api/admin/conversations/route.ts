@@ -50,6 +50,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const qs = searchParams.toString();
   const backendUrl = `${backendBase}/api/v1/conversations${qs ? `?${qs}` : ""}`;
 
+  // ── Diagnostic: log exact target URL on every request ─────────────────────
+  console.log("[proxy/admin/conversations GET] → backend URL:", backendUrl);
+  console.log("[proxy/admin/conversations GET] token present:", !!token, "| length:", token.length);
+
   let backendRes: Response;
   try {
     backendRes = await fetch(backendUrl, {
@@ -65,6 +69,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { message: "Unable to reach the backend. Please try again." },
       { status: 502 }
+    );
+  }
+
+  // ── Diagnostic: log every non-2xx backend response in full ────────────────
+  if (!backendRes.ok) {
+    let rawBody = "<could not read body>";
+    try {
+      rawBody = await backendRes.text();
+    } catch {
+      // ignore read error
+    }
+    console.error(
+      `[proxy/admin/conversations GET] Backend responded ${backendRes.status} ${backendRes.statusText}` +
+      ` | URL: ${backendUrl}` +
+      ` | body: ${rawBody}`
+    );
+    // Return the backend status + a structured error so the client UI can
+    // distinguish auth failures (401) from route issues (404/503).
+    return NextResponse.json(
+      { message: `Backend error ${backendRes.status}`, detail: rawBody },
+      { status: backendRes.status }
     );
   }
 
