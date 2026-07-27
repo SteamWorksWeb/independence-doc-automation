@@ -171,15 +171,14 @@ export default function EditSnapshotModal({
     /* Overlay */
     <div
       id="edit-snapshot-overlay"
-      className="fixed inset-0 z-[600] flex items-start justify-end"
-      style={{ background: "rgba(17,24,39,0.5)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
       aria-label="Edit Borrower Info"
     >
-      {/* Drawer panel */}
-      <div className="relative h-full w-[min(98vw,680px)] bg-white shadow-2xl flex flex-col overflow-hidden animate-slide-in-right">
+      {/* Modal panel */}
+      <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
 
         {/* ── Header bar ── */}
         <div className="bg-[#1d4ed8] px-6 py-4 flex items-center justify-between shrink-0">

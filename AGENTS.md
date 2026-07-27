@@ -6,7 +6,7 @@ Canonical ID: INDEPENDENCE-LAW-FRONTEND
 
 Before reading, editing, or creating ANY file, you MUST:
 1. Read the file `.ag-workspace` in the workspace root.
-2. Confirm its TRIMMED contents (ignore surrounding whitespace/newlines) equal: INDEPENDENCE-LAW-BACKEND
+2. Confirm its TRIMMED contents (ignore surrounding whitespace/newlines) equal: INDEPENDENCE-LAW-FRONTEND
    - Fallback if `.ag-workspace` is missing: confirm this root contains
      `next.config.ts` AND `tailwind.config.ts`.
 3. Compare against the TARGET declared at the top of my prompt.
