@@ -156,7 +156,7 @@ export default function DischargeSnapshotsPage() {
     setFetchError(null);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/api/v1/admin/discharge-snapshots`,
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots`,
         {
           credentials: "include", // sends admin_session cookie automatically
           cache: "no-store",
