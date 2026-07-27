@@ -41,10 +41,13 @@ interface ApiSnapshot {
    * All fields are optional here to guard against any partial responses.
    */
   client?: {
+    id?: string;
     firstName?: string | null;
     lastName?: string | null;
     /** Legacy / fallback: some older records may have a combined name field */
     name?: string | null;
+    email?: string | null;
+    phone?: string | null;
   } | null;
   /** Optional: if the backend embeds admin user info for audit trail */
   createdByUser?: { firstName?: string; lastName?: string; name?: string } | null;
@@ -127,6 +130,13 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
     lastUpdatedBy: resolveUserName(snap.updatedByUser),
     dischargeable,
     lowestMonthlyPayment,
+    client: snap.client
+      ? {
+          id: snap.client.id ?? undefined,
+          email: snap.client.email ?? undefined,
+          phone: snap.client.phone ?? undefined,
+        }
+      : undefined,
   };
 }
 

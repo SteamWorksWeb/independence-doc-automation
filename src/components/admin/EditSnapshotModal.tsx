@@ -24,6 +24,11 @@ export interface SnapshotBorrower {
   lastUpdatedBy: string;
   dischargeable: "Yes" | "Incomplete" | "No";
   lowestMonthlyPayment?: string;
+  client?: {
+    id?: string;
+    email?: string;
+    phone?: string;
+  };
 }
 
 interface FormState {
@@ -193,10 +198,49 @@ export default function EditSnapshotModal({
 
         {/* ── Summary block ── */}
         <div className="px-6 py-4 border-b border-[#e5e7eb] bg-white shrink-0">
-          <div className="space-y-1 text-[0.875rem] text-[#374151]">
-            <div><span className="font-semibold">Borrower Name:</span> {fullName}</div>
-            <div><span className="font-semibold">Dischargeable?:</span> {borrower.dischargeable}</div>
-            <div><span className="font-semibold">Lowest Monthly Payment:</span> {borrower.lowestMonthlyPayment ?? "$314.25"}</div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1 text-[0.875rem] text-[#374151]">
+              <div><span className="font-semibold">Borrower Name:</span> {fullName}</div>
+              <div>
+                <span className="font-semibold">Email:</span>{" "}
+                {borrower.client?.email ? (
+                  <a
+                    href={`mailto:${borrower.client.email}`}
+                    className="text-[#374151] hover:text-[#1d4ed8] underline transition-colors duration-150"
+                  >
+                    {borrower.client.email}
+                  </a>
+                ) : (
+                  <span className="text-[#9ca3af]">N/A</span>
+                )}
+              </div>
+              <div>
+                <span className="font-semibold">Phone:</span>{" "}
+                {borrower.client?.phone ? (
+                  <a
+                    href={`tel:${borrower.client.phone}`}
+                    className="text-[#374151] hover:text-[#1d4ed8] underline transition-colors duration-150"
+                  >
+                    {borrower.client.phone}
+                  </a>
+                ) : (
+                  <span className="text-[#9ca3af]">N/A</span>
+                )}
+              </div>
+              <div><span className="font-semibold">Dischargeable?:</span> {borrower.dischargeable}</div>
+              <div><span className="font-semibold">Lowest Monthly Payment:</span> {borrower.lowestMonthlyPayment ?? "$314.25"}</div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => console.log('Trigger internal messaging for', borrower.client?.id)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#374151] bg-[#f3f4f6] hover:bg-[#e5e7eb] border border-[#d1d5db] rounded transition-colors duration-150 shrink-0 cursor-pointer shadow-sm"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              Message
+            </button>
           </div>
           <p className="text-[0.75rem] text-[#6b7280] mt-2 italic">
             * Based on information provided. Eligibility must be confirmed.
