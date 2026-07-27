@@ -121,6 +121,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "message-center",
     label: "Message Center",
     icon: <MessageIcon />,
+    href: "/admin/message-center",
   },
   {
     id: "student-loan-calc",
