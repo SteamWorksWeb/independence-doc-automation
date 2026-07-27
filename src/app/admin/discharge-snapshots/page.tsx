@@ -232,6 +232,7 @@ export default async function DischargeSnapshotsPage() {
       <DischargeSnapshotsTable
         initialBorrowers={borrowers}
         fetchError={error}
+        adminToken={adminToken}
       />
 
     </div>

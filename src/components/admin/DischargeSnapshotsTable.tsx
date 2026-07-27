@@ -31,6 +31,7 @@ interface ActiveModal {
 interface Props {
   initialBorrowers: SnapshotBorrower[];
   fetchError: string | null;
+  adminToken: string;
 }
 
 // ── Badge / filter config ─────────────────────────────────────────────────────
@@ -126,7 +127,7 @@ function StatPill({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }: Props) {
+export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, adminToken }: Props) {
   // Local borrowers state — enables optimistic UI updates for archive/delete/status
   const [borrowers, setBorrowers] = useState<SnapshotBorrower[]>(initialBorrowers);
 
@@ -134,6 +135,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
   const [editBorrower, setEditBorrower] = useState<SnapshotBorrower | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("Incomplete");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Sync if server re-renders with fresh props
   useEffect(() => {
@@ -173,10 +175,38 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
     setActiveModal(null);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!activeModal) return;
-    setBorrowers((prev) => prev.filter((b) => b.id !== activeModal.snapshot.id));
-    closeModal();
+    const snapshotId = activeModal.snapshot.id;
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots/${snapshotId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("[delete-snapshot] Backend error:", res.status, body);
+        alert("Failed to delete borrower. Please try again.");
+        return;
+      }
+
+      // Success — optimistic removal + close
+      setBorrowers((prev) => prev.filter((b) => b.id !== snapshotId));
+      closeModal();
+    } catch (err) {
+      console.error("[delete-snapshot] Network error:", err);
+      alert("Failed to delete borrower. Please check your connection and try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   function handleArchive() {
@@ -594,9 +624,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError }
               <button
                 type="button"
                 onClick={handleDelete}
-                className="px-5 py-2.5 rounded-lg bg-red-600 text-white text-[0.875rem] font-bold hover:bg-red-700 transition-colors duration-150 cursor-pointer shadow-sm"
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-lg bg-red-600 text-white text-[0.875rem] font-bold hover:bg-red-700 transition-colors duration-150 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Permanently Delete
+                {isDeleting ? "Deleting…" : "Permanently Delete"}
               </button>
             </div>
           </div>
