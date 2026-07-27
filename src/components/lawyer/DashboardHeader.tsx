@@ -255,31 +255,33 @@ export default function DashboardHeader({
       <header className="bg-white border-b border-[#dde2ea] sticky top-0 z-[200] shadow-sm">
 
         {/* ── Top bar: Logo | Firm Name | Profile ─────────────────────────── */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-b border-[#eceef2]">
+        <div className="grid px-5 py-2 border-b border-[#eceef2]" style={{gridTemplateColumns:"1fr auto 1fr"}}>
 
-          {/* Stretto logo */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Stretto logo — col 1, left-aligned */}
+          <div className="flex items-center gap-2.5 shrink-0">
             <StrettoLogoMark />
-            <div className="leading-none">
-              <div className="font-bold text-[0.9rem] text-[#1a2744] tracking-tight uppercase leading-tight">
+            <div className="leading-[1.1]">
+              <div className="font-black text-[1rem] text-[#1a2744] tracking-[0.06em] uppercase">
                 STRETTO
               </div>
-              <div className="font-bold text-[0.9rem] text-[#1a2744] tracking-tight leading-tight">
+              <div className="font-bold text-[0.875rem] text-[#374151] tracking-tight">
                 Default Solutions
               </div>
-              <div className="text-[0.625rem] text-[#6b7280] font-normal tracking-wide">
+              <div className="text-[0.6rem] text-[#9ca3af] font-normal tracking-widest uppercase mt-px">
                 built on DMM Portal
               </div>
             </div>
           </div>
 
-          {/* Firm name */}
-          <div className="absolute left-1/2 -translate-x-1/2 font-sans font-semibold text-[1.0625rem] text-[#22a060] tracking-wide whitespace-nowrap pointer-events-none">
-            The Independence Law Firm
+          {/* Firm name — col 2, true center */}
+          <div className="flex items-center justify-center">
+            <span className="font-sans font-bold text-[1.0625rem] text-[#22a060] tracking-wide whitespace-nowrap">
+              The Independence Law Firm
+            </span>
           </div>
 
-          {/* Profile area */}
-          <div ref={profileRef} className="flex items-center gap-3 relative">
+          {/* Profile area — col 3, right-aligned */}
+          <div ref={profileRef} className="flex items-center gap-3 relative justify-self-end">
             <span className="text-[0.875rem] font-medium text-[#374151]">Clay Eavenson</span>
             <button
               id="profile-dropdown-btn"
@@ -584,10 +586,13 @@ function AdvancedSearchModal({
 
 function StrettoLogoMark() {
   return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden>
-      <rect x="2" y="8" width="28" height="4" rx="1" fill="#22a060" />
-      <rect x="2" y="15" width="20" height="4" rx="1" fill="#22a060" />
-      <rect x="2" y="22" width="14" height="4" rx="1" fill="#22a060" />
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden>
+      {/* Top bar — full width */}
+      <rect x="3" y="7" width="30" height="5" rx="1.5" fill="#22a060" />
+      {/* Middle bar — 3/4 width */}
+      <rect x="3" y="15.5" width="22" height="5" rx="1.5" fill="#22a060" />
+      {/* Bottom bar — half width */}
+      <rect x="3" y="24" width="15" height="5" rx="1.5" fill="#22a060" />
     </svg>
   );
 }
