@@ -210,17 +210,34 @@ export default async function DischargeSnapshotsPage() {
   const { borrowers, error } = await fetchSnapshots();
 
   return (
-    <>
-      {/* ── Page heading ────────────────────────────────────────────────── */}
-      <h1 className="text-center font-sans font-bold text-[1.75rem] text-[#1d4ed8] mb-6">
-        Borrowers
-      </h1>
+    <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
 
-      {/* ── Interactive table (Client Component) ────────────────────────── */}
+      {/* ── Page header ───────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap max-[640px]:flex-col">
+        <div>
+          <h1 className="font-serif text-[clamp(1.375rem,2.5vw,1.75rem)] font-black italic text-navy mb-1 leading-[1.1]">
+            Discharge Snapshots
+          </h1>
+          <p className="text-sm text-text-muted">
+            Manage borrower discharge eligibility assessments
+          </p>
+        </div>
+        <div className="font-sans text-[0.8125rem] text-text-muted bg-white border border-border py-1.5 px-3.5 rounded-[20px] whitespace-nowrap self-start max-[640px]:self-stretch max-[640px]:text-center">
+          {new Date().toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </div>
+      </div>
+
+      {/* ── Stat cards + filter table (Client Component) ─────────────── */}
       <DischargeSnapshotsTable
         initialBorrowers={borrowers}
         fetchError={error}
       />
-    </>
+
+    </div>
   );
 }
