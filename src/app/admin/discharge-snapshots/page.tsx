@@ -18,6 +18,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import DischargeSnapshotsTable from "@/components/admin/DischargeSnapshotsTable";
 import type { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
+import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
 
 export const metadata: Metadata = {
   title: "Discharge Snapshots",
@@ -134,6 +135,7 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
 async function fetchSnapshots(): Promise<{
   borrowers: SnapshotBorrower[];
   error: string | null;
+  adminToken: string;
 }> {
   // ── 1. Read the admin session cookie ────────────────────────────────────
   const cookieStore = await cookies();
@@ -141,7 +143,7 @@ async function fetchSnapshots(): Promise<{
 
   if (!token) {
     console.error("[discharge-snapshots] FAIL: No admin_session cookie found in Server Component.");
-    return { borrowers: [], error: "Unauthorized: No active admin session." };
+    return { borrowers: [], error: "Unauthorized: No active admin session.", adminToken: "" };
   }
 
   const masked = token.length > 10
@@ -156,7 +158,7 @@ async function fetchSnapshots(): Promise<{
       "[discharge-snapshots] FAIL: NEXT_PUBLIC_AWS_API_URL is undefined.",
       "Available env keys:", Object.keys(process.env).filter((k) => k.startsWith("NEXT_PUBLIC_")).join(", ") || "(none)"
     );
-    return { borrowers: [], error: "Server configuration error. Please check server logs." };
+    return { borrowers: [], error: "Server configuration error. Please check server logs.", adminToken: token };
   }
 
   const targetUrl = `${backendBase}/admin/discharge-snapshots`;
@@ -182,7 +184,7 @@ async function fetchSnapshots(): Promise<{
         `| URL: ${targetUrl}`,
         `| Body: ${errorText.slice(0, 500)}`
       );
-      return { borrowers: [], error: `Failed to load snapshots (${res.status}). Please check server logs.` };
+      return { borrowers: [], error: `Failed to load snapshots (${res.status}). Please check server logs.`, adminToken: token };
     }
 
     const data = await res.json();
@@ -194,12 +196,13 @@ async function fetchSnapshots(): Promise<{
       : [];
 
     console.log(`[discharge-snapshots] SUCCESS: Loaded ${raw.length} snapshots from backend.`);
-    return { borrowers: raw.map(mapSnapshot), error: null };
+    return { borrowers: raw.map(mapSnapshot), error: null, adminToken: token };
   } catch (err) {
     console.error("[discharge-snapshots] FETCH EXCEPTION:", err);
     return {
       borrowers: [],
       error: `Network error: ${err instanceof Error ? err.message : "Unknown error"}`,
+      adminToken: token,
     };
   }
 }
@@ -207,7 +210,7 @@ async function fetchSnapshots(): Promise<{
 // ── Page component ────────────────────────────────────────────────────────────
 
 export default async function DischargeSnapshotsPage() {
-  const { borrowers, error } = await fetchSnapshots();
+  const { borrowers, error, adminToken } = await fetchSnapshots();
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
@@ -222,14 +225,7 @@ export default async function DischargeSnapshotsPage() {
             Manage borrower discharge eligibility assessments
           </p>
         </div>
-        <div className="font-sans text-[0.8125rem] text-text-muted bg-white border border-border py-1.5 px-3.5 rounded-[20px] whitespace-nowrap self-start max-[640px]:self-stretch max-[640px]:text-center">
-          {new Date().toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </div>
+        <InviteBorrowerModal adminToken={adminToken} />
       </div>
 
       {/* ── Stat cards + filter table (Client Component) ─────────────── */}
