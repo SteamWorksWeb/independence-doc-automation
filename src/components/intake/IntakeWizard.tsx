@@ -9,10 +9,61 @@
 // Migrated from CSS Modules → Tailwind CSS (Phase 2).
 // =============================================================================
 
-import { useState, useCallback } from 'react';
+import { type FormEvent, useCallback, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { z } from 'zod';
 
-const TOTAL_STEPS = 5;
+const LEGACY_TOTAL_STEPS = 5;
+const PUBLIC_TOTAL_STEPS = 4;
+const PUBLIC_LAST_STEP = 3;
+const MIN_PASSWORD_LENGTH = 8;
+
+const accountSetupSchema = z
+  .object({
+    password: z
+      .string()
+      .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`),
+    confirmPassword: z
+      .string()
+      .min(1, 'Please confirm your password.'),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match.',
+    path: ['confirmPassword'],
+  });
+
+interface IntakeWizardProps {
+  token?: string;
+}
+
+interface AccountSetupErrors {
+  password?: string;
+  confirmPassword?: string;
+}
+
+type PublicPlaceholderStep = 1 | 2 | 3;
+
+const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
+  title: string;
+  eyebrow: string;
+  body: string;
+}> = {
+  1: {
+    title: 'Personal Information',
+    eyebrow: 'Step 1',
+    body: 'This section will collect contact details, household information, and identity fields for your intake packet.',
+  },
+  2: {
+    title: 'Military Service',
+    eyebrow: 'Step 2',
+    body: 'This section will capture service history and benefits information relevant to your student loan review.',
+  },
+  3: {
+    title: 'Financial Snapshot',
+    eyebrow: 'Step 3',
+    body: 'This section will collect income, expenses, and debt information so the legal team can evaluate next steps.',
+  },
+};
 
 // ── Form state ────────────────────────────────────────────────────────────────
 interface FormData {
@@ -72,12 +123,22 @@ const labelCls =
   "flex items-center gap-2 font-sans text-[0.8125rem] font-semibold text-text-secondary tracking-[0.06em] uppercase";
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function IntakeWizard() {
+export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
   const router = useRouter();
-  const [step, setStep]               = useState(1);
+  const uid = useId();
+  const inviteToken = token.trim();
+  const isPublicInviteFlow = inviteToken.length > 0;
+  const [currentStep, setCurrentStep] = useState(() => (isPublicInviteFlow ? 0 : 1));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError]             = useState('');
   const [form, setForm]               = useState<FormData>(INITIAL);
+  const [password, setPassword]       = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [accountErrors, setAccountErrors] = useState<AccountSetupErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const step = currentStep;
 
   const update = useCallback(
     <K extends keyof FormData>(field: K, value: FormData[K]) =>
@@ -85,8 +146,63 @@ export default function IntakeWizard() {
     []
   );
 
-  const next = () => { setError(''); setStep((s) => Math.min(s + 1, TOTAL_STEPS)); };
-  const prev = () => { setError(''); setStep((s) => Math.max(s - 1, 1)); };
+  const next = () => {
+    setError('');
+    setCurrentStep((s) => Math.min(s + 1, isPublicInviteFlow ? PUBLIC_LAST_STEP : LEGACY_TOTAL_STEPS));
+  };
+
+  const prev = () => {
+    setError('');
+    setCurrentStep((s) => Math.max(s - 1, isPublicInviteFlow ? 0 : 1));
+  };
+
+  const handleAccountSetup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const parsed = accountSetupSchema.safeParse({ password, confirmPassword });
+    if (!parsed.success) {
+      const flattened = parsed.error.flatten().fieldErrors;
+      setAccountErrors({
+        password: flattened.password?.[0],
+        confirmPassword: flattened.confirmPassword?.[0],
+      });
+      return;
+    }
+
+    setAccountErrors({});
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch('/api/admin/auth/intake/setup-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: inviteToken,
+          password: parsed.data.password,
+        }),
+        credentials: 'include',
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const message =
+          typeof data.message === 'string' ? data.message :
+          typeof data.error === 'string' ? data.error :
+          'Unable to set up your account. Please try again.';
+        throw new Error(message);
+      }
+
+      setPassword('');
+      setConfirmPassword('');
+      setCurrentStep(1);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to set up your account. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -139,7 +255,9 @@ export default function IntakeWizard() {
     }
   };
 
-  const pct = ((step / TOTAL_STEPS) * 100).toFixed(0);
+  const displayedStep = isPublicInviteFlow ? currentStep + 1 : currentStep;
+  const displayedTotalSteps = isPublicInviteFlow ? PUBLIC_TOTAL_STEPS : LEGACY_TOTAL_STEPS;
+  const pct = ((displayedStep / displayedTotalSteps) * 100).toFixed(0);
 
   // ── Input helpers ─────────────────────────────────────────────────────────
   const textInput = (id: keyof FormData, label: string, opts?: {
@@ -190,6 +308,11 @@ export default function IntakeWizard() {
     </label>
   );
 
+  const publicPlaceholderStep =
+    currentStep === 1 || currentStep === 2 || currentStep === 3
+      ? PUBLIC_PLACEHOLDER_STEPS[currentStep]
+      : null;
+
   return (
     <div className="min-h-dvh bg-bg flex flex-col items-center justify-start pt-10 px-4 pb-16">
       <header className="text-center mb-8">
@@ -197,11 +320,12 @@ export default function IntakeWizard() {
           The Independence Law Firm
         </p>
         <h1 className="font-serif text-[clamp(1.5rem,3vw,2.25rem)] text-navy mb-2">
-          DOJ Student Loan Questionnaire
+          {isPublicInviteFlow ? 'Borrower Intake' : 'DOJ Student Loan Questionnaire'}
         </h1>
         <p className="text-[0.9375rem] text-text-muted max-w-[440px] mx-auto">
-          Your information is protected by attorney-client privilege and
-          256-bit encryption.
+          {isPublicInviteFlow
+            ? 'First, create a permanent password so you can return to your portal without the email link.'
+            : 'Your information is protected by attorney-client privilege and 256-bit encryption.'}
         </p>
       </header>
 
@@ -213,7 +337,7 @@ export default function IntakeWizard() {
               Progress
             </span>
             <span className="font-serif text-[1.125rem] text-white font-bold">
-              Step {step} of {TOTAL_STEPS}
+              Step {displayedStep} of {displayedTotalSteps}
             </span>
           </div>
           <div className="h-[3px] bg-white/[0.12] rounded-full overflow-hidden">
@@ -221,9 +345,9 @@ export default function IntakeWizard() {
               className="h-full bg-gradient-to-r from-crimson to-[#e05275] rounded-full transition-[width] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] shadow-[0_0_8px_rgba(179,30,60,0.5)]"
               style={{ width: `${pct}%` }}
               role="progressbar"
-              aria-valuenow={step}
+              aria-valuenow={displayedStep}
               aria-valuemin={1}
-              aria-valuemax={TOTAL_STEPS}
+              aria-valuemax={displayedTotalSteps}
             />
           </div>
         </div>
@@ -238,6 +362,134 @@ export default function IntakeWizard() {
           )}
 
           {/* ── STEP 1: Personal & Household ──────────────────────────── */}
+          {isPublicInviteFlow ? (
+            <>
+              {currentStep === 0 && (
+                <form
+                  id="account-setup-form"
+                  onSubmit={handleAccountSetup}
+                  noValidate
+                  className="min-h-[280px] animate-step-enter"
+                >
+                  <div className="mb-6">
+                    <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
+                      Account Setup
+                    </p>
+                    <h2 className="font-serif text-[1.5rem] text-navy mb-2">
+                      Create Your Password
+                    </h2>
+                    <p className="text-[0.9375rem] text-text-muted leading-relaxed">
+                      Your email address is your username. Choose a password you can use for future portal logins.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor={`${uid}-password`} className={labelCls}>
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          id={`${uid}-password`}
+                          name="password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          className={`${inputCls} pr-20 ${accountErrors.password ? 'border-error focus:border-error' : ''}`}
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            if (accountErrors.password) {
+                              setAccountErrors((prev) => ({ ...prev, password: undefined }));
+                            }
+                          }}
+                          aria-invalid={!!accountErrors.password}
+                          aria-describedby={accountErrors.password ? `${uid}-password-error` : `${uid}-password-hint`}
+                          disabled={isSubmitting}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-navy hover:text-crimson disabled:opacity-50"
+                          onClick={() => setShowPassword((value) => !value)}
+                          disabled={isSubmitting}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                      {accountErrors.password ? (
+                        <span id={`${uid}-password-error`} className="text-[0.8125rem] text-error" role="alert">
+                          {accountErrors.password}
+                        </span>
+                      ) : (
+                        <span id={`${uid}-password-hint`} className="text-[0.8125rem] text-text-muted">
+                          Minimum {MIN_PASSWORD_LENGTH} characters.
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor={`${uid}-confirm-password`} className={labelCls}>
+                        Confirm Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          id={`${uid}-confirm-password`}
+                          name="confirmPassword"
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          className={`${inputCls} pr-20 ${accountErrors.confirmPassword ? 'border-error focus:border-error' : ''}`}
+                          value={confirmPassword}
+                          onChange={(e) => {
+                            setConfirmPassword(e.target.value);
+                            if (accountErrors.confirmPassword) {
+                              setAccountErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                            }
+                          }}
+                          aria-invalid={!!accountErrors.confirmPassword}
+                          aria-describedby={accountErrors.confirmPassword ? `${uid}-confirm-password-error` : undefined}
+                          disabled={isSubmitting}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-navy hover:text-crimson disabled:opacity-50"
+                          onClick={() => setShowConfirmPassword((value) => !value)}
+                          disabled={isSubmitting}
+                          aria-label={showConfirmPassword ? 'Hide confirmed password' : 'Show confirmed password'}
+                        >
+                          {showConfirmPassword ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                      {accountErrors.confirmPassword && (
+                        <span id={`${uid}-confirm-password-error`} className="text-[0.8125rem] text-error" role="alert">
+                          {accountErrors.confirmPassword}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {publicPlaceholderStep && (
+                <div key={`public-step-${currentStep}`} className="min-h-[280px] animate-step-enter">
+                  <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
+                    {publicPlaceholderStep.eyebrow}
+                  </p>
+                  <h2 className="font-serif text-[1.5rem] text-navy mb-3">
+                    {publicPlaceholderStep.title}
+                  </h2>
+                  <div className="border-l-[3px] border-crimson-light bg-bg py-4 pl-4 pr-2">
+                    <p className="text-[0.9375rem] text-text-secondary leading-relaxed">
+                      {publicPlaceholderStep.body}
+                    </p>
+                    <p className="mt-4 text-[0.8125rem] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                      Placeholder
+                    </p>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
           {step === 1 && (
             <div key="s1" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
               <h2 className="font-serif text-[1.375rem] text-navy mb-2">Personal &amp; Household Information</h2>
@@ -390,10 +642,62 @@ export default function IntakeWizard() {
               </div>
             </div>
           )}
+            </>
+          )}
         </div>
 
         {/* ── Navigation ──────────────────────────────────────────────── */}
         <div className="flex justify-between items-center py-5 px-8 max-[680px]:py-4 max-[680px]:px-5 border-t border-border gap-4">
+          {isPublicInviteFlow ? (
+            <>
+              {currentStep > 0 ? (
+                <button
+                  id="intake-back"
+                  className="inline-flex items-center gap-2 py-3 px-5 bg-transparent border-[1.5px] border-border rounded-md font-sans text-[0.9375rem] font-medium text-text-secondary cursor-pointer transition-all duration-fast hover:border-navy hover:text-navy hover:bg-bg disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={prev}
+                  disabled={isSubmitting}
+                  type="button"
+                >
+                  Back
+                </button>
+              ) : (
+                <div className="flex-1" />
+              )}
+
+              {currentStep === 0 ? (
+                <button
+                  id="intake-account-setup-submit"
+                  form="account-setup-form"
+                  className="inline-flex items-center gap-2 py-3 px-7 bg-crimson border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-[0_2px_8px_rgba(179,30,60,0.35)] hover:bg-crimson-hover hover:shadow-[0_4px_16px_rgba(179,30,60,0.45)] hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                  disabled={isSubmitting}
+                  type="submit"
+                >
+                  {isSubmitting
+                    ? <><span className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin shrink-0" /> Setting up...</>
+                    : 'Create Password'}
+                </button>
+              ) : currentStep < PUBLIC_LAST_STEP ? (
+                <button
+                  id="intake-next"
+                  className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
+                  onClick={next}
+                  type="button"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  id="intake-finish"
+                  className="inline-flex items-center gap-2 py-3 px-7 bg-crimson border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-[0_2px_8px_rgba(179,30,60,0.35)] hover:bg-crimson-hover hover:shadow-[0_4px_16px_rgba(179,30,60,0.45)] hover:-translate-y-px"
+                  onClick={() => router.push('/dashboard')}
+                  type="button"
+                >
+                  Continue to Portal
+                </button>
+              )}
+            </>
+          ) : (
+            <>
           {step > 1 ? (
             <button
               id="intake-back"
@@ -408,7 +712,7 @@ export default function IntakeWizard() {
             <div className="flex-1" />
           )}
 
-          {step < TOTAL_STEPS ? (
+          {step < LEGACY_TOTAL_STEPS ? (
             <button
               id="intake-next"
               className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
@@ -429,6 +733,8 @@ export default function IntakeWizard() {
                 ? <><span className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin shrink-0" /> Submitting…</>
                 : 'Submit Profile'}
             </button>
+          )}
+            </>
           )}
         </div>
       </div>
