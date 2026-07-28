@@ -6,7 +6,7 @@
 // /api/v1/intake endpoint from the client-side wizard.
 //
 // Why a proxy?
-//   The client_token is stored as an HttpOnly cookie.
+//   The borrower session token is stored as an HttpOnly cookie.
 //   Browser JS cannot read HttpOnly cookies, so the wizard component
 //   cannot attach it to a fetch() call directly.
 //   This server-side route reads it from the cookie jar and forwards it
@@ -20,6 +20,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+const BORROWER_SESSION_COOKIE_NAMES = ['borrower_session', 'client_token'] as const;
+
 /**
  * Resolve the Render backend intake URL.
  *
@@ -32,10 +34,19 @@ function getIntakeUrl(): string | null {
   return `${base.replace(/\/+$/, '')}/intake`;
 }
 
+function getBorrowerSessionToken(cookieStore: Awaited<ReturnType<typeof cookies>>): string | undefined {
+  for (const cookieName of BORROWER_SESSION_COOKIE_NAMES) {
+    const token = cookieStore.get(cookieName)?.value;
+    if (token) return token;
+  }
+
+  return undefined;
+}
+
 // ── POST /api/intake ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
-  const token = cookieStore.get('client_token')?.value;
+  const token = getBorrowerSessionToken(cookieStore);
 
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -80,7 +91,7 @@ export async function POST(req: NextRequest) {
 // ── GET /api/intake ──────────────────────────────────────────────────────────
 export async function GET() {
   const cookieStore = await cookies();
-  const token = cookieStore.get('client_token')?.value;
+  const token = getBorrowerSessionToken(cookieStore);
 
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

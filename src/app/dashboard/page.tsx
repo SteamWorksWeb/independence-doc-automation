@@ -8,6 +8,7 @@
 
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 import IntakeWizard from "@/components/intake/IntakeWizard";
 
 export const metadata: Metadata = {
@@ -16,6 +17,8 @@ export const metadata: Metadata = {
 
 export const maxDuration = 60;
 
+const BORROWER_SESSION_COOKIE_NAMES = ["borrower_session", "client_token"] as const;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface IntakeProfile {
@@ -23,24 +26,77 @@ interface IntakeProfile {
   [key: string]: unknown;
 }
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : "";
+}
+
+function extractBorrowerEmail(value: unknown): string {
+  if (!isRecord(value)) return "";
+
+  for (const key of ["email", "borrowerEmail", "clientEmail"]) {
+    const email = normalizeEmail(value[key]);
+    if (email) return email;
+  }
+
+  for (const key of ["borrower", "client", "user", "session", "intakeProfile"]) {
+    const nested = value[key];
+    if (isRecord(nested)) {
+      const email = extractBorrowerEmail(nested);
+      if (email) return email;
+    }
+  }
+
+  return "";
+}
+
+async function getBorrowerEmailFromSession(token: string): Promise<string> {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) return "";
+
+  try {
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(jwtSecret),
+      { algorithms: ["HS256"] }
+    );
+
+    return normalizeEmail(payload.email);
+  } catch {
+    return "";
+  }
+}
+
 // ── Fetch intake status ───────────────────────────────────────────────────────
 
 async function fetchIntakeStatus(): Promise<{
   profile: IntakeProfile | null;
   error: string | null;
+  borrowerEmail: string;
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get("client_token")?.value;
+  const token = BORROWER_SESSION_COOKIE_NAMES
+    .map((cookieName) => cookieStore.get(cookieName)?.value)
+    .find((value): value is string => !!value);
 
   if (!token) {
-    console.error("[dashboard] No client_token cookie found.");
-    return { profile: null, error: "Unauthorized: No active session." };
+    console.error("[dashboard] No borrower session cookie found.");
+    return { profile: null, error: "Unauthorized: No active session.", borrowerEmail: "" };
   }
+
+  const sessionEmail = await getBorrowerEmailFromSession(token);
 
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
   if (!backendBase) {
     console.error("[dashboard] NEXT_PUBLIC_AWS_API_URL is undefined.");
-    return { profile: null, error: "Server configuration error." };
+    return { profile: null, error: "Server configuration error.", borrowerEmail: sessionEmail };
   }
 
   const targetUrl = `${backendBase}/intake`;
@@ -61,18 +117,20 @@ async function fetchIntakeStatus(): Promise<{
     if (!res.ok) {
       const errorText = await res.text().catch(() => "(unreadable)");
       console.error(`[dashboard] Backend returned ${res.status}: ${errorText.slice(0, 300)}`);
-      return { profile: null, error: "Failed to load profile. Please try again." };
+      return { profile: null, error: "Failed to load profile. Please try again.", borrowerEmail: sessionEmail };
     }
 
     const data = await res.json();
     const profile: IntakeProfile | null = data.intakeProfile ?? null;
+    const borrowerEmail = extractBorrowerEmail(data) || sessionEmail;
     console.log(`[dashboard] Intake profile loaded. isCompleted: ${profile?.isCompleted ?? "null"}`);
-    return { profile, error: null };
+    return { profile, error: null, borrowerEmail };
   } catch (err) {
     console.error("[dashboard] FETCH EXCEPTION:", err);
     return {
       profile: null,
       error: `Network error: ${err instanceof Error ? err.message : "Unknown"}`,
+      borrowerEmail: sessionEmail,
     };
   }
 }
@@ -80,7 +138,7 @@ async function fetchIntakeStatus(): Promise<{
 // ── Page component ────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
-  const { profile, error } = await fetchIntakeStatus();
+  const { profile, error, borrowerEmail } = await fetchIntakeStatus();
 
   // ── Error state ─────────────────────────────────────────────────────────────
   if (error) {
@@ -99,7 +157,7 @@ export default async function DashboardPage() {
 
   // ── State A: Intake not complete → show the wizard ──────────────────────────
   if (!profile || !profile.isCompleted) {
-    return <IntakeWizard />;
+    return <IntakeWizard initialEmail={borrowerEmail} />;
   }
 
   // ── State B: Intake complete → show the dashboard home ──────────────────────

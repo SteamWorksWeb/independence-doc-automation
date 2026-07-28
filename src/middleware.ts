@@ -164,7 +164,7 @@ function denyAdmin(request: NextRequest, reason: string): NextResponse {
 // CLIENT GUARD — /dashboard/*
 // ══════════════════════════════════════════════════════════════════════════════
 
-const CLIENT_COOKIE_NAME = "client_token";
+const CLIENT_COOKIE_NAMES = ["borrower_session", "client_token"] as const;
 const CLIENT_LOGIN_PATH = "/login";
 
 async function handleClientRoute(
@@ -172,14 +172,18 @@ async function handleClientRoute(
   pathname: string
 ): Promise<NextResponse> {
   // ── 1. Read the JWT cookie ─────────────────────────────────────────────────
-  const token = request.cookies.get(CLIENT_COOKIE_NAME)?.value;
+  const tokens = CLIENT_COOKIE_NAMES
+    .map((cookieName) => request.cookies.get(cookieName)?.value)
+    .filter((token): token is string => !!token);
 
   // ── 2. No token — redirect to /login with ?next= for post-login return ─────
-  if (!token) {
+  if (tokens.length === 0) {
     const loginUrl = new URL(CLIENT_LOGIN_PATH, request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
+
+  const token = tokens[0];
 
   // ── 3. Load JWT_SECRET ────────────────────────────────────────────────────
   const jwtSecret = process.env.JWT_SECRET;
@@ -211,7 +215,9 @@ async function handleClientRoute(
     const response = NextResponse.redirect(loginUrl);
 
     // Delete the invalid cookie so the client doesn't keep sending it
-    response.cookies.delete(CLIENT_COOKIE_NAME);
+    for (const cookieName of CLIENT_COOKIE_NAMES) {
+      response.cookies.delete(cookieName);
+    }
 
     return response;
   }

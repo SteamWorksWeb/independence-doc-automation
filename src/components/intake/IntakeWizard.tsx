@@ -12,11 +12,15 @@
 import { type FormEvent, useCallback, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import PersonalInfoStep, {
+  type PersonalInfoFormData,
+} from './steps/PersonalInfoStep';
 
 const LEGACY_TOTAL_STEPS = 5;
 const PUBLIC_TOTAL_STEPS = 4;
 const PUBLIC_LAST_STEP = 3;
 const MIN_PASSWORD_LENGTH = 8;
+const PERSONAL_INFO_FORM_ID = 'personal-info-form';
 
 const accountSetupSchema = z
   .object({
@@ -34,6 +38,7 @@ const accountSetupSchema = z
 
 interface IntakeWizardProps {
   token?: string;
+  initialEmail?: string;
 }
 
 interface AccountSetupErrors {
@@ -41,18 +46,13 @@ interface AccountSetupErrors {
   confirmPassword?: string;
 }
 
-type PublicPlaceholderStep = 1 | 2 | 3;
+type PublicPlaceholderStep = 2 | 3;
 
 const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
   title: string;
   eyebrow: string;
   body: string;
 }> = {
-  1: {
-    title: 'Personal Information',
-    eyebrow: 'Step 1',
-    body: 'This section will collect contact details, household information, and identity fields for your intake packet.',
-  },
   2: {
     title: 'Military Service',
     eyebrow: 'Step 2',
@@ -68,6 +68,9 @@ const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
 // ── Form state ────────────────────────────────────────────────────────────────
 interface FormData {
   // Step 1
+  firstName:      string;
+  lastName:       string;
+  email:          string;
   dob:           string;
   ssn:           string;
   county:        string;
@@ -103,6 +106,7 @@ interface FormData {
 }
 
 const INITIAL: FormData = {
+  firstName: '', lastName: '', email: '',
   dob: '', ssn: '', county: '', phone: '', address: '', householdSize: '',
   hasDisability: false, isEmployed: false, unemployed5of10: false, hasCar: false,
   monthlyIncome: '',
@@ -115,6 +119,66 @@ const INITIAL: FormData = {
 const pf = (s: string) => parseFloat(s) || 0;
 const pi = (s: string) => parseInt(s, 10) || 0;
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim().toLowerCase();
+  return z.string().email().safeParse(trimmed).success ? trimmed : '';
+}
+
+function extractBorrowerEmail(value: unknown): string {
+  if (!isRecord(value)) return '';
+
+  for (const key of ['email', 'borrowerEmail', 'clientEmail']) {
+    const email = normalizeEmail(value[key]);
+    if (email) return email;
+  }
+
+  for (const key of ['borrower', 'client', 'user', 'session']) {
+    const nested = value[key];
+    if (isRecord(nested)) {
+      const email = extractBorrowerEmail(nested);
+      if (email) return email;
+    }
+  }
+
+  return '';
+}
+
+async function fetchCurrentBorrowerEmail(): Promise<string> {
+  try {
+    const sessionRes = await fetch('/api/public/auth/borrower-session', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (sessionRes.ok) {
+      const sessionData = await sessionRes.json().catch(() => ({}));
+      const sessionEmail = extractBorrowerEmail(sessionData);
+      if (sessionEmail) return sessionEmail;
+    }
+
+    const res = await fetch('/api/intake', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return '';
+
+    const data = await res.json().catch(() => ({}));
+    return extractBorrowerEmail(data);
+  } catch {
+    return '';
+  }
+}
+
 // ── Shared input class strings ────────────────────────────────────────────────
 const inputCls =
   "w-full py-3.5 px-4 border-[1.5px] border-border rounded-md bg-white font-sans text-base text-text-primary transition-[border-color,box-shadow] duration-fast appearance-none placeholder:text-text-muted focus:outline-none focus:border-crimson focus:shadow-[0_0_0_3px_rgba(179,30,60,0.1)]";
@@ -123,15 +187,20 @@ const labelCls =
   "flex items-center gap-2 font-sans text-[0.8125rem] font-semibold text-text-secondary tracking-[0.06em] uppercase";
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
+export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWizardProps) {
   const router = useRouter();
   const uid = useId();
   const inviteToken = token.trim();
+  const seededEmail = normalizeEmail(initialEmail);
   const isPublicInviteFlow = inviteToken.length > 0;
   const [currentStep, setCurrentStep] = useState(() => (isPublicInviteFlow ? 0 : 1));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError]             = useState('');
-  const [form, setForm]               = useState<FormData>(INITIAL);
+  const [form, setForm]               = useState<FormData>(() => ({
+    ...INITIAL,
+    email: seededEmail,
+  }));
+  const [borrowerEmail, setBorrowerEmail] = useState(seededEmail);
   const [password, setPassword]       = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountErrors, setAccountErrors] = useState<AccountSetupErrors>({});
@@ -194,6 +263,13 @@ export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
         throw new Error(message);
       }
 
+      const setupEmail =
+        extractBorrowerEmail(data) || await fetchCurrentBorrowerEmail();
+      if (setupEmail) {
+        setBorrowerEmail(setupEmail);
+        setForm((prev) => ({ ...prev, email: setupEmail }));
+      }
+
       setPassword('');
       setConfirmPassword('');
       setCurrentStep(1);
@@ -204,11 +280,27 @@ export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
     }
   };
 
+  const handlePersonalInfoNext = (data: PersonalInfoFormData) => {
+    const email = normalizeEmail(data.email);
+    setBorrowerEmail(email);
+    setForm((prev) => ({
+      ...prev,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email,
+      phone: data.phone,
+    }));
+    next();
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setError('');
 
     const payload = {
+      firstName: form.firstName || undefined,
+      lastName:  form.lastName  || undefined,
+      email:     form.email     || undefined,
       dob:     form.dob     || undefined,
       ssn:     form.ssn     || undefined,
       county:  form.county  || undefined,
@@ -309,7 +401,7 @@ export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
   );
 
   const publicPlaceholderStep =
-    currentStep === 1 || currentStep === 2 || currentStep === 3
+    currentStep === 2 || currentStep === 3
       ? PUBLIC_PLACEHOLDER_STEPS[currentStep]
       : null;
 
@@ -467,6 +559,20 @@ export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
                     </div>
                   </div>
                 </form>
+              )}
+
+              {currentStep === 1 && (
+                <PersonalInfoStep
+                  formId={PERSONAL_INFO_FORM_ID}
+                  defaultValues={{
+                    firstName: form.firstName,
+                    lastName: form.lastName,
+                    email: borrowerEmail || form.email,
+                    phone: form.phone,
+                  }}
+                  lockedEmail={borrowerEmail || form.email}
+                  onSubmit={handlePersonalInfoNext}
+                />
               )}
 
               {publicPlaceholderStep && (
@@ -679,9 +785,10 @@ export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
               ) : currentStep < PUBLIC_LAST_STEP ? (
                 <button
                   id="intake-next"
+                  form={currentStep === 1 ? PERSONAL_INFO_FORM_ID : undefined}
                   className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
-                  onClick={next}
-                  type="button"
+                  onClick={currentStep === 1 ? undefined : next}
+                  type={currentStep === 1 ? 'submit' : 'button'}
                 >
                   Next
                 </button>
