@@ -174,7 +174,7 @@ export default function IntakeWizard({ token = '' }: IntakeWizardProps) {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch('/api/admin/auth/intake/setup-password', {
+      const res = await fetch('/api/public/auth/intake/setup-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
