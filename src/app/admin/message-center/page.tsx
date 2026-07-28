@@ -45,6 +45,13 @@ interface ConversationSummary {
   status?: string;
 }
 
+/** Client record used in the Compose modal borrower-picker. */
+interface ComposeClient {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getBorrowerName(conv: ConversationSummary): string {
@@ -82,6 +89,14 @@ export default function MessageCenterPage() {
   const [loading, setLoading]               = useState(true);
   const [fetchError, setFetchError]         = useState<string | null>(null);
   const [activeId, setActiveId]             = useState<string | null>(null);
+
+  // ── Compose modal state ──────────────────────────────────────────────────────
+  const [showCompose, setShowCompose]         = useState(false);
+  const [composeClients, setComposeClients]   = useState<ComposeClient[]>([]);
+  const [composeLoading, setComposeLoading]   = useState(false);
+  const [composeSearch, setComposeSearch]     = useState("");
+  const [composeError, setComposeError]       = useState<string | null>(null);
+  const [composeStarting, setComposeStarting] = useState<string | null>(null); // borrowerId being created
 
   // ── Fetch conversation list ─────────────────────────────────────────────────
 
@@ -125,6 +140,70 @@ export default function MessageCenterPage() {
     }
   }, []);
 
+  // ── Open compose modal — fetch client list ─────────────────────────────────
+
+  const openCompose = useCallback(async () => {
+    setShowCompose(true);
+    setComposeSearch("");
+    setComposeError(null);
+    if (composeClients.length > 0) return; // already loaded
+    setComposeLoading(true);
+    try {
+      const res = await fetch("/api/admin/discharge-snapshots", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { snapshots?: { client: ComposeClient }[] };
+      const clients = (data.snapshots ?? []).map((s) => s.client).filter(Boolean);
+      // Deduplicate by id
+      const seen = new Set<string>();
+      setComposeClients(
+        clients.filter((c) => { if (seen.has(c.id)) return false; seen.add(c.id); return true; })
+      );
+    } catch {
+      setComposeError("Could not load borrowers. Please try again.");
+    } finally {
+      setComposeLoading(false);
+    }
+  }, [composeClients]);
+
+  // ── Start a conversation from the Compose modal ──────────────────────────────
+
+  const handleComposePick = useCallback(async (client: ComposeClient) => {
+    if (composeStarting) return;
+    setComposeStarting(client.id);
+    try {
+      const res = await fetch("/api/admin/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ borrowerId: client.id }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { conversation?: ConversationSummary };
+      const conv = data.conversation;
+      if (!conv?.id) throw new Error("No conversation returned.");
+
+      // Add or update in local list, then select it
+      setConversations((prev) => {
+        const exists = prev.find((c) => c.id === conv.id);
+        if (exists) return prev;
+        const stub: ConversationSummary = {
+          id: conv.id,
+          borrowerId: client.id,
+          borrower: { email: client.email ?? undefined },
+          unreadCount: 0,
+          createdAt: conv.createdAt ?? new Date().toISOString(),
+          updatedAt: conv.updatedAt ?? new Date().toISOString(),
+        };
+        return sortConversations([stub, ...prev]);
+      });
+      setActiveId(conv.id);
+      setShowCompose(false);
+    } catch {
+      setComposeError("Failed to open conversation. Please try again.");
+    } finally {
+      setComposeStarting(null);
+    }
+  }, [composeStarting]);
+
   // ── Derived: active conversation record ─────────────────────────────────────
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null;
@@ -133,6 +212,20 @@ export default function MessageCenterPage() {
 
   return (
     <div className="flex h-full min-h-screen bg-[#f3f4f6]">
+
+      {/* ── Compose Modal ──────────────────────────────────────────────────── */}
+      {showCompose && (
+        <ComposeModal
+          clients={composeClients}
+          loading={composeLoading}
+          error={composeError}
+          search={composeSearch}
+          starting={composeStarting}
+          onSearch={setComposeSearch}
+          onPick={handleComposePick}
+          onClose={() => setShowCompose(false)}
+        />
+      )}
 
       {/* ── Left sidebar: Conversation list ───────────────────────────────── */}
       <aside
@@ -150,14 +243,26 @@ export default function MessageCenterPage() {
               <p className="text-[0.68rem] text-[#6b7280] mt-0.5">Staff Triage Inbox</p>
             </div>
           </div>
-          <button
-            onClick={loadConversations}
-            title="Refresh conversations"
-            aria-label="Refresh conversations"
-            className="p-1.5 rounded-md text-[#6b7280] hover:text-[#1a2744] hover:bg-[#e5e7eb] transition-colors duration-150 shrink-0"
-          >
-            <RefreshIcon />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* Compose / New Chat button */}
+            <button
+              id="compose-new-chat-btn"
+              onClick={openCompose}
+              title="Compose new conversation"
+              aria-label="Compose new conversation"
+              className="p-1.5 rounded-md text-white bg-[#1d4ed8] hover:bg-[#1e40af] transition-colors duration-150 shrink-0 shadow-sm"
+            >
+              <ComposeIcon />
+            </button>
+            <button
+              onClick={loadConversations}
+              title="Refresh conversations"
+              aria-label="Refresh conversations"
+              className="p-1.5 rounded-md text-[#6b7280] hover:text-[#1a2744] hover:bg-[#e5e7eb] transition-colors duration-150 shrink-0"
+            >
+              <RefreshIcon />
+            </button>
+          </div>
         </div>
 
         {/* Conversation list body */}
@@ -407,6 +512,181 @@ function EmptyInboxIcon() {
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
       <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  );
+}
+// ── ComposeModal ──────────────────────────────────────────────────────────────
+//
+// Full-screen overlay modal for selecting a borrower to start a chat with.
+// Fetches the borrower list from /api/admin/discharge-snapshots on open,
+// supports live search filtering, and calls POST /api/admin/conversations
+// with the selected borrowerId.
+
+interface ComposeModalProps {
+  clients:  ComposeClient[];
+  loading:  boolean;
+  error:    string | null;
+  search:   string;
+  starting: string | null;
+  onSearch: (v: string) => void;
+  onPick:   (c: ComposeClient) => void;
+  onClose:  () => void;
+}
+
+function ComposeModal({
+  clients, loading, error, search, starting, onSearch, onPick, onClose,
+}: ComposeModalProps) {
+  const filtered = clients.filter((c) => {
+    const q = search.toLowerCase();
+    return (
+      (c.name?.toLowerCase().includes(q) ?? false) ||
+      (c.email?.toLowerCase().includes(q) ?? false)
+    );
+  });
+
+  return (
+    // Backdrop
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="New conversation"
+    >
+      {/* Panel — stop propagation so clicking inside doesn't close */}
+      <div
+        className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: "80vh" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-[#e5e7eb] flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#1d4ed8] flex items-center justify-center">
+              <ComposeIcon color="white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#1a2744] leading-none">New Conversation</p>
+              <p className="text-[0.68rem] text-[#6b7280] mt-0.5">Select a borrower to message</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 rounded-md text-[#6b7280] hover:text-[#1a2744] hover:bg-[#e5e7eb] transition-colors"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3 border-b border-[#f3f4f6] shrink-0">
+          <input
+            id="compose-search-input"
+            type="text"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Search by name or email…"
+            autoFocus
+            className="w-full px-3 py-2 rounded-lg border border-[#d1d5db] text-sm text-[#1a2744] placeholder-[#9ca3af] outline-none focus:border-[#1d4ed8] focus:ring-2 focus:ring-[#1d4ed8]/20 transition"
+          />
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12">
+              <ModalSpinner />
+              <p className="text-xs text-[#6b7280]">Loading borrowers…</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-10 px-6 text-center">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-10 px-6 text-center">
+              <p className="text-sm text-[#374151] font-semibold">No borrowers found</p>
+              {search && (
+                <p className="text-xs text-[#6b7280]">Try a different search term.</p>
+              )}
+            </div>
+          ) : (
+            <ul className="divide-y divide-[#f3f4f6]">
+              {filtered.map((c) => {
+                const isStarting = starting === c.id;
+                const label = c.name || c.email || "Unknown Borrower";
+                return (
+                  <li key={c.id}>
+                    <button
+                      id={`compose-pick-${c.id}`}
+                      onClick={() => onPick(c)}
+                      disabled={!!starting}
+                      className={[
+                        "w-full text-left px-4 py-3 flex items-center gap-3 transition-colors",
+                        starting
+                          ? "opacity-60 cursor-not-allowed"
+                          : "hover:bg-[#eff6ff]",
+                      ].join(" ")}
+                    >
+                      {/* Avatar */}
+                      <div className="w-9 h-9 rounded-full bg-[#1a2744] flex items-center justify-center shrink-0 text-white text-sm font-bold uppercase">
+                        {label.charAt(0)}
+                      </div>
+                      {/* Name + email */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#1a2744] truncate">{label}</p>
+                        {c.name && c.email && (
+                          <p className="text-xs text-[#9ca3af] truncate">{c.email}</p>
+                        )}
+                      </div>
+                      {/* Loading spinner for this row */}
+                      {isStarting && (
+                        <ModalSpinner />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-[#e5e7eb] bg-[#f8fafc] shrink-0">
+          <p className="text-[0.68rem] text-[#9ca3af] text-center">
+            {filtered.length} borrower{filtered.length !== 1 ? "s" : ""} · Click to open or start a conversation
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Compose-specific Icons ────────────────────────────────────────────────────
+
+function ComposeIcon({ color = "#1d4ed8" }: { color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ModalSpinner() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" aria-hidden className="animate-spin">
+      <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
+      <path d="M12 2a10 10 0 0 1 10 10" />
     </svg>
   );
 }

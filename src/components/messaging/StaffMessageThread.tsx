@@ -84,11 +84,13 @@ export default function StaffMessageThread({
   const [isInternal, setIsInternal] = useState(false);
 
   type Phase = "discovering" | "loading" | "ready" | "no-thread" | "error";
-  const [phase, setPhase]         = useState<Phase>(
+  const [phase, setPhase]           = useState<Phase>(
     suppliedConversationId ? "loading" : "discovering"
   );
-  const [isSending, setIsSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const [isSending, setIsSending]   = useState(false);
+  const [sendError, setSendError]   = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const bottomRef   = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -256,22 +258,91 @@ export default function StaffMessageThread({
 
   if (phase === "discovering" || phase === "loading") return <SkeletonLoader />;
 
+  // ── Start conversation handler ─────────────────────────────────────────────
+
+  const handleStartConversation = useCallback(async () => {
+    if (isCreating) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/admin/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ borrowerId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({})) as { message?: string; error?: string };
+        throw new Error(errData.message ?? errData.error ?? `Server error (HTTP ${res.status})`);
+      }
+      const data = await res.json() as { conversation?: { id: string } };
+      const convId = data.conversation?.id;
+      if (!convId) throw new Error("No conversation ID in response.");
+      setConversationId(convId);
+      setPhase("loading");
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to start conversation.");
+    } finally {
+      setIsCreating(false);
+    }
+  }, [borrowerId, isCreating]);
+
   if (phase === "no-thread") {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-20 px-8 text-center min-h-[360px]">
-        <div className="w-12 h-12 rounded-full bg-[#f3f4f6] border border-[#e5e7eb] flex items-center justify-center">
-          <ChatIcon />
+      <div className="flex flex-col items-center justify-center gap-5 py-20 px-8 text-center min-h-[360px]">
+        {/* Icon */}
+        <div className="w-14 h-14 rounded-2xl bg-[#eff6ff] border border-[#bfdbfe] flex items-center justify-center">
+          <ComposeIcon />
         </div>
-        <p className="text-sm font-semibold text-[#374151]">No message thread found</p>
-        <p className="text-xs text-[#6b7280] max-w-xs">
-          A conversation thread has not been created for this borrower yet.
-          It will appear here once the borrower activates their portal account.
-        </p>
+
+        {/* Copy */}
+        <div>
+          <p className="text-sm font-bold text-[#1a2744]">No message thread yet</p>
+          <p className="text-xs text-[#6b7280] max-w-xs mt-1">
+            Start a secure conversation with this borrower. They'll see your
+            message when they next log into their portal.
+          </p>
+        </div>
+
+        {/* Error banner */}
+        {createError && (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 max-w-xs">
+            {createError}
+          </p>
+        )}
+
+        {/* Primary CTA */}
+        <button
+          id="start-conversation-btn"
+          onClick={handleStartConversation}
+          disabled={isCreating}
+          className={[
+            "flex items-center gap-2 px-6 py-2.5 rounded-lg",
+            "text-sm font-semibold text-white shadow-sm",
+            "transition-all duration-150 active:scale-95",
+            isCreating
+              ? "bg-[#93c5fd] cursor-not-allowed"
+              : "bg-[#1d4ed8] hover:bg-[#1e40af]",
+          ].join(" ")}
+        >
+          {isCreating ? (
+            <>
+              <SendingSpinner />
+              Starting…
+            </>
+          ) : (
+            <>
+              <ComposeIcon size={13} color="white" />
+              Start Conversation
+            </>
+          )}
+        </button>
+
+        {/* Retry discovery link */}
         <button
           onClick={() => { setConversationId(null); discoverConversation(); }}
-          className="text-sm font-semibold text-[#1d4ed8] hover:text-[#1e40af] transition-colors"
+          className="text-xs text-[#9ca3af] hover:text-[#6b7280] transition-colors underline underline-offset-2"
         >
-          Retry
+          Retry discovery
         </button>
       </div>
     );
@@ -612,6 +683,15 @@ function ChatIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+function ComposeIcon({ size = 20, color = "#1d4ed8" }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
     </svg>
   );
 }
