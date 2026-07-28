@@ -50,6 +50,7 @@ interface Client {
 
 type ClientStatus = "Pending Email Verification" | "Intake Pending" | "Ready for Review";
 type BadgeTone = "success" | "warning" | "muted" | "danger" | "info";
+type SnapshotStatusLabel = "Incomplete" | "Complete" | "Dischargeable" | "Not Dischargeable";
 
 type DashboardClientSummary = DashboardClientRow & {
   firstName?: string | null;
@@ -76,7 +77,7 @@ interface DashboardSnapshot {
   id: string;
   clientName: string;
   clientEmail?: string;
-  statusLabel: string;
+  statusLabel: SnapshotStatusLabel;
   statusTone: BadgeTone;
   updatedAt?: string;
   createdAt?: string;
@@ -161,13 +162,6 @@ function sortByNewest<T>(items: T[], getIso: (item: T) => string | undefined): T
   return [...items].sort((a, b) => getTimeValue(getIso(b)) - getTimeValue(getIso(a)));
 }
 
-function toTitleCase(value: string): string {
-  return value
-    .replace(/[_-]/g, " ")
-    .trim()
-    .replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
-}
-
 function getClientDisplayName(client: DashboardClientSummary): string {
   const fullName = [client.firstName, client.lastName].filter(Boolean).join(" ").trim();
   return fullName || client.name?.trim() || client.email || "Unknown Client";
@@ -185,15 +179,22 @@ function getConversationBorrowerName(conversation: ConversationSummary): string 
   return fullName || person?.email || "Unknown Borrower";
 }
 
-function getSnapshotStatus(snapshot: ApiSnapshot): { label: string; tone: BadgeTone } {
+function getSnapshotStatus(snapshot: ApiSnapshot): { label: SnapshotStatusLabel; tone: BadgeTone } {
   const normalizedStatus = snapshot.status?.trim().toLowerCase();
   if (normalizedStatus) {
-    if (normalizedStatus === "dischargeable") return { label: "Dischargeable", tone: "success" };
-    if (normalizedStatus === "not_dischargeable") return { label: "Not Dischargeable", tone: "danger" };
-    if (normalizedStatus.includes("incomplete") || normalizedStatus.includes("pending")) {
-      return { label: toTitleCase(normalizedStatus), tone: "warning" };
+    if (["dischargeable", "yes"].includes(normalizedStatus)) {
+      return { label: "Dischargeable", tone: "success" };
     }
-    return { label: toTitleCase(normalizedStatus), tone: "info" };
+    if (["not_dischargeable", "not-dischargeable", "not dischargeable", "no"].includes(normalizedStatus)) {
+      return { label: "Not Dischargeable", tone: "danger" };
+    }
+    if (["complete", "completed"].includes(normalizedStatus)) {
+      return { label: "Complete", tone: "info" };
+    }
+    if (normalizedStatus.includes("incomplete") || normalizedStatus.includes("pending")) {
+      return { label: "Incomplete", tone: "warning" };
+    }
+    return { label: "Complete", tone: "info" };
   }
 
   if (snapshot.isDischargeable === true) return { label: "Dischargeable", tone: "success" };
@@ -204,7 +205,7 @@ function getSnapshotStatus(snapshot: ApiSnapshot): { label: string; tone: BadgeT
 function isActiveSnapshot(snapshot: ApiSnapshot): boolean {
   const status = snapshot.status?.trim().toLowerCase();
   if (!status) return true;
-  return !["archived", "closed", "complete", "completed", "deleted", "cancelled", "canceled"].includes(status);
+  return !["archived", "closed", "deleted", "cancelled", "canceled"].includes(status);
 }
 
 function formatPayment(value: ApiSnapshot["lowestMonthlyPayment"]): string | undefined {
