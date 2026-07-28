@@ -252,7 +252,7 @@ export default function MessageCenterPage() {
               aria-label="Compose new conversation"
               className="p-1.5 rounded-md text-white bg-[#1d4ed8] hover:bg-[#1e40af] transition-colors duration-150 shrink-0 shadow-sm"
             >
-              <ComposeIcon />
+              <ComposeIcon color="white" />
             </button>
             <button
               onClick={loadConversations}

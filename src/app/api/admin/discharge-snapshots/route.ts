@@ -101,8 +101,78 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(data, { status: backendRes.status });
 }
 
-// ── Block all other HTTP methods ─────────────────────────────────────────────
+// ── GET /api/admin/discharge-snapshots?search=... ─────────────────────────────
+//
+// Server-side proxy for the backend:
+//   GET /api/v1/admin/discharge-snapshots[?search=...]
+//
+// Used by the Compose modal borrower-picker to load all discharge-snapshot
+// client records.  An optional ?search= query param is forwarded verbatim.
 
-export function GET(): NextResponse {
-  return NextResponse.json({ message: "Method not allowed." }, { status: 405 });
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  // ── 1. Read the admin session cookie ────────────────────────────────────────
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("admin_session");
+
+  if (!sessionCookie?.value) {
+    return NextResponse.json(
+      { message: "Unauthorized: No active admin session." },
+      { status: 401 }
+    );
+  }
+
+  // ── 2. Resolve backend URL ───────────────────────────────────────────────────
+  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
+  if (!backendBase) {
+    console.error(
+      "[proxy/admin/discharge-snapshots GET] NEXT_PUBLIC_AWS_API_URL is not set."
+    );
+    return NextResponse.json(
+      { message: "Server configuration error." },
+      { status: 503 }
+    );
+  }
+
+  // Forward any query params (e.g. ?search=...) from the incoming request
+  const incomingSearch = req.nextUrl.searchParams.toString();
+  const targetUrl = incomingSearch
+    ? `${backendBase}/admin/discharge-snapshots?${incomingSearch}`
+    : `${backendBase}/admin/discharge-snapshots`;
+
+  // ── 3. Forward GET to backend ────────────────────────────────────────────────
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(targetUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${sessionCookie.value}`,
+      },
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error(
+      "[proxy/admin/discharge-snapshots GET] Network error reaching backend:",
+      err
+    );
+    return NextResponse.json(
+      { message: "Unable to reach the backend. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  // ── 4. Parse and relay the response ─────────────────────────────────────────
+  let data: unknown;
+  try {
+    data = await backendRes.json();
+  } catch {
+    console.error(
+      "[proxy/admin/discharge-snapshots GET] Backend returned non-JSON response."
+    );
+    return NextResponse.json(
+      { message: "Unexpected response from backend." },
+      { status: 502 }
+    );
+  }
+
+  return NextResponse.json(data, { status: backendRes.status });
 }
