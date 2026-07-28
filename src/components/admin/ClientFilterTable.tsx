@@ -30,6 +30,7 @@ export interface ClientRow {
   lastName?: string | null;
   createdAt: string;
   isVerified: boolean;
+  isArchived?: boolean | null;
   intakeProfile: { isCompleted: boolean; [key: string]: unknown } | null;
   status: ClientStatus;
 }
@@ -39,6 +40,7 @@ type FilterOption = "All" | ClientStatus;
 interface ClientFilterTableProps {
   clients: ClientRow[];
   adminToken: string;
+  archiveMode?: boolean;
 }
 
 interface Toast {
@@ -120,7 +122,7 @@ const STATUS_BADGE_STYLES: Record<ClientStatus, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ClientFilterTable({ clients: initialClients, adminToken }: ClientFilterTableProps) {
+export default function ClientFilterTable({ clients: initialClients, adminToken, archiveMode = false }: ClientFilterTableProps) {
   const [clients, setClients] = useState<ClientRow[]>(initialClients);
   const [activeFilter, setActiveFilter] = useState<FilterOption>("All");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -233,6 +235,7 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
             "Content-Type": "application/json",
             Authorization: `Bearer ${adminToken}`,
           },
+          body: JSON.stringify({ isArchived: true }),
         });
 
         if (!res.ok) {
@@ -259,6 +262,62 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
       }
     },
     [adminToken, clients, updatingId]
+  );
+
+  const handleRestoreClient = useCallback(
+    async (clientId: string) => {
+      if (updatingId) return;
+
+      const targetClient = clients.find((c) => c.id === clientId);
+      const clientLabel = targetClient ? getClientActionLabel(targetClient) : "Client";
+      const previousClients = [...clients];
+
+      setUpdatingId(clientId);
+      setOpenDropdown(null);
+      setClients((prev) => prev.filter((c) => c.id !== clientId));
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
+        if (!apiUrl) throw new Error("Backend API URL is not configured.");
+
+        const res = await fetch(`${apiUrl}/admin/clients/${clientId}/archive`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ isArchived: false }),
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            (body as Record<string, string>).error ||
+            (body as Record<string, string>).message ||
+            `Server responded with ${res.status}`
+          );
+        }
+
+        setToast({
+          message: `${clientLabel} restored.`,
+          type: "success",
+        });
+      } catch (err) {
+        setClients(previousClients);
+        setToast({
+          message: err instanceof Error ? err.message : "Failed to restore client.",
+          type: "error",
+        });
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [adminToken, clients, updatingId]
+  );
+
+  const visibleClients = useMemo(
+    () => clients.filter((c) => archiveMode ? c.isArchived === true : c.isArchived !== true),
+    [archiveMode, clients]
   );
 
   const handleDeleteClient = useCallback(async () => {
@@ -310,20 +369,20 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
   // Derive counts per status (always from full list)
   const counts = useMemo(() => {
     const map: Record<FilterOption, number> = {
-      All: clients.length,
+      All: visibleClients.length,
       "Pre-Filing": 0,
       Filed: 0,
     };
-    for (const c of clients) {
+    for (const c of visibleClients) {
       map[c.status] = (map[c.status] ?? 0) + 1;
     }
     return map;
-  }, [clients]);
+  }, [visibleClients]);
 
   // Filtered client list
   const filtered = useMemo(
-    () => activeFilter === "All" ? clients : clients.filter((c) => c.status === activeFilter),
-    [clients, activeFilter]
+    () => activeFilter === "All" ? visibleClients : visibleClients.filter((c) => c.status === activeFilter),
+    [activeFilter, visibleClients]
   );
 
   return (
@@ -446,10 +505,12 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
                       onToggle={() => setOpenDropdown(openDropdown === client.id ? null : client.id)}
                       onStatusChange={handleStatusChange}
                       onArchive={handleArchiveClient}
+                      onRestore={handleRestoreClient}
                       onRequestDelete={(selectedClient) => {
                         setOpenDropdown(null);
                         setDeleteClient(selectedClient);
                       }}
+                      archiveMode={archiveMode}
                       dropdownRef={openDropdown === client.id ? dropdownRef : undefined}
                     />
                   </td>
@@ -467,7 +528,7 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
             {activeFilter !== "All" && (
               <>Filtered: <strong className="text-text-primary">{activeFilter}</strong> · </>
             )}
-            Showing {filtered.length} of {clients.length} {clients.length === 1 ? "client" : "clients"}
+            Showing {filtered.length} of {visibleClients.length} {visibleClients.length === 1 ? "client" : "clients"}
           </span>
           {activeFilter !== "All" && (
             <button
@@ -517,7 +578,9 @@ function StatusActionCell({
   onToggle,
   onStatusChange,
   onArchive,
+  onRestore,
   onRequestDelete,
+  archiveMode,
   dropdownRef,
 }: {
   client: ClientRow;
@@ -526,7 +589,9 @@ function StatusActionCell({
   onToggle: () => void;
   onStatusChange: (clientId: string, newStatus: ClientStatus) => void;
   onArchive: (clientId: string) => void;
+  onRestore: (clientId: string) => void;
   onRequestDelete: (client: ClientRow) => void;
+  archiveMode: boolean;
   dropdownRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
@@ -580,14 +645,25 @@ function StatusActionCell({
                 Client Actions
               </span>
             </div>
-            <button
-              type="button"
-              role="menuitem"
-              className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold text-warning cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out hover:bg-warning-bg"
-              onClick={() => onArchive(client.id)}
-            >
-              Archive Client
-            </button>
+            {archiveMode ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold text-success cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out hover:bg-success-bg"
+                onClick={() => onRestore(client.id)}
+              >
+                Restore Client
+              </button>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold text-warning cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out hover:bg-warning-bg"
+                onClick={() => onArchive(client.id)}
+              >
+                Archive Client
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

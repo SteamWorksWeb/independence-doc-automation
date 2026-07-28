@@ -9,24 +9,25 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import PendingInvitesTable from "./PendingInvitesTable";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type TabId = "clients" | "invites";
+type TabId = "clients" | "archived";
 
 interface ClientTabsProps {
   children: ReactNode;
-  adminToken: string;
   clientCount: number;
+  archivedClientCount: number;
+  archivedContent: ReactNode;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ClientTabs({
   children,
-  adminToken,
   clientCount,
+  archivedClientCount,
+  archivedContent,
 }: ClientTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("clients");
 
@@ -69,14 +70,23 @@ export default function ClientTabs({
         <button
           type="button"
           role="tab"
-          id="tab-invites"
-          aria-selected={activeTab === "invites"}
-          aria-controls="tabpanel-invites"
-          className={activeTab === "invites" ? tabActive : tabInactive}
-          onClick={() => setActiveTab("invites")}
+          id="tab-archived"
+          aria-selected={activeTab === "archived"}
+          aria-controls="tabpanel-archived"
+          className={activeTab === "archived" ? tabActive : tabInactive}
+          onClick={() => setActiveTab("archived")}
         >
-          <MailIcon />
-          Pending Invites
+          <ArchiveIcon />
+          Archived Clients
+          <span
+            className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-[10px] text-[0.6875rem] font-bold leading-none ${
+              activeTab === "archived"
+                ? "bg-[rgba(179,30,60,0.1)] text-crimson"
+                : "bg-bg-alt text-text-muted"
+            }`}
+          >
+            {archivedClientCount}
+          </span>
         </button>
       </div>
 
@@ -92,14 +102,14 @@ export default function ClientTabs({
         </div>
       )}
 
-      {activeTab === "invites" && (
+      {activeTab === "archived" && (
         <div
           role="tabpanel"
-          id="tabpanel-invites"
-          aria-labelledby="tab-invites"
+          id="tabpanel-archived"
+          aria-labelledby="tab-archived"
           className="animate-fade-in"
         >
-          <PendingInvitesTable adminToken={adminToken} />
+          {archivedContent}
         </div>
       )}
     </>
@@ -118,11 +128,12 @@ function UsersIcon() {
   );
 }
 
-function MailIcon() {
+function ArchiveIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="2" y="4" width="20" height="16" rx="2" />
-      <path d="M22 7l-10 7L2 7" />
+      <rect x="3" y="4" width="18" height="5" rx="1" />
+      <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9" />
+      <path d="M10 13h4" />
     </svg>
   );
 }

@@ -23,7 +23,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-export async function GET() {
+export async function GET(request: Request) {
   // ── 1. Read the admin session cookie ──────────────────────────────────────
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("admin_session");
@@ -45,7 +45,8 @@ export async function GET() {
     );
   }
 
-  const targetUrl = `${backendBase}/admin/clients`;
+  const { search } = new URL(request.url);
+  const targetUrl = `${backendBase}/admin/clients${search}`;
 
   // ── 3. Forward request to backend ─────────────────────────────────────────
   let backendRes: Response;

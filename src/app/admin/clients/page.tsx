@@ -36,6 +36,7 @@ interface Client {
   lastName?: string | null;
   createdAt: string;
   isVerified: boolean;
+  isArchived?: boolean | null;
   intakeProfile: IntakeProfile | null;
   status?: string; // Backend may provide an explicit pipeline status
 }
@@ -72,7 +73,7 @@ function formatDate(iso: string): string {
 
 // ── Secure data fetch ─────────────────────────────────────────────────────────
 
-async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: string | null }> {
+async function fetchClients(archived: boolean): Promise<{ clients: ClientRow[] | null; error: string | null }> {
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
 
@@ -95,7 +96,7 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
     return { clients: null, error: "Server configuration error. Please check server logs." };
   }
 
-  const targetUrl = `${backendBase}/admin/clients`;
+  const targetUrl = `${backendBase}/admin/clients?archived=${archived ? "true" : "false"}`;
   console.log(`[clients] Fetching directly from backend: ${targetUrl}`);
 
   try {
@@ -122,11 +123,13 @@ async function fetchClients(): Promise<{ clients: ClientRow[] | null; error: str
 
     const data = await res.json();
     const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
-    const clients: ClientRow[] = raw.map((c) => ({
-      ...c,
-      status: getStatus(c),
-    }));
-    console.log(`[clients] SUCCESS: Loaded ${clients.length} clients from backend.`);
+    const clients: ClientRow[] = raw
+      .map((c) => ({
+        ...c,
+        status: getStatus(c),
+      }))
+      .filter((c) => archived ? c.isArchived === true : c.isArchived !== true);
+    console.log(`[clients] SUCCESS: Loaded ${clients.length} ${archived ? "archived" : "active"} clients from backend.`);
     return { clients, error: null };
   } catch (error) {
     console.error("[clients] FETCH EXCEPTION:", error);
@@ -143,10 +146,19 @@ export default async function ClientsPage() {
   const cookieStore = await cookies();
   const adminToken = cookieStore.get("admin_session")?.value ?? "";
 
-  const { clients, error } = await fetchClients();
+  const [activeResult, archivedResult] = await Promise.all([
+    fetchClients(false),
+    fetchClients(true),
+  ]);
+
+  const clients = activeResult.clients;
+  const archivedClients = archivedResult.clients;
+  const error = activeResult.error;
+  const archivedError = archivedResult.error;
 
   // Derive counts for the stat strip
   const total = clients?.length ?? 0;
+  const archivedTotal = archivedClients?.length ?? 0;
   const preFiling = clients?.filter((c) => c.status === "Pre-Filing").length ?? 0;
   const filed = clients?.filter((c) => c.status === "Filed").length ?? 0;
 
@@ -198,7 +210,26 @@ export default async function ClientsPage() {
           </div>
         </div>
 
-        <ClientTabs adminToken={adminToken} clientCount={total}>
+        <ClientTabs
+          clientCount={total}
+          archivedClientCount={archivedTotal}
+          archivedContent={
+            <>
+              {archivedError && <ErrorState message={archivedError} />}
+
+              {!archivedError && archivedClients && archivedClients.length === 0 && (
+                <EmptyState
+                  title="No archived clients"
+                  description="Archived client accounts will appear here when they are removed from the active directory."
+                />
+              )}
+
+              {!archivedError && archivedClients && archivedClients.length > 0 && (
+                <ClientFilterTable clients={archivedClients} adminToken={adminToken} archiveMode />
+              )}
+            </>
+          }
+        >
           {/* ── Active Clients tab content ── */}
 
           {/* Error state */}
@@ -254,14 +285,20 @@ function ErrorState({ message }: { message: string }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({
+  title = "No clients yet",
+  description = "Client accounts will appear here once they register for the portal.",
+}: {
+  title?: string;
+  description?: string;
+}) {
   return (
     <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
       <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>
       </div>
-      <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No clients yet</p>
-      <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">Client accounts will appear here once they register for the portal.</p>
+      <p className="font-serif text-[1.0625rem] font-bold text-text-primary">{title}</p>
+      <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">{description}</p>
     </div>
   );
 }
