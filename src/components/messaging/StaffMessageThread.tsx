@@ -254,11 +254,9 @@ export default function StaffMessageThread({
     handleSend();
   };
 
-  // ── Render: loading / error / no-thread states ─────────────────────────────
-
-  if (phase === "discovering" || phase === "loading") return <SkeletonLoader />;
-
-  // ── Start conversation handler ─────────────────────────────────────────────
+  // ── Start conversation handler (must be declared BEFORE any early returns) ──
+  // ⚠ This hook MUST stay here, above all conditional returns, to satisfy
+  //   the Rules of Hooks (React error #310 if placed after an early return).
 
   const handleStartConversation = useCallback(async () => {
     if (isCreating) return;
@@ -285,6 +283,10 @@ export default function StaffMessageThread({
       setIsCreating(false);
     }
   }, [borrowerId, isCreating]);
+
+  // ── Render: loading / error / no-thread states ─────────────────────────────
+
+  if (phase === "discovering" || phase === "loading") return <SkeletonLoader />;
 
   if (phase === "no-thread") {
     return (
