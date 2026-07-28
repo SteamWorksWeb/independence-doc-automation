@@ -16,12 +16,12 @@
  *
  * The interactive table (filter tabs, status badges) lives in the client
  * component DashboardClientTable to avoid mixing server-only APIs (cookies)
- * with client-only APIs (useState).
  */
 
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { cookies, headers } from "next/headers";
-import DashboardClientTable from "@/components/admin/DashboardClientTable";
+import Link from "next/link";
 import type { DashboardClientRow } from "@/components/admin/DashboardClientTable";
 
 export const metadata: Metadata = {
@@ -41,11 +41,64 @@ interface Client {
   id: string;
   email: string;
   createdAt: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null;
   isVerified: boolean;
   intakeProfile: IntakeProfile | null;
 }
 
 type ClientStatus = "Pending Email Verification" | "Intake Pending" | "Ready for Review";
+type BadgeTone = "success" | "warning" | "muted" | "danger" | "info";
+
+type DashboardClientSummary = DashboardClientRow & {
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null;
+};
+
+interface ApiSnapshot {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isDischargeable?: boolean | null;
+  status?: string | null;
+  lowestMonthlyPayment?: number | string | null;
+  client?: {
+    firstName?: string | null;
+    lastName?: string | null;
+    name?: string | null;
+    email?: string | null;
+  } | null;
+}
+
+interface DashboardSnapshot {
+  id: string;
+  clientName: string;
+  clientEmail?: string;
+  statusLabel: string;
+  statusTone: BadgeTone;
+  updatedAt?: string;
+  createdAt?: string;
+  lowestMonthlyPayment?: string;
+}
+
+interface ConversationSummary {
+  id: string;
+  unreadCount?: number;
+  updatedAt?: string;
+  createdAt?: string;
+  client?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  borrower?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,7 +108,201 @@ function getStatus(client: Client): ClientStatus {
   return "Ready for Review";
 }
 
-async function fetchClients(): Promise<{ clients: DashboardClientRow[] | null; error: string | null }> {
+function getRequestOrigin(headersList: { get(name: string): string | null }): string | null {
+  const host = headersList.get("x-forwarded-host") ?? headersList.get("host");
+  if (!host) return null;
+
+  const proto = headersList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getArrayFromResponse<T>(data: unknown, key: string): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (isRecord(data) && Array.isArray(data[key])) return data[key] as T[];
+  return [];
+}
+
+function getTimeValue(iso?: string): number {
+  if (!iso) return 0;
+  const time = new Date(iso).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function formatDate(iso?: string): string {
+  if (!iso) return "Unavailable";
+  const time = getTimeValue(iso);
+  if (!time) return "Unavailable";
+
+  return new Date(time).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatTimestamp(iso?: string): string {
+  if (!iso) return "Unavailable";
+  const time = getTimeValue(iso);
+  if (!time) return "Unavailable";
+
+  return new Date(time).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function sortByNewest<T>(items: T[], getIso: (item: T) => string | undefined): T[] {
+  return [...items].sort((a, b) => getTimeValue(getIso(b)) - getTimeValue(getIso(a)));
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .replace(/[_-]/g, " ")
+    .trim()
+    .replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+}
+
+function getClientDisplayName(client: DashboardClientSummary): string {
+  const fullName = [client.firstName, client.lastName].filter(Boolean).join(" ").trim();
+  return fullName || client.name?.trim() || client.email || "Unknown Client";
+}
+
+function getSnapshotClientName(snapshot: ApiSnapshot): string {
+  const client = snapshot.client;
+  const fullName = [client?.firstName, client?.lastName].filter(Boolean).join(" ").trim();
+  return fullName || client?.name?.trim() || client?.email || "Unknown Borrower";
+}
+
+function getConversationBorrowerName(conversation: ConversationSummary): string {
+  const person = conversation.client ?? conversation.borrower;
+  const fullName = [person?.firstName, person?.lastName].filter(Boolean).join(" ").trim();
+  return fullName || person?.email || "Unknown Borrower";
+}
+
+function getSnapshotStatus(snapshot: ApiSnapshot): { label: string; tone: BadgeTone } {
+  const normalizedStatus = snapshot.status?.trim().toLowerCase();
+  if (normalizedStatus) {
+    if (normalizedStatus === "dischargeable") return { label: "Dischargeable", tone: "success" };
+    if (normalizedStatus === "not_dischargeable") return { label: "Not Dischargeable", tone: "danger" };
+    if (normalizedStatus.includes("incomplete") || normalizedStatus.includes("pending")) {
+      return { label: toTitleCase(normalizedStatus), tone: "warning" };
+    }
+    return { label: toTitleCase(normalizedStatus), tone: "info" };
+  }
+
+  if (snapshot.isDischargeable === true) return { label: "Dischargeable", tone: "success" };
+  if (snapshot.isDischargeable === false) return { label: "Not Dischargeable", tone: "danger" };
+  return { label: "Incomplete", tone: "warning" };
+}
+
+function isActiveSnapshot(snapshot: ApiSnapshot): boolean {
+  const status = snapshot.status?.trim().toLowerCase();
+  if (!status) return true;
+  return !["archived", "closed", "complete", "completed", "deleted", "cancelled", "canceled"].includes(status);
+}
+
+function formatPayment(value: ApiSnapshot["lowestMonthlyPayment"]): string | undefined {
+  if (value == null) return undefined;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return `$${numeric.toFixed(2)}`;
+  return String(value);
+}
+
+function mapSnapshot(snapshot: ApiSnapshot): DashboardSnapshot {
+  const status = getSnapshotStatus(snapshot);
+  return {
+    id: snapshot.id,
+    clientName: getSnapshotClientName(snapshot),
+    clientEmail: snapshot.client?.email ?? undefined,
+    statusLabel: status.label,
+    statusTone: status.tone,
+    updatedAt: snapshot.updatedAt,
+    createdAt: snapshot.createdAt,
+    lowestMonthlyPayment: formatPayment(snapshot.lowestMonthlyPayment),
+  };
+}
+
+async function fetchAdminRoute(
+  path: string,
+  requestOrigin: string | null,
+  adminToken: string,
+  label: string
+): Promise<{ data: unknown | null; error: string | null }> {
+  if (!adminToken) return { data: null, error: "Unauthorized: No active admin session." };
+  if (!requestOrigin) return { data: null, error: "Unable to resolve the dashboard request origin." };
+
+  const url = new URL(path, requestOrigin).toString();
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        Cookie: `admin_session=${adminToken}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => "(could not read response body)");
+      console.error(`[dashboard/${label}] Route returned ${res.status}`, `| URL: ${url}`, `| Body: ${errorText.slice(0, 500)}`);
+      return { data: null, error: `Failed to load ${label}.` };
+    }
+
+    return { data: await res.json(), error: null };
+  } catch (error) {
+    console.error(`[dashboard/${label}] FETCH EXCEPTION:`, error);
+    return { data: null, error: `Network Exception: ${error instanceof Error ? error.message : "Unknown error"}` };
+  }
+}
+
+async function fetchSnapshots(
+  requestOrigin: string | null,
+  adminToken: string
+): Promise<{ snapshots: DashboardSnapshot[]; error: string | null }> {
+  const { data, error } = await fetchAdminRoute(
+    "/api/admin/discharge-snapshots",
+    requestOrigin,
+    adminToken,
+    "snapshots"
+  );
+  if (error) return { snapshots: [], error };
+
+  const raw = getArrayFromResponse<ApiSnapshot>(data, "snapshots");
+  const snapshots = sortByNewest(raw.filter(isActiveSnapshot), (snapshot) => snapshot.updatedAt ?? snapshot.createdAt)
+    .slice(0, 5)
+    .map(mapSnapshot);
+
+  return { snapshots, error: null };
+}
+
+async function fetchConversations(
+  requestOrigin: string | null,
+  adminToken: string
+): Promise<{ conversations: ConversationSummary[]; error: string | null }> {
+  const { data, error } = await fetchAdminRoute(
+    "/api/admin/conversations",
+    requestOrigin,
+    adminToken,
+    "conversations"
+  );
+  if (error) return { conversations: [], error };
+
+  const conversations = sortByNewest(
+    getArrayFromResponse<ConversationSummary>(data, "conversations"),
+    (conversation) => conversation.updatedAt ?? conversation.createdAt
+  ).slice(0, 5);
+
+  return { conversations, error: null };
+}
+
+async function fetchClients(): Promise<{ clients: DashboardClientSummary[] | null; error: string | null }> {
   // ── 1. Read the admin session cookie ──────────────────────────────────
   const cookieStore = await cookies();
   const token = cookieStore.get("admin_session")?.value;
@@ -110,7 +357,7 @@ async function fetchClients(): Promise<{ clients: DashboardClientRow[] | null; e
     const data = await res.json();
     // Backend returns { clients: Client[] } or Client[] — handle both shapes
     const raw: Client[] = Array.isArray(data) ? data : (data.clients ?? []);
-    const clients: DashboardClientRow[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
+    const clients: DashboardClientSummary[] = raw.map((c) => ({ ...c, status: getStatus(c) }));
     console.log(`[dashboard] SUCCESS: Loaded ${clients.length} clients from AWS.`);
     return { clients, error: null };
   } catch (error) {
@@ -124,14 +371,29 @@ async function fetchClients(): Promise<{ clients: DashboardClientRow[] | null; e
 export default async function ClientRosterPage() {
   const headersList = await headers();
   const adminEmail = headersList.get("x-admin-email") ?? "Administrator";
+  const requestOrigin = getRequestOrigin(headersList);
 
-  const { clients, error } = await fetchClients();
+  const cookieStore = await cookies();
+  const adminToken = cookieStore.get("admin_session")?.value ?? "";
+
+  const [
+    { clients, error },
+    { snapshots, error: snapshotsError },
+    { conversations, error: conversationsError },
+  ] = await Promise.all([
+    fetchClients(),
+    fetchSnapshots(requestOrigin, adminToken),
+    fetchConversations(requestOrigin, adminToken),
+  ]);
 
   // Derive counts for the stat strip
   const total = clients?.length ?? 0;
   const ready = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
   const intake = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
   const unverified = clients?.filter((c) => c.status === "Pending Email Verification").length ?? 0;
+  const recentClients = clients
+    ? sortByNewest(clients, (client) => client.createdAt).slice(0, 5)
+    : [];
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
@@ -165,30 +427,13 @@ export default async function ClientRosterPage() {
       </div>
 
       {/* ── Main table card ───────────────────────────────── */}
-      <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
-        <div className="flex items-start justify-between py-5 px-6 border-b border-border gap-4 flex-wrap max-[640px]:flex-col">
-          <div>
-            <h2 className="font-serif text-[1.0625rem] font-bold text-navy mb-0.5">
-              All Clients
-            </h2>
-            {!error && (
-              <p className="text-[0.8125rem] text-text-muted">
-                {total} {total === 1 ? "client" : "clients"} registered
-              </p>
-            )}
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          <ActiveSnapshotsWidget snapshots={snapshots} error={snapshotsError} />
+          <RecentClientsWidget clients={recentClients} error={error} total={total} />
         </div>
 
-        {/* Error state */}
-        {error && <ErrorState message={error} />}
-
-        {/* Empty state */}
-        {!error && clients && clients.length === 0 && <EmptyState />}
-
-        {/* Interactive table (Client Component) */}
-        {!error && clients && clients.length > 0 && (
-          <DashboardClientTable clients={clients} />
-        )}
+        <MessageCenterWidget conversations={conversations} error={conversationsError} />
       </div>
     </div>
   );
@@ -233,36 +478,231 @@ function StatPill({
   );
 }
 
-function ErrorState({ message }: { message: string }) {
+const BADGE_TONE_STYLES: Record<BadgeTone, string> = {
+  success: "bg-success-bg text-success",
+  warning: "bg-warning-bg text-warning",
+  muted: "bg-bg-alt text-text-muted",
+  danger: "bg-error-bg text-error",
+  info: "bg-blue-50 text-blue-700",
+};
+
+const CLIENT_STATUS_STYLES: Record<ClientStatus, string> = {
+  "Pending Email Verification": "bg-bg-alt text-text-muted",
+  "Intake Pending": "bg-warning-bg text-warning",
+  "Ready for Review": "bg-success-bg text-success",
+};
+
+function DashboardWidget({
+  title,
+  subtitle,
+  href,
+  linkLabel,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  href: string;
+  linkLabel: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
-      <div className="w-[68px] h-[68px] rounded-full bg-error-bg flex items-center justify-center text-error mb-1">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
+    <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col gap-4">
+      <div>
+        <h2 className="font-serif text-[1.0625rem] font-bold text-navy mb-0.5">
+          {title}
+        </h2>
+        <p className="text-[0.8125rem] text-text-muted">{subtitle}</p>
       </div>
-      <p className="font-serif text-[1.0625rem] font-bold text-text-primary">Failed to Load Clients</p>
-      <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">{message}</p>
+
+      <div className="flex-1">{children}</div>
+
+      <Link
+        href={href}
+        className="inline-flex items-center gap-1 self-start text-[0.8125rem] font-semibold text-crimson no-underline transition-[color] duration-fast hover:text-crimson-hover hover:underline"
+      >
+        {linkLabel} <span aria-hidden>&rarr;</span>
+      </Link>
+    </section>
+  );
+}
+
+function ActiveSnapshotsWidget({
+  snapshots,
+  error,
+}: {
+  snapshots: DashboardSnapshot[];
+  error: string | null;
+}) {
+  return (
+    <DashboardWidget
+      title="Active Snapshots"
+      subtitle="Most recently updated discharge assessments"
+      href="/admin/discharge-snapshots"
+      linkLabel="View Full Pipeline"
+    >
+      {error ? (
+        <InlineErrorState message={error} />
+      ) : snapshots.length === 0 ? (
+        <CompactEmptyState title="No active snapshots" />
+      ) : (
+        <ul className="divide-y divide-border" role="list">
+          {snapshots.map((snapshot) => (
+            <li key={snapshot.id} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-navy truncate">
+                    {snapshot.clientName}
+                  </p>
+                  <p className="text-[0.8125rem] text-text-muted truncate">
+                    {snapshot.clientEmail ?? "No email on file"}
+                  </p>
+                </div>
+                <StatusBadge label={snapshot.statusLabel} tone={snapshot.statusTone} />
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-[0.75rem] text-text-muted">
+                <span>Updated {formatDate(snapshot.updatedAt ?? snapshot.createdAt)}</span>
+                {snapshot.lowestMonthlyPayment && (
+                  <span className="font-semibold text-text-secondary">
+                    {snapshot.lowestMonthlyPayment}
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </DashboardWidget>
+  );
+}
+
+function RecentClientsWidget({
+  clients,
+  error,
+  total,
+}: {
+  clients: DashboardClientSummary[];
+  error: string | null;
+  total: number;
+}) {
+  return (
+    <DashboardWidget
+      title="Recent Clients"
+      subtitle={error ? "Client roster unavailable" : `${total} ${total === 1 ? "client" : "clients"} registered`}
+      href="/admin/clients"
+      linkLabel="View All Clients"
+    >
+      {error ? (
+        <InlineErrorState message={error} />
+      ) : clients.length === 0 ? (
+        <CompactEmptyState title="No recent clients" />
+      ) : (
+        <ul className="divide-y divide-border" role="list">
+          {clients.map((client) => (
+            <li key={client.id} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <Link
+                    href={`/admin/clients/${client.id}`}
+                    className="text-sm font-semibold text-navy truncate block transition-[color] duration-fast hover:text-crimson hover:underline"
+                    title={client.email}
+                  >
+                    {getClientDisplayName(client)}
+                  </Link>
+                  <p className="text-[0.8125rem] text-text-muted truncate">{client.email}</p>
+                </div>
+                <span
+                  className={`shrink-0 inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${CLIENT_STATUS_STYLES[client.status]}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
+                  {client.status}
+                </span>
+              </div>
+              <p className="mt-2 text-[0.75rem] text-text-muted">
+                Joined {formatDate(client.createdAt)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </DashboardWidget>
+  );
+}
+
+function MessageCenterWidget({
+  conversations,
+  error,
+}: {
+  conversations: ConversationSummary[];
+  error: string | null;
+}) {
+  return (
+    <DashboardWidget
+      title="Message Center"
+      subtitle="Recently updated borrower conversations"
+      href="/admin/message-center"
+      linkLabel="Go to Inbox"
+    >
+      {error ? (
+        <InlineErrorState message={error} />
+      ) : conversations.length === 0 ? (
+        <CompactEmptyState title="No recent messages" />
+      ) : (
+        <ul className="divide-y divide-border" role="list">
+          {conversations.map((conversation) => {
+            const unread = conversation.unreadCount ?? 0;
+            return (
+              <li key={conversation.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-navy truncate">
+                      {getConversationBorrowerName(conversation)}
+                    </p>
+                    <p className="text-[0.75rem] text-text-muted">
+                      {formatTimestamp(conversation.updatedAt ?? conversation.createdAt)}
+                    </p>
+                  </div>
+                  {unread > 0 && (
+                    <span
+                      className="shrink-0 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#dc2626] text-white text-[0.625rem] font-bold leading-none"
+                      aria-label={`${unread} unread message${unread !== 1 ? "s" : ""}`}
+                    >
+                      {unread > 99 ? "99+" : unread}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </DashboardWidget>
+  );
+}
+
+function StatusBadge({ label, tone }: { label: string; tone: BadgeTone }) {
+  return (
+    <span
+      className={`shrink-0 inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${BADGE_TONE_STYLES[tone]}`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
+      {label}
+    </span>
+  );
+}
+
+function CompactEmptyState({ title }: { title: string }) {
+  return (
+    <div className="flex min-h-[10rem] items-center justify-center rounded-lg border border-dashed border-border bg-bg px-4 py-8 text-center">
+      <p className="text-sm font-semibold text-text-muted">{title}</p>
     </div>
   );
 }
 
-function EmptyState() {
+function InlineErrorState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center text-center py-16 px-6 gap-3">
-      <div className="w-[68px] h-[68px] rounded-full bg-bg flex items-center justify-center text-text-muted mb-1">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      </div>
-      <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No clients yet</p>
-      <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">
-        Client accounts will appear here once they register for the portal.
-      </p>
+    <div className="rounded-lg border border-error-bg bg-error-bg/40 px-4 py-3">
+      <p className="text-sm font-semibold text-error">Unable to load this feed</p>
+      <p className="mt-1 text-[0.8125rem] text-text-muted">{message}</p>
     </div>
   );
 }
