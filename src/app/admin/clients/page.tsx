@@ -1,12 +1,12 @@
 /**
  * src/app/admin/clients/page.tsx
  *
- * Client Directory — 4-Step Pipeline View
+ * Client Directory
  *
  * React Server Component that fetches clients and passes them to the
  * ClientFilterTable client component for interactive filtering.
  *
- * Pipeline: Intake Pending → Ready for Review → Approved → Rejected
+ * Statuses: Pre-Filing -> Filed
  */
 
 import type { Metadata } from "next";
@@ -40,14 +40,11 @@ interface Client {
   status?: string; // Backend may provide an explicit pipeline status
 }
 
-// ── Status derivation (4-step pipeline) ───────────────────────────────────────
+// ── Status derivation ─────────────────────────────────────────────────────────
 
 const VALID_STATUSES: ClientStatus[] = [
-  "Intake Pending",
-  "Incomplete",
-  "Ready for Review",
-  "Approved",
-  "Rejected",
+  "Pre-Filing",
+  "Filed",
 ];
 
 function getStatus(client: Client): ClientStatus {
@@ -56,11 +53,7 @@ function getStatus(client: Client): ClientStatus {
     return client.status as ClientStatus;
   }
 
-  // Fallback: derive from verification + intake state
-  if (!client.isVerified) return "Intake Pending";
-  if (!client.intakeProfile) return "Intake Pending";
-  if (!client.intakeProfile.isCompleted) return "Incomplete";
-  return "Ready for Review";
+  return "Pre-Filing";
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -154,11 +147,8 @@ export default async function ClientsPage() {
 
   // Derive counts for the stat strip
   const total = clients?.length ?? 0;
-  const intakePending = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
-  const incomplete = clients?.filter((c) => c.status === "Incomplete").length ?? 0;
-  const readyForReview = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
-  const approved = clients?.filter((c) => c.status === "Approved").length ?? 0;
-  const rejected = clients?.filter((c) => c.status === "Rejected").length ?? 0;
+  const preFiling = clients?.filter((c) => c.status === "Pre-Filing").length ?? 0;
+  const filed = clients?.filter((c) => c.status === "Filed").length ?? 0;
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
@@ -187,13 +177,10 @@ export default async function ClientsPage() {
       </div>
 
       {/* ── Pipeline stat strip ───────────────────────────── */}
-      <div className="grid grid-cols-6 gap-3 max-[1024px]:grid-cols-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
-        <StatPill label="Incomplete" value={error ? "—" : String(incomplete)} color="warning" />
+      <div className="grid grid-cols-3 gap-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
         <StatPill label="Total Clients" value={error ? "—" : String(total)} color="navy" />
-        <StatPill label="Intake Pending" value={error ? "—" : String(intakePending)} color="warning" />
-        <StatPill label="Ready for Review" value={error ? "—" : String(readyForReview)} color="info" />
-        <StatPill label="Approved" value={error ? "—" : String(approved)} color="success" />
-        <StatPill label="Rejected" value={error ? "—" : String(rejected)} color="muted" />
+        <StatPill label="Pre-Filing" value={error ? "—" : String(preFiling)} color="info" />
+        <StatPill label="Filed" value={error ? "—" : String(filed)} color="success" />
       </div>
 
       {/* ── Main table card (tabbed) ─────────────────────── */}
@@ -201,11 +188,11 @@ export default async function ClientsPage() {
         <div className="flex items-start justify-between py-5 px-6 border-b border-border gap-4 flex-wrap max-[640px]:flex-col">
           <div>
             <h2 className="font-serif text-[1.0625rem] font-bold text-navy mb-0.5">
-              Client Pipeline
+              Client Directory
             </h2>
             {!error && (
               <p className="text-[0.8125rem] text-text-muted">
-                Filter and manage clients across the 4-step pipeline
+                Filter and manage clients by filing status
               </p>
             )}
           </div>

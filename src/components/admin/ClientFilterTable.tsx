@@ -6,9 +6,9 @@
  * Receives the full list of clients (server-fetched) and implements
  * client-side filtering with pill-style status filter buttons.
  *
- * Pipeline statuses: Intake Pending → Ready for Review → Approved → Rejected
+ * Client statuses: Pre-Filing -> Filed
  *
- * The Action column provides a dropdown to update a client's pipeline status
+ * The Action column provides a dropdown to update a client's status
  * via PATCH /admin/clients/:id/status.
  */
 
@@ -20,11 +20,8 @@ import Link from "next/link";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ClientStatus =
-  | "Intake Pending"
-  | "Incomplete"
-  | "Ready for Review"
-  | "Approved"
-  | "Rejected";
+  | "Pre-Filing"
+  | "Filed";
 
 export interface ClientRow {
   id: string;
@@ -51,26 +48,10 @@ interface Toast {
 
 // ── Status transition map (context-aware actions per status) ──────────────────
 
-const STATUS_TRANSITIONS: Record<ClientStatus, { label: string; target: ClientStatus; style: string }[]> = {
-  "Intake Pending": [
-    { label: "Mark Ready for Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
-  ],
-  Incomplete: [
-    { label: "Mark Ready for Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
-  ],
-  "Ready for Review": [
-    { label: "Approve", target: "Approved", style: "text-success hover:bg-success-bg" },
-    { label: "Reject", target: "Rejected", style: "text-crimson hover:bg-crimson-light" },
-  ],
-  Approved: [
-    { label: "Revert to Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
-    { label: "Reject", target: "Rejected", style: "text-crimson hover:bg-crimson-light" },
-  ],
-  Rejected: [
-    { label: "Revert to Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
-    { label: "Approve", target: "Approved", style: "text-success hover:bg-success-bg" },
-  ],
-};
+const STATUS_ACTIONS: { label: string; target: ClientStatus; style: string }[] = [
+  { label: "Mark as Pre-Filing", target: "Pre-Filing", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
+  { label: "Mark as Filed", target: "Filed", style: "text-success hover:bg-success-bg" },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -112,50 +93,29 @@ function getClientActionLabel(client: ClientRow): string {
 const FILTER_OPTIONS: { value: FilterOption; label: string; icon?: React.ReactElement }[] = [
   { value: "All", label: "All" },
   {
-    value: "Intake Pending",
-    label: "Intake Pending",
+    value: "Pre-Filing",
+    label: "Pre-Filing",
     icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
   },
   {
-    value: "Incomplete",
-    label: "Incomplete",
-    icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>,
-  },
-  {
-    value: "Ready for Review",
-    label: "Ready for Review",
-    icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>,
-  },
-  {
-    value: "Approved",
-    label: "Approved",
+    value: "Filed",
+    label: "Filed",
     icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>,
-  },
-  {
-    value: "Rejected",
-    label: "Rejected",
-    icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
   },
 ];
 
 // Active filter pill styling per status
 const ACTIVE_PILL_STYLES: Record<FilterOption, string> = {
   All: "bg-navy text-white shadow-sm",
-  "Intake Pending": "bg-warning text-white shadow-sm",
-  Incomplete: "bg-warning text-white shadow-sm",
-  "Ready for Review": "bg-[#2563eb] text-white shadow-sm",
-  Approved: "bg-success text-white shadow-sm",
-  Rejected: "bg-text-muted text-white shadow-sm",
+  "Pre-Filing": "bg-[#2563eb] text-white shadow-sm",
+  Filed: "bg-success text-white shadow-sm",
 };
 
 // ── Status badge color map ────────────────────────────────────────────────────
 
 const STATUS_BADGE_STYLES: Record<ClientStatus, string> = {
-  "Intake Pending": "bg-warning-bg text-warning",
-  Incomplete: "bg-[#fef3c7] text-[#92400e]",
-  "Ready for Review": "bg-[#eff4ff] text-[#2563eb]",
-  Approved: "bg-success-bg text-success",
-  Rejected: "bg-bg-alt text-text-muted",
+  "Pre-Filing": "bg-[#eff4ff] text-[#2563eb]",
+  Filed: "bg-success-bg text-success",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -351,11 +311,8 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
   const counts = useMemo(() => {
     const map: Record<FilterOption, number> = {
       All: clients.length,
-      "Intake Pending": 0,
-      Incomplete: 0,
-      "Ready for Review": 0,
-      Approved: 0,
-      Rejected: 0,
+      "Pre-Filing": 0,
+      Filed: 0,
     };
     for (const c of clients) {
       map[c.status] = (map[c.status] ?? 0) + 1;
@@ -430,13 +387,13 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
       {/* ── Data table ──────────────────────────────────────── */}
       {filtered.length > 0 && (
         <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
-          <table className="w-full border-collapse text-sm min-w-[720px]" aria-label="Client directory">
+          <table className="w-full border-collapse text-sm min-w-[640px]" aria-label="Client directory">
             <thead>
               <tr>
-                {["#", "Client Name", "Joined Date", "Status", "Intake", "Action"].map((h, i) => (
+                {["#", "Client Name", "Joined Date", "Status", "Action"].map((h, i) => (
                   <th
                     key={h}
-                    className={`py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none ${i === 0 ? "pl-6" : ""} ${i === 5 ? "pr-6" : ""}`}
+                    className={`py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none ${i === 0 ? "pl-6" : ""} ${i === 4 ? "pr-6" : ""}`}
                     scope="col"
                   >
                     {h}
@@ -480,9 +437,6 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
                       <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
                       {client.status}
                     </span>
-                  </td>
-                  <td className="py-3.5 px-4 align-middle">
-                    <IntakeIndicator client={client} />
                   </td>
                   <td className="py-3.5 px-4 pr-6 align-middle">
                     <StatusActionCell
@@ -555,7 +509,7 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-/** Per-row action cell: View link + status dropdown */
+/** Per-row action cell: Manage dropdown */
 function StatusActionCell({
   client,
   isOpen,
@@ -575,26 +529,15 @@ function StatusActionCell({
   onRequestDelete: (client: ClientRow) => void;
   dropdownRef?: React.RefObject<HTMLDivElement | null>;
 }) {
-  const transitions = STATUS_TRANSITIONS[client.status] ?? [];
-
   return (
     <div className="flex items-center gap-2" ref={dropdownRef}>
-      {/* View profile link */}
-      <Link
-        href={`/admin/clients/${client.id}`}
-        className="text-[0.8125rem] font-semibold text-crimson no-underline whitespace-nowrap transition-[color] duration-fast hover:text-crimson-hover hover:underline"
-        aria-label={`View profile for ${client.email}`}
-      >
-        View
-      </Link>
-
       <div className="relative">
         <button
           type="button"
           id={`status-menu-trigger-${client.id}`}
           onClick={onToggle}
           disabled={isUpdating}
-          className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-border bg-white text-text-secondary cursor-pointer transition-all duration-150 ease-in-out hover:bg-bg hover:border-navy hover:text-navy disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md border border-[#2563eb] text-[#2563eb] text-[0.8125rem] font-semibold bg-white hover:bg-[#eff4ff] transition-colors duration-150 cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           aria-haspopup="true"
           aria-expanded={isOpen}
           aria-label={`Open actions for ${client.email}`}
@@ -602,8 +545,11 @@ function StatusActionCell({
           {isUpdating ? (
             <span className="w-3.5 h-3.5 border-2 border-border border-t-crimson rounded-full animate-spin" aria-hidden />
           ) : (
-            <ChevronDownIcon />
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <circle cx="12" cy="12" r="3" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+            </svg>
           )}
+          Manage
         </button>
 
         {/* Dropdown menu */}
@@ -613,27 +559,23 @@ function StatusActionCell({
             role="menu"
             aria-labelledby={`status-menu-trigger-${client.id}`}
           >
-            {transitions.length > 0 && (
-              <>
-                <div className="px-3 py-2 border-b border-border">
-                  <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
-                    Move to
-                  </span>
-                </div>
-                {transitions.map((t) => (
-                  <button
-                    key={t.target}
-                    type="button"
-                    role="menuitem"
-                    className={`w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out ${t.style}`}
-                    onClick={() => onStatusChange(client.id, t.target)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </>
-            )}
-            <div className={`${transitions.length > 0 ? "border-t" : ""} border-border px-3 py-2`}>
+            <div className="px-3 py-2 border-b border-border">
+              <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
+                Change Status
+              </span>
+            </div>
+            {STATUS_ACTIONS.map((action) => (
+              <button
+                key={action.target}
+                type="button"
+                role="menuitem"
+                className={`w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out ${action.style}`}
+                onClick={() => onStatusChange(client.id, action.target)}
+              >
+                {action.label}
+              </button>
+            ))}
+            <div className="border-t border-border px-3 py-2">
               <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
                 Client Actions
               </span>
@@ -728,27 +670,7 @@ function DeleteClientDialog({
   );
 }
 
-function IntakeIndicator({ client }: { client: ClientRow }) {
-  if (!client.isVerified) return <span className="text-[0.8125rem] font-medium text-text-muted">N/A</span>;
-  if (!client.intakeProfile) return <span className="text-[0.8125rem] font-medium text-text-muted">Not started</span>;
-  if (!client.intakeProfile.isCompleted) return <span className="text-[0.8125rem] font-medium text-warning">In progress</span>;
-  return (
-    <span className="inline-flex items-center gap-1 text-[0.8125rem] font-medium text-success">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>
-      Complete
-    </span>
-  );
-}
-
 // ── Inline SVG Icons ────────────────────────────────────────────────────────
-
-function ChevronDownIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
 
 function CheckIcon() {
   return (
