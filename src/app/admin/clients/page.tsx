@@ -32,6 +32,8 @@ interface IntakeProfile {
 interface Client {
   id: string;
   email: string;
+  firstName?: string | null;
+  lastName?: string | null;
   createdAt: string;
   isVerified: boolean;
   intakeProfile: IntakeProfile | null;
@@ -42,6 +44,7 @@ interface Client {
 
 const VALID_STATUSES: ClientStatus[] = [
   "Intake Pending",
+  "Incomplete",
   "Ready for Review",
   "Approved",
   "Rejected",
@@ -55,7 +58,8 @@ function getStatus(client: Client): ClientStatus {
 
   // Fallback: derive from verification + intake state
   if (!client.isVerified) return "Intake Pending";
-  if (!client.intakeProfile || !client.intakeProfile.isCompleted) return "Intake Pending";
+  if (!client.intakeProfile) return "Intake Pending";
+  if (!client.intakeProfile.isCompleted) return "Incomplete";
   return "Ready for Review";
 }
 
@@ -151,6 +155,7 @@ export default async function ClientsPage() {
   // Derive counts for the stat strip
   const total = clients?.length ?? 0;
   const intakePending = clients?.filter((c) => c.status === "Intake Pending").length ?? 0;
+  const incomplete = clients?.filter((c) => c.status === "Incomplete").length ?? 0;
   const readyForReview = clients?.filter((c) => c.status === "Ready for Review").length ?? 0;
   const approved = clients?.filter((c) => c.status === "Approved").length ?? 0;
   const rejected = clients?.filter((c) => c.status === "Rejected").length ?? 0;
@@ -182,7 +187,8 @@ export default async function ClientsPage() {
       </div>
 
       {/* ── Pipeline stat strip ───────────────────────────── */}
-      <div className="grid grid-cols-5 gap-3 max-[1024px]:grid-cols-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
+      <div className="grid grid-cols-6 gap-3 max-[1024px]:grid-cols-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
+        <StatPill label="Incomplete" value={error ? "—" : String(incomplete)} color="warning" />
         <StatPill label="Total Clients" value={error ? "—" : String(total)} color="navy" />
         <StatPill label="Intake Pending" value={error ? "—" : String(intakePending)} color="warning" />
         <StatPill label="Ready for Review" value={error ? "—" : String(readyForReview)} color="info" />

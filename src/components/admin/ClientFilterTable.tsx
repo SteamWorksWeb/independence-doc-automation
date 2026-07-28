@@ -21,6 +21,7 @@ import Link from "next/link";
 
 export type ClientStatus =
   | "Intake Pending"
+  | "Incomplete"
   | "Ready for Review"
   | "Approved"
   | "Rejected";
@@ -28,6 +29,8 @@ export type ClientStatus =
 export interface ClientRow {
   id: string;
   email: string;
+  firstName?: string | null;
+  lastName?: string | null;
   createdAt: string;
   isVerified: boolean;
   intakeProfile: { isCompleted: boolean; [key: string]: unknown } | null;
@@ -50,6 +53,9 @@ interface Toast {
 
 const STATUS_TRANSITIONS: Record<ClientStatus, { label: string; target: ClientStatus; style: string }[]> = {
   "Intake Pending": [
+    { label: "Mark Ready for Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
+  ],
+  Incomplete: [
     { label: "Mark Ready for Review", target: "Ready for Review", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
   ],
   "Ready for Review": [
@@ -90,12 +96,30 @@ function obfuscateEmail(email: string): string {
 
 // ── Filter pill config ────────────────────────────────────────────────────────
 
+function getClientDisplayName(client: ClientRow): string {
+  const fullName = [client.firstName, client.lastName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  return fullName || client.email;
+}
+
+function getClientActionLabel(client: ClientRow): string {
+  return getClientDisplayName(client) || client.email || "this client";
+}
+
 const FILTER_OPTIONS: { value: FilterOption; label: string; icon?: React.ReactElement }[] = [
   { value: "All", label: "All" },
   {
     value: "Intake Pending",
     label: "Intake Pending",
     icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  },
+  {
+    value: "Incomplete",
+    label: "Incomplete",
+    icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>,
   },
   {
     value: "Ready for Review",
@@ -118,6 +142,7 @@ const FILTER_OPTIONS: { value: FilterOption; label: string; icon?: React.ReactEl
 const ACTIVE_PILL_STYLES: Record<FilterOption, string> = {
   All: "bg-navy text-white shadow-sm",
   "Intake Pending": "bg-warning text-white shadow-sm",
+  Incomplete: "bg-warning text-white shadow-sm",
   "Ready for Review": "bg-[#2563eb] text-white shadow-sm",
   Approved: "bg-success text-white shadow-sm",
   Rejected: "bg-text-muted text-white shadow-sm",
@@ -127,6 +152,7 @@ const ACTIVE_PILL_STYLES: Record<FilterOption, string> = {
 
 const STATUS_BADGE_STYLES: Record<ClientStatus, string> = {
   "Intake Pending": "bg-warning-bg text-warning",
+  Incomplete: "bg-[#fef3c7] text-[#92400e]",
   "Ready for Review": "bg-[#eff4ff] text-[#2563eb]",
   Approved: "bg-success-bg text-success",
   Rejected: "bg-bg-alt text-text-muted",
@@ -139,6 +165,7 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
   const [activeFilter, setActiveFilter] = useState<FilterOption>("All");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [deleteClient, setDeleteClient] = useState<ClientRow | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -224,11 +251,108 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
     [adminToken, clients, updatingId]
   );
 
+  const handleArchiveClient = useCallback(
+    async (clientId: string) => {
+      if (updatingId) return;
+
+      const targetClient = clients.find((c) => c.id === clientId);
+      const clientLabel = targetClient ? getClientActionLabel(targetClient) : "Client";
+      const previousClients = [...clients];
+
+      setUpdatingId(clientId);
+      setOpenDropdown(null);
+      setClients((prev) => prev.filter((c) => c.id !== clientId));
+
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
+        if (!apiUrl) throw new Error("Backend API URL is not configured.");
+
+        const res = await fetch(`${apiUrl}/admin/clients/${clientId}/archive`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+        });
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(
+            (body as Record<string, string>).error ||
+            (body as Record<string, string>).message ||
+            `Server responded with ${res.status}`
+          );
+        }
+
+        setToast({
+          message: `${clientLabel} archived.`,
+          type: "success",
+        });
+      } catch (err) {
+        setClients(previousClients);
+        setToast({
+          message: err instanceof Error ? err.message : "Failed to archive client.",
+          type: "error",
+        });
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [adminToken, clients, updatingId]
+  );
+
+  const handleDeleteClient = useCallback(async () => {
+    if (!deleteClient || updatingId) return;
+
+    const clientId = deleteClient.id;
+    const clientLabel = getClientActionLabel(deleteClient);
+    const previousClients = [...clients];
+
+    setUpdatingId(clientId);
+    setClients((prev) => prev.filter((c) => c.id !== clientId));
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
+      if (!apiUrl) throw new Error("Backend API URL is not configured.");
+
+      const res = await fetch(`${apiUrl}/admin/clients/${clientId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          (body as Record<string, string>).error ||
+          (body as Record<string, string>).message ||
+          `Server responded with ${res.status}`
+        );
+      }
+
+      setDeleteClient(null);
+      setToast({
+        message: `${clientLabel} permanently deleted.`,
+        type: "success",
+      });
+    } catch (err) {
+      setClients(previousClients);
+      setToast({
+        message: err instanceof Error ? err.message : "Failed to delete client.",
+        type: "error",
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  }, [adminToken, clients, deleteClient, updatingId]);
+
   // Derive counts per status (always from full list)
   const counts = useMemo(() => {
     const map: Record<FilterOption, number> = {
       All: clients.length,
       "Intake Pending": 0,
+      Incomplete: 0,
       "Ready for Review": 0,
       Approved: 0,
       Rejected: 0,
@@ -309,7 +433,7 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
           <table className="w-full border-collapse text-sm min-w-[720px]" aria-label="Client directory">
             <thead>
               <tr>
-                {["#", "Client Email", "Joined Date", "Status", "Intake", "Action"].map((h, i) => (
+                {["#", "Client Name", "Joined Date", "Status", "Intake", "Action"].map((h, i) => (
                   <th
                     key={h}
                     className={`py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none ${i === 0 ? "pl-6" : ""} ${i === 5 ? "pr-6" : ""}`}
@@ -332,12 +456,17 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
                   <td className="py-3.5 px-4 font-medium max-w-[280px] align-middle">
                     <Link
                       href={`/admin/clients/${client.id}`}
-                      className="text-navy no-underline font-medium transition-[color] duration-fast hover:text-crimson hover:underline"
-                      title={client.email}
+                      className="group flex min-w-0 flex-col gap-0.5 text-navy no-underline transition-[color] duration-fast hover:text-crimson"
+                      title={`${getClientDisplayName(client)} (${client.email})`}
                     >
-                      <span className="inline max-[640px]:hidden">{client.email}</span>
-                      <span className="hidden max-[640px]:inline" aria-hidden>
-                        {obfuscateEmail(client.email)}
+                      <span className="block truncate font-bold text-text-primary group-hover:text-crimson group-hover:underline">
+                        {getClientDisplayName(client)}
+                      </span>
+                      <span className="block truncate text-[0.75rem] font-medium text-text-muted group-hover:text-crimson/80">
+                        <span className="inline max-[640px]:hidden">{client.email}</span>
+                        <span className="hidden max-[640px]:inline" aria-hidden>
+                          {obfuscateEmail(client.email)}
+                        </span>
                       </span>
                     </Link>
                   </td>
@@ -362,6 +491,11 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
                       isUpdating={updatingId === client.id}
                       onToggle={() => setOpenDropdown(openDropdown === client.id ? null : client.id)}
                       onStatusChange={handleStatusChange}
+                      onArchive={handleArchiveClient}
+                      onRequestDelete={(selectedClient) => {
+                        setOpenDropdown(null);
+                        setDeleteClient(selectedClient);
+                      }}
                       dropdownRef={openDropdown === client.id ? dropdownRef : undefined}
                     />
                   </td>
@@ -406,6 +540,15 @@ export default function ClientFilterTable({ clients: initialClients, adminToken 
           {toast.message}
         </div>
       )}
+
+      {deleteClient && (
+        <DeleteClientDialog
+          client={deleteClient}
+          isDeleting={updatingId === deleteClient.id}
+          onCancel={() => setDeleteClient(null)}
+          onConfirm={handleDeleteClient}
+        />
+      )}
     </>
   );
 }
@@ -419,6 +562,8 @@ function StatusActionCell({
   isUpdating,
   onToggle,
   onStatusChange,
+  onArchive,
+  onRequestDelete,
   dropdownRef,
 }: {
   client: ClientRow;
@@ -426,6 +571,8 @@ function StatusActionCell({
   isUpdating: boolean;
   onToggle: () => void;
   onStatusChange: (clientId: string, newStatus: ClientStatus) => void;
+  onArchive: (clientId: string) => void;
+  onRequestDelete: (client: ClientRow) => void;
   dropdownRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const transitions = STATUS_TRANSITIONS[client.status] ?? [];
@@ -441,53 +588,142 @@ function StatusActionCell({
         View
       </Link>
 
-      {/* Status dropdown trigger */}
-      {transitions.length > 0 && (
-        <div className="relative">
+      <div className="relative">
+        <button
+          type="button"
+          id={`status-menu-trigger-${client.id}`}
+          onClick={onToggle}
+          disabled={isUpdating}
+          className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-border bg-white text-text-secondary cursor-pointer transition-all duration-150 ease-in-out hover:bg-bg hover:border-navy hover:text-navy disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-haspopup="true"
+          aria-expanded={isOpen}
+          aria-label={`Open actions for ${client.email}`}
+        >
+          {isUpdating ? (
+            <span className="w-3.5 h-3.5 border-2 border-border border-t-crimson rounded-full animate-spin" aria-hidden />
+          ) : (
+            <ChevronDownIcon />
+          )}
+        </button>
+
+        {/* Dropdown menu */}
+        {isOpen && !isUpdating && (
+          <div
+            className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[190px] bg-white rounded-lg border border-border shadow-lg py-1 animate-fade-in"
+            role="menu"
+            aria-labelledby={`status-menu-trigger-${client.id}`}
+          >
+            {transitions.length > 0 && (
+              <>
+                <div className="px-3 py-2 border-b border-border">
+                  <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
+                    Move to
+                  </span>
+                </div>
+                {transitions.map((t) => (
+                  <button
+                    key={t.target}
+                    type="button"
+                    role="menuitem"
+                    className={`w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out ${t.style}`}
+                    onClick={() => onStatusChange(client.id, t.target)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </>
+            )}
+            <div className={`${transitions.length > 0 ? "border-t" : ""} border-border px-3 py-2`}>
+              <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
+                Client Actions
+              </span>
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold text-warning cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out hover:bg-warning-bg"
+              onClick={() => onArchive(client.id)}
+            >
+              Archive Client
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[0.8125rem] font-semibold text-red-600 cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out hover:bg-red-50"
+              onClick={() => onRequestDelete(client)}
+            >
+              Delete Client
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DeleteClientDialog({
+  client,
+  isDeleting,
+  onCancel,
+  onConfirm,
+}: {
+  client: ClientRow;
+  isDeleting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[500] flex items-center justify-center px-4"
+      style={{ background: "rgba(17,24,39,0.55)" }}
+      onClick={(e) => e.target === e.currentTarget && !isDeleting && onCancel()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-client-title"
+    >
+      <div className="w-full max-w-[440px] bg-white rounded-xl shadow-2xl overflow-hidden">
+        <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <TrashIcon color="white" />
+          </div>
+          <h3 id="delete-client-title" className="font-serif font-bold text-white text-[1.0625rem]">
+            Permanently Delete Client
+          </h3>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-[0.9rem] text-text-secondary leading-relaxed">
+            Are you sure you want to delete{" "}
+            <strong className="text-text-primary">{getClientActionLabel(client)}</strong>
+            ? This action cannot be undone and all client data will be permanently removed.
+          </p>
+          <p className="mt-3 text-[0.8125rem] text-text-muted break-all">{client.email}</p>
+        </div>
+        <div className="px-6 pb-6 flex items-center justify-end gap-3">
           <button
             type="button"
-            id={`status-menu-trigger-${client.id}`}
-            onClick={onToggle}
-            disabled={isUpdating}
-            className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-md border border-border bg-white text-text-secondary cursor-pointer transition-all duration-150 ease-in-out hover:bg-bg hover:border-navy hover:text-navy disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-haspopup="true"
-            aria-expanded={isOpen}
-            aria-label={`Change status for ${client.email}`}
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="px-5 py-2.5 rounded-lg border border-border text-[0.875rem] font-semibold text-text-secondary bg-white hover:bg-bg transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isUpdating ? (
-              <span className="w-3.5 h-3.5 border-2 border-border border-t-crimson rounded-full animate-spin" aria-hidden />
-            ) : (
-              <ChevronDownIcon />
-            )}
+            Cancel
           </button>
-
-          {/* Dropdown menu */}
-          {isOpen && !isUpdating && (
-            <div
-              className="absolute right-0 top-[calc(100%+4px)] z-50 min-w-[180px] bg-white rounded-lg border border-border shadow-lg py-1 animate-fade-in"
-              role="menu"
-              aria-labelledby={`status-menu-trigger-${client.id}`}
-            >
-              <div className="px-3 py-2 border-b border-border">
-                <span className="text-[0.625rem] font-bold tracking-[0.08em] uppercase text-text-muted">
-                  Move to
-                </span>
-              </div>
-              {transitions.map((t) => (
-                <button
-                  key={t.target}
-                  type="button"
-                  role="menuitem"
-                  className={`w-full text-left px-3 py-2 text-[0.8125rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 ease-in-out ${t.style}`}
-                  onClick={() => onStatusChange(client.id, t.target)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="px-5 py-2.5 rounded-lg bg-red-600 text-white text-[0.875rem] font-bold hover:bg-red-700 transition-colors duration-150 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? "Deleting..." : "Permanently Delete"}
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -518,6 +754,14 @@ function CheckIcon() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function TrashIcon({ color = "currentColor" }: { color?: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   );
 }
