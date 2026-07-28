@@ -27,7 +27,7 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 function getBackendBase(): string | null {
-  return process.env.NEXT_PUBLIC_AWS_API_URL ?? null;
+  return process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, "") ?? null;
 }
 
 // =============================================================================
@@ -56,7 +56,7 @@ export async function POST(
 
   let backendRes: Response;
   try {
-    backendRes = await fetch(`${backendBase}/api/v1/conversations/${id}/read`, {
+    backendRes = await fetch(`${backendBase}/conversations/${id}/read`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -12,7 +12,7 @@
  *   1. GET  /api/admin/conversations?borrowerId=<id>  → find the conversation
  *   2. GET  /api/admin/conversations/<convId>/messages → load history
  *   3. POST /api/admin/conversations/<convId>/messages → send message
- *      Body: { content: string; visibility: "CLIENT_VISIBLE" | "INTERNAL" }
+ *      Body: { body: string; visibility: "CLIENT_VISIBLE" | "INTERNAL" }
  *
  * Auth: All API calls go through Next.js server-side proxy routes that read
  *       the HttpOnly admin_session cookie. Browser JS never touches the JWT.
@@ -39,16 +39,22 @@ import React, {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Visibility = "CLIENT_VISIBLE" | "INTERNAL";
-type SenderType = "STAFF" | "LAWYER" | "CLIENT";
+type SenderType = "STAFF" | "BORROWER";
 
 export interface ThreadMessage {
   id: string;
-  content: string;
+  body: string;
   senderType: SenderType;
   visibility: Visibility;
-  lawyerId?: string | null;
-  clientId?: string | null;
+  senderUserId?: string | null;
   createdAt: string;
+}
+
+interface MessagesResponse {
+  conversation?: {
+    messages?: ThreadMessage[];
+  } | null;
+  messages?: ThreadMessage[];
 }
 
 interface Conversation {
@@ -145,11 +151,11 @@ export default function StaffMessageThread({
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const data = await res.json() as
-        | { messages: ThreadMessage[] }
-        | ThreadMessage[];
+      const data = await res.json() as MessagesResponse | ThreadMessage[];
 
-      const list = Array.isArray(data) ? data : (data.messages ?? []);
+      const list = Array.isArray(data)
+        ? data
+        : (data.conversation?.messages ?? data.messages ?? []);
       setMessages(list);
       setPhase("ready");
     } catch {
@@ -179,8 +185,8 @@ export default function StaffMessageThread({
   // ── Step 3: Send a message ─────────────────────────────────────────────────
 
   const handleSend = useCallback(async () => {
-    const content = newMessage.trim();
-    if (!content || isSending || !conversationId) return;
+    const messageBody = newMessage.trim();
+    if (!messageBody || isSending || !conversationId) return;
 
     setSendError(null);
     setIsSending(true);
@@ -190,11 +196,10 @@ export default function StaffMessageThread({
     // Optimistic bubble
     const optimistic: ThreadMessage = {
       id:         `optimistic-${Date.now()}`,
-      content,
+      body:       messageBody,
       senderType: "STAFF",
       visibility,
-      lawyerId:   null,
-      clientId:   borrowerId,
+      senderUserId: null,
       createdAt:  new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
@@ -206,7 +211,7 @@ export default function StaffMessageThread({
         {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ content, visibility }),
+          body:    JSON.stringify({ body: messageBody, visibility }),
         }
       );
 
@@ -224,7 +229,7 @@ export default function StaffMessageThread({
       );
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setNewMessage(content);
+      setNewMessage(messageBody);
       setSendError(err instanceof Error ? err.message : "Failed to send. Try again.");
     } finally {
       setIsSending(false);
@@ -470,7 +475,7 @@ export default function StaffMessageThread({
 // ── MessageBubble ─────────────────────────────────────────────────────────────
 
 function MessageBubble({ message }: { message: ThreadMessage }) {
-  const isStaff    = message.senderType !== "CLIENT";
+  const isStaff    = message.senderType !== "BORROWER";
   const isInternal = message.visibility === "INTERNAL";
 
   const time = new Date(message.createdAt).toLocaleTimeString("en-US", {
@@ -508,7 +513,7 @@ function MessageBubble({ message }: { message: ThreadMessage }) {
                 : "bg-white text-[#1a2744] border border-[#e5e7eb] rounded-tl-sm",
           ].join(" ")}
         >
-          {message.content}
+          {message.body}
         </div>
 
         {/* Timestamp */}

@@ -9,7 +9,7 @@
  *   POST /api/v1/conversations/:id/messages
  *
  * POST request body:
- *   { content: string; visibility: "CLIENT_VISIBLE" | "INTERNAL" }
+ *   { body: string; visibility: "CLIENT_VISIBLE" | "INTERNAL" }
  *
  * Both routes read the admin_session HttpOnly cookie and forward it as a
  * Bearer token. HttpOnly cookies are not accessible to browser JS — auth is
@@ -31,7 +31,7 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 function getBackendBase(): string | null {
-  return process.env.NEXT_PUBLIC_AWS_API_URL ?? null;
+  return process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, "") ?? null;
 }
 
 // =============================================================================
@@ -60,7 +60,7 @@ export async function GET(
 
   let backendRes: Response;
   try {
-    backendRes = await fetch(`${backendBase}/api/v1/conversations/${id}/messages`, {
+    backendRes = await fetch(`${backendBase}/conversations/${id}/messages`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -120,7 +120,7 @@ export async function POST(
 
   let backendRes: Response;
   try {
-    backendRes = await fetch(`${backendBase}/api/v1/conversations/${id}/messages`, {
+    backendRes = await fetch(`${backendBase}/conversations/${id}/messages`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

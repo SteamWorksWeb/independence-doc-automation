@@ -23,7 +23,7 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 function getBackendBase(): string | null {
-  return process.env.NEXT_PUBLIC_AWS_API_URL ?? null;
+  return process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, "") ?? null;
 }
 
 // =============================================================================
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Forward query params (e.g., borrowerId) to the backend
   const { searchParams } = new URL(req.url);
   const qs = searchParams.toString();
-  const backendUrl = `${backendBase}/api/v1/conversations${qs ? `?${qs}` : ""}`;
+  const backendUrl = `${backendBase}/conversations${qs ? `?${qs}` : ""}`;
 
   // ── Diagnostic: log exact target URL on every request ─────────────────────
   console.log("[proxy/admin/conversations GET] → backend URL:", backendUrl);
