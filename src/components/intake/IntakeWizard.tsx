@@ -18,6 +18,7 @@ import PersonalInfoStep, {
 import ExpenseStep, {
   type ExpenseFormData,
 } from './steps/ExpenseStep';
+import ReviewStep from './steps/ReviewStep';
 
 const LEGACY_TOTAL_STEPS = 5;
 const PUBLIC_TOTAL_STEPS = 5;
@@ -50,7 +51,7 @@ interface AccountSetupErrors {
   confirmPassword?: string;
 }
 
-type PublicPlaceholderStep = 2 | 4;
+type PublicPlaceholderStep = 2;
 
 const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
   title: string;
@@ -61,11 +62,6 @@ const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
     title: 'Military Service',
     eyebrow: 'Step 2',
     body: 'This section will capture service history and benefits information relevant to your student loan review.',
-  },
-  4: {
-    title: 'Review',
-    eyebrow: 'Step 5',
-    body: 'This section will let you review your answers before the final intake submission.',
   },
 };
 
@@ -317,7 +313,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     next();
   };
 
-  const handleSubmit = async () => {
+  const submitIntake = async () => {
     setIsSubmitting(true);
     setError('');
 
@@ -359,7 +355,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     };
 
     try {
-      const res = await fetch('/api/intake', {
+      const res = await fetch('/api/intake/complete', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
@@ -367,7 +363,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? 'Failed to save intake profile.');
+        throw new Error((data as { error?: string }).error ?? 'Failed to submit intake profile.');
       }
 
       router.push('/dashboard');
@@ -431,7 +427,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
   );
 
   const publicPlaceholderStep =
-    currentStep === 2 || currentStep === 4
+    currentStep === 2
       ? PUBLIC_PLACEHOLDER_STEPS[currentStep]
       : null;
 
@@ -620,6 +616,10 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                 />
               )}
 
+              {currentStep === 4 && (
+                <ReviewStep wizardState={form} />
+              )}
+
               {publicPlaceholderStep && (
                 <div key={`public-step-${currentStep}`} className="min-h-[280px] animate-step-enter">
                   <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
@@ -736,49 +736,9 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
             />
           )}
 
-          {/* ── STEP 5: Education & Hardship ─────────────────────────── */}
+          {/* ── STEP 5: Review & Submit ──────────────────────────────── */}
           {step === 5 && (
-            <div key="s5" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
-              <h2 className="font-serif text-[1.375rem] text-navy mb-2">Education &amp; Case Narrative</h2>
-              <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-4 mb-5 max-[540px]:grid-cols-1">
-                  {numInput('totalDebt',       'Total Estimated Debt')}
-                  {numInput('studentLoanDebt', 'Student Loan Debt')}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="schoolsHistory" className={labelCls}>
-                    Schools Attended
-                  </label>
-                  <p className="text-[0.8125rem] text-text-muted leading-[1.5] mb-2">
-                    List all schools, graduation dates, and degrees received where you incurred student loan debt.
-                  </p>
-                  <textarea
-                    id="schoolsHistory"
-                    className={`${inputCls} resize-y min-h-[140px] leading-relaxed`}
-                    value={form.schoolsHistory}
-                    onChange={(e) => update('schoolsHistory', e.target.value)}
-                    placeholder={
-                      'e.g. San Francisco State University — No Degree\n' +
-                      '     Texas Southern University — B.S. Business (May 2020)…'
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="hardshipNotes" className={labelCls}>
-                    Hardship Narrative
-                  </label>
-                  <p className="text-[0.8125rem] text-text-muted leading-[1.5] mb-2">
-                    Provide any additional information in support of your &quot;undue hardship&quot;.
-                  </p>
-                  <textarea
-                    id="hardshipNotes"
-                    className={`${inputCls} resize-y min-h-[140px] leading-relaxed`}
-                    value={form.hardshipNotes}
-                    onChange={(e) => update('hardshipNotes', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
+            <ReviewStep wizardState={form} />
           )}
             </>
           )}
@@ -834,10 +794,13 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                 <button
                   id="intake-finish"
                   className="inline-flex items-center gap-2 py-3 px-7 bg-crimson border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-[0_2px_8px_rgba(179,30,60,0.35)] hover:bg-crimson-hover hover:shadow-[0_4px_16px_rgba(179,30,60,0.45)] hover:-translate-y-px"
-                  onClick={() => router.push('/dashboard')}
+                  onClick={submitIntake}
+                  disabled={isSubmitting}
                   type="button"
                 >
-                  Continue to Portal
+                  {isSubmitting
+                    ? <><span className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin shrink-0" /> Submitting...</>
+                    : 'Submit Application'}
                 </button>
               )}
             </>
@@ -871,13 +834,13 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
             <button
               id="intake-submit"
               className="inline-flex items-center gap-2 py-3 px-7 bg-crimson border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-[0_2px_8px_rgba(179,30,60,0.35)] hover:bg-crimson-hover hover:shadow-[0_4px_16px_rgba(179,30,60,0.45)] hover:-translate-y-px disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-              onClick={handleSubmit}
+              onClick={submitIntake}
               disabled={isSubmitting}
               type="button"
             >
               {isSubmitting
                 ? <><span className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin shrink-0" /> Submitting…</>
-                : 'Submit Profile'}
+                : 'Submit Application'}
             </button>
           )}
             </>
