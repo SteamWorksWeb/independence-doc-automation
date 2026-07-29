@@ -50,8 +50,9 @@ export async function GET(
       },
       cache: "no-store",
     });
-  } catch (err) {
-    console.error("[proxy/admin/clients/:id/profile] Network error:", err);
+  } catch (error) {
+    console.error("Profile Fetch Error:", error);
+    console.error("[proxy/admin/clients/:id/profile] Network error:", error);
     return NextResponse.json(
       { message: "Unable to reach the backend. Please try again." },
       { status: 502 }
@@ -60,10 +61,25 @@ export async function GET(
 
   const data = await backendRes.json().catch(() => null);
   if (data == null) {
+    console.error("Profile Fetch Error:", {
+      status: backendRes.status,
+      statusText: backendRes.statusText,
+      targetUrl,
+      body: null,
+    });
     return NextResponse.json(
       { message: "Unexpected response from backend." },
       { status: 502 }
     );
+  }
+
+  if (!backendRes.ok) {
+    console.error("Profile Fetch Error:", {
+      status: backendRes.status,
+      statusText: backendRes.statusText,
+      targetUrl,
+      body: data,
+    });
   }
 
   return NextResponse.json(data, { status: backendRes.status });

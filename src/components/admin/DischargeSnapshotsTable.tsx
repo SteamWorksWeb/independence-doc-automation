@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -445,7 +446,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((borrower, index) => (
+                {filtered.map((borrower, index) => {
+                  const borrowerId = borrower.client?.id;
+
+                  return (
                   <tr
                     key={borrower.id}
                     className="border-b border-border last:border-b-0 transition-[background] duration-150 hover:bg-[#fafbfc]"
@@ -457,14 +461,19 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
                     {/* Borrower name */}
                     <td className="py-3.5 px-4 font-medium align-middle">
-                      <button
-                        id={`ds-row-${borrower.id}`}
-                        type="button"
-                        onClick={() => setEditBorrower(borrower)}
-                        className="text-navy font-medium transition-[color] duration-150 hover:text-crimson hover:underline cursor-pointer bg-transparent border-none text-left text-[0.9375rem]"
-                      >
-                        {borrower.lastName}, {borrower.firstName}
-                      </button>
+                      {borrowerId ? (
+                        <Link
+                          id={`ds-row-${borrower.id}`}
+                          href={`/admin/clients/${borrowerId}`}
+                          className="text-navy font-medium transition-[color] duration-150 hover:text-crimson hover:underline text-[0.9375rem]"
+                        >
+                          {borrower.lastName}, {borrower.firstName}
+                        </Link>
+                      ) : (
+                        <span className="text-[0.9375rem] font-medium text-text-primary">
+                          {borrower.lastName}, {borrower.firstName}
+                        </span>
+                      )}
                     </td>
 
                     {/* Submitted (created) */}
@@ -513,7 +522,8 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
