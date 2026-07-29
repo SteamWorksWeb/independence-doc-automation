@@ -120,7 +120,7 @@ export default function HomePage() {
 
 // ── Inline SVG Icons ──────────────────────────────────────────────────────────
 
-function ScalesIcon({ size = 48 }: { size?: number }) { return <img src="/logo.png" alt="Liberty Logo" width={size} height={size} style={{ objectFit: "contain" }} /> }
+function ScalesIcon({ size }: { size?: number }) { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "220px", objectFit: "contain" }} /> }
 
 function CheckmarkIcon() {
   return (

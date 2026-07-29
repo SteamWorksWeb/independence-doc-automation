@@ -27,9 +27,7 @@ export default function DashboardLayout({
       <header className="bg-navy border-b-[3px] border-crimson px-6 max-[640px]:px-4 sticky top-0 z-[100]">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between h-16 max-[640px]:h-14 gap-4">
           <div className="flex items-center gap-3">
-            <div className="shrink-0">
-              <ScalesIcon />
-            </div>
+            <ScalesIcon />
 
           </div>
 
@@ -63,4 +61,4 @@ export default function DashboardLayout({
 
 // ── Inline SVG ────────────────────────────────────────────────────────────────
 
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" width={32} height={32} style={{ objectFit: "contain" }} /> }
+function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} /> }

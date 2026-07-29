@@ -49,4 +49,4 @@ export default function ClientLoginLayout({
   );
 }
 
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" width={32} height={32} style={{ objectFit: "contain" }} /> }
+function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} /> }

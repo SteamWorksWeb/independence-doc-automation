@@ -107,11 +107,8 @@ export default function AdminSidebar() {
         </button>
 
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-5 pt-6 pb-5 border-b border-[rgba(255,255,255,0.08)]">
-          <div>
-            <ScalesIcon />
-          </div>
-
+        <div className="px-5 pt-6 pb-5 border-b border-[rgba(255,255,255,0.08)] block">
+          <ScalesIcon />
         </div>
 
         {/* Section label */}
@@ -180,7 +177,7 @@ export default function AdminSidebar() {
 
 // ── SVG Icons (inline — no external deps) ────────────────────────────────────
 
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" width={32} height={32} style={{ objectFit: "contain" }} /> }
+function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} /> }
 
 function HamburgerIcon() {
   return (
