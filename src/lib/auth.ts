@@ -1,7 +1,7 @@
 /**
  * src/lib/auth.ts
  *
- * Authentication library for The Independence Law Firm Client Portal.
+ * Authentication library for Liberty Client Portal.
  *
  * Security principles enforced here:
  * - All secrets loaded from server-side environment variables (never hardcoded)

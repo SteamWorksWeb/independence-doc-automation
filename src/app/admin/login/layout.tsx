@@ -15,7 +15,7 @@ import type { Metadata } from "next";
 import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
-  title: "Administration | The Independence Law Firm",
+  title: "Administration | Liberty",
   description: "Restricted access. Authorized personnel only.",
   robots: {
     index: false,
@@ -35,8 +35,7 @@ export default function AdminLoginLayout({
       <header className={styles.brand} aria-label="Firm identity">
         <ScalesIcon />
         <div className={styles.brandText}>
-          <span className={styles.brandThe}>THE</span>
-          <span className={styles.brandName}>Independence Law Firm</span>
+          <span className={styles.brandName}>Liberty</span>
         </div>
       </header>
 
@@ -51,33 +50,4 @@ export default function AdminLoginLayout({
   );
 }
 
-function ScalesIcon() {
-  return (
-    <svg
-      width="32"
-      height="32"
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <circle cx="24" cy="24" r="24" fill="rgba(179,30,60,0.12)" />
-      <g
-        stroke="#1a2744"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <line x1="24" y1="12" x2="24" y2="38" />
-        <line x1="14" y1="16" x2="34" y2="16" />
-        <line x1="14" y1="16" x2="11" y2="26" />
-        <line x1="14" y1="16" x2="17" y2="26" />
-        <path d="M11 26 Q14 29 17 26" fill="none" />
-        <line x1="34" y1="16" x2="31" y2="26" />
-        <line x1="34" y1="16" x2="37" y2="26" />
-        <path d="M31 26 Q34 29 37 26" fill="none" />
-        <line x1="20" y1="38" x2="28" y2="38" />
-      </g>
-    </svg>
-  );
-}
+function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" width={32} height={32} style={{ objectFit: "contain" }} /> }

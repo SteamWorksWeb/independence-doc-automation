@@ -3,8 +3,8 @@ import Link from 'next/link';
 import IntakeWizard from '@/components/intake/IntakeWizard';
 
 export const metadata: Metadata = {
-  title: 'Borrower Intake | The Independence Law Firm',
-  description: 'Secure borrower intake setup for The Independence Law Firm.',
+  title: 'Borrower Intake | Liberty',
+  description: 'Secure borrower intake setup for Liberty.',
   robots: { index: false, follow: false },
 };
 
@@ -40,7 +40,7 @@ function InvalidInvitationLink() {
           <AlertIcon />
         </div>
         <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
-          The Independence Law Firm
+          Liberty
         </p>
         <h1 className="font-serif text-[clamp(1.5rem,3vw,2rem)] text-navy mb-3">
           Invalid Invitation Link

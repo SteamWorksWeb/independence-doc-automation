@@ -10,8 +10,8 @@ import AdminShell from "@/components/admin/AdminShell";
 
 export const metadata: Metadata = {
   title: {
-    default: "Documents | Admin | The Independence Law Firm",
-    template: "%s | Admin | The Independence Law Firm",
+    default: "Documents | Admin | Liberty",
+    template: "%s | Admin | Liberty",
   },
   robots: { index: false, follow: false },
 };

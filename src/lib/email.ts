@@ -90,7 +90,7 @@ export async function sendVerificationEmail(
     const resend = getResendClient();
 
     const { data, error } = await resend.emails.send({
-      from: `The Independence Law Firm <${getFromAddress()}>`,
+      from: `Liberty <${getFromAddress()}>`,
       to: [to],
       replyTo: getReplyToAddress(),
       subject: "Verify your client portal account",
@@ -129,7 +129,7 @@ function buildVerificationEmailHtml({ name, verificationUrl }: TemplateVars): st
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <title>Verify your account — The Independence Law Firm</title>
+  <title>Verify your account — Liberty</title>
   <!--[if mso]>
   <noscript>
     <xml>
@@ -193,7 +193,7 @@ function buildVerificationEmailHtml({ name, verificationUrl }: TemplateVars): st
                           <p style="margin:0;font-size:9px;font-weight:700;letter-spacing:3px;
                                      text-transform:uppercase;color:#b31e3c;line-height:1;">THE</p>
                           <p style="margin:0;font-size:14px;font-weight:700;color:#ffffff;line-height:1.3;">
-                            Independence Law Firm
+                            Liberty
                           </p>
                         </td>
                       </tr>
@@ -228,7 +228,7 @@ function buildVerificationEmailHtml({ name, verificationUrl }: TemplateVars): st
                 Hello ${firstName},
               </p>
               <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.7;">
-                Thank you for creating an account with The Independence Law Firm's
+                Thank you for creating an account with Liberty's
                 secure client portal. To activate your account and gain access to your
                 case documents and legal team, please verify your email address below.
               </p>
@@ -261,7 +261,7 @@ function buildVerificationEmailHtml({ name, verificationUrl }: TemplateVars): st
               <!-- Expiry notice -->
               <p style="margin:0 0 16px;font-size:13px;color:#6b7280;line-height:1.6;">
                 <strong style="color:#374151;">This link expires in 24 hours.</strong>
-                If you did not create an account with The Independence Law Firm,
+                If you did not create an account with Liberty,
                 you can safely ignore this email — no account will be activated.
               </p>
 
@@ -304,7 +304,7 @@ function buildVerificationEmailHtml({ name, verificationUrl }: TemplateVars): st
             <td style="background-color:#1a2744;padding:24px 40px;border-radius:0 0 8px 8px;">
               <p style="margin:0 0 4px;font-size:12px;color:rgba(255,255,255,0.5);
                          text-align:center;line-height:1.6;">
-                © ${year} The Independence Law Firm. All rights reserved.
+                © ${year} Liberty. All rights reserved.
               </p>
               <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.3);
                          text-align:center;line-height:1.6;">
@@ -337,7 +337,7 @@ Verify Your Account
 
 Hello ${firstName},
 
-Thank you for creating an account with The Independence Law Firm's secure client portal. To activate your account, please verify your email address by visiting the link below:
+Thank you for creating an account with Liberty's secure client portal. To activate your account, please verify your email address by visiting the link below:
 
 ${verificationUrl}
 
@@ -349,6 +349,6 @@ If you did not create an account, you can safely ignore this email.
 Attorney-Client Privilege Protected.
 All communications through this portal are protected by attorney-client privilege.
 
-© ${year} The Independence Law Firm. All rights reserved.
+© ${year} Liberty. All rights reserved.
 This is an automated message. Please do not reply directly to this email.`;
 }

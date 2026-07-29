@@ -12,7 +12,7 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import ToolNavigationBar from "@/components/admin/ToolNavigationBar";
 
 export const metadata: Metadata = {
-  title: "Message Center | Admin | The Independence Law Firm",
+  title: "Message Center | Admin | Liberty",
   description: "Staff triage inbox — view and reply to borrower conversations.",
   robots: { index: false, follow: false },
 };

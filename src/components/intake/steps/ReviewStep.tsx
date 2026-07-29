@@ -189,7 +189,7 @@ export default function ReviewStep({ wizardState }: ReviewStepProps) {
 
       <p className="mt-6 rounded-md border border-crimson/20 bg-crimson/5 px-4 py-3 text-[0.875rem] leading-relaxed text-text-secondary">
         By clicking submit, I verify this information is accurate to the best of my knowledge
-        and authorize The Independence Law Firm to review it for my student loan matter.
+        and authorize Liberty to review it for my student loan matter.
       </p>
     </div>
   );

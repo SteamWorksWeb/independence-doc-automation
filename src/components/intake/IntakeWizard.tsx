@@ -435,7 +435,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     <div className="min-h-dvh bg-bg flex flex-col items-center justify-start pt-10 px-4 pb-16">
       <header className="text-center mb-8">
         <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
-          The Independence Law Firm
+          Liberty
         </p>
         <h1 className="font-serif text-[clamp(1.5rem,3vw,2.25rem)] text-navy mb-2">
           {isPublicInviteFlow ? 'Borrower Intake' : 'DOJ Student Loan Questionnaire'}

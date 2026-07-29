@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 /**
- * tailwind.config.ts — Independence Law Firm
+ * tailwind.config.ts — Liberty
  *
  * Brand tokens extracted from globals.css CSS variables.
  * This config mirrors the design system so every Tailwind utility

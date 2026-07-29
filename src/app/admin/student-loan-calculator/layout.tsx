@@ -9,7 +9,7 @@ import type { Metadata } from "next";
 import AdminShell from "@/components/admin/AdminShell";
 
 export const metadata: Metadata = {
-  title: "Student Loan & Settlement Analyzer | Admin | The Independence Law Firm",
+  title: "Student Loan & Settlement Analyzer | Admin | Liberty",
   description:
     "Calculate income-driven repayment plans and private settlement targets for distressed student loan borrowers.",
   robots: { index: false, follow: false },

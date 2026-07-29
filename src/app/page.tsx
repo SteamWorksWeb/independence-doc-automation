@@ -2,7 +2,7 @@
  * src/app/page.tsx
  *
  * Authentication gateway — the sole entry point to the client portal.
- * Distraction-free, mobile-first design matching The Independence Law Firm brand.
+ * Distraction-free, mobile-first design matching Liberty brand.
  *
  * Layout: Full-viewport split
  *   Left  (desktop): Brand panel with firm identity, trust signals, firm description
@@ -15,9 +15,9 @@ import AuthForm from "@/components/auth/AuthForm";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
-  title: "Secure Client Portal | The Independence Law Firm",
+  title: "Secure Client Portal | Liberty",
   description:
-    "Access your legal documents, case status, and communications through The Independence Law Firm's secure client portal.",
+    "Access your legal documents, case status, and communications through Liberty's secure client portal.",
 };
 
 export default function HomePage() {
@@ -32,9 +32,7 @@ export default function HomePage() {
         <div className={styles.brandLogo}>
           <ScalesIcon />
           <div>
-            <p className={styles.brandTagline}>THE</p>
-            <p className={styles.brandFirmName}>Independence</p>
-            <p className={styles.brandFirmName}>Law Firm</p>
+            <p className={styles.brandFirmName}>Liberty</p>
           </div>
         </div>
 
@@ -99,7 +97,7 @@ export default function HomePage() {
         {/* Mobile-only firm name strip */}
         <div className={styles.mobileHeader} aria-hidden>
           <ScalesIcon size={28} />
-          <span className={styles.mobileFirmName}>The Independence Law Firm</span>
+          <span className={styles.mobileFirmName}>Liberty</span>
         </div>
 
         <div className={styles.authInner}>
@@ -124,35 +122,7 @@ export default function HomePage() {
 
 // ── Inline SVG Icons ──────────────────────────────────────────────────────────
 
-function ScalesIcon({ size = 48 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <circle cx="24" cy="24" r="24" fill="rgba(179,30,60,0.15)" />
-      <g stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        {/* Scales of justice */}
-        <line x1="24" y1="12" x2="24" y2="38" />
-        <line x1="14" y1="16" x2="34" y2="16" />
-        {/* Left scale */}
-        <line x1="14" y1="16" x2="11" y2="26" />
-        <line x1="14" y1="16" x2="17" y2="26" />
-        <path d="M11 26 Q14 29 17 26" fill="none" />
-        {/* Right scale */}
-        <line x1="34" y1="16" x2="31" y2="26" />
-        <line x1="34" y1="16" x2="37" y2="26" />
-        <path d="M31 26 Q34 29 37 26" fill="none" />
-        {/* Base */}
-        <line x1="20" y1="38" x2="28" y2="38" />
-      </g>
-    </svg>
-  );
-}
+function ScalesIcon({ size = 48 }: { size?: number }) { return <img src="/logo.png" alt="Liberty Logo" width={size} height={size} style={{ objectFit: "contain" }} /> }
 
 function CheckmarkIcon() {
   return (

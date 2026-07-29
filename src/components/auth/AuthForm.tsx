@@ -3,7 +3,7 @@
 /**
  * src/components/auth/AuthForm.tsx
  *
- * Authentication gateway component for The Independence Law Firm Client Portal.
+ * Authentication gateway component for Liberty Client Portal.
  *
  * States:
  *   "login"    — existing clients sign in

@@ -12,7 +12,7 @@ import type { Metadata } from "next";
 import AdminAuthForm from "@/components/auth/AdminAuthForm";
 
 export const metadata: Metadata = {
-  title: "Administration | The Independence Law Firm",
+  title: "Administration | Liberty",
 };
 
 export default function AdminLoginPage() {

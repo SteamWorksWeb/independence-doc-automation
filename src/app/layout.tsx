@@ -3,20 +3,20 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Client Portal | The Independence Law Firm",
-    template: "%s | The Independence Law Firm",
+    default: "Client Portal | Liberty",
+    template: "%s | Liberty",
   },
   description:
-    "Secure client portal for The Independence Law Firm. Access your case documents, communications, and legal resources.",
+    "Secure client portal for Liberty. Access your case documents, communications, and legal resources.",
   keywords: ["independence law firm", "client portal", "legal documents", "student loan relief", "bankruptcy attorney"],
-  authors: [{ name: "The Independence Law Firm" }],
+  authors: [{ name: "Liberty" }],
   robots: {
     index: false, // portal should not be indexed by search engines
     follow: false,
   },
   openGraph: {
-    title: "Client Portal | The Independence Law Firm",
-    description: "Secure client portal for The Independence Law Firm.",
+    title: "Client Portal | Liberty",
+    description: "Secure client portal for Liberty.",
     type: "website",
   },
 };

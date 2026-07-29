@@ -1,4 +1,4 @@
-﻿/**
+/**
  * src/app/admin/documents/page.tsx
  *
  * Global Documents Archive — Admin Dashboard
@@ -13,9 +13,9 @@ import { cookies } from "next/headers";
 import DocumentsTable from "./DocumentsTable";
 
 export const metadata: Metadata = {
-  title: "Documents Archive | Independence Law Admin",
+  title: "Documents Archive | Liberty Admin",
   description:
-    "Global archive of all documents uploaded across every client case at The Independence Law Firm.",
+    "Global archive of all documents uploaded across every client case at Liberty.",
 };
 
 export const maxDuration = 60;
