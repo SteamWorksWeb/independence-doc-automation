@@ -1,251 +1,534 @@
-/**
- * src/app/admin/clients/[id]/page.tsx
- *
- * Client 360° Profile — Server Component
- *
- * Fetches the client's full record (including DOJ intakeProfile) from the
- * Next.js proxy route at /api/admin/clients/[id], which in turn attaches
- * the admin_session cookie and forwards the request to the Render backend.
- *
- * Renders:
- *   1. Breadcrumb back to the roster
- *   2. Client identity card (avatar, email, joined date, status badge)
- *   3. <ClientProfileTabs /> — the 4-tab Client Component for interactive display
- *
- * This layout inherits the dashboard shell (sidebar + topbar) from
- * src/app/admin/dashboard/layout.tsx because it nests inside that route group.
- */
+"use client";
 
-import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import Link from "next/link";
-import ClientProfileTabs, {
-  type ClientData,
-} from "@/components/admin/ClientProfileTabs";
-import styles from "@/components/admin/ClientProfile.module.css";
+import { use, useEffect, useMemo, useState } from "react";
 
-// ── Metadata ──────────────────────────────────────────────────────────────────
-
-export const metadata: Metadata = {
-  title: "Client Profile",
-};
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+type TabId = "intake" | "documents" | "messages" | "notes";
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// ── Data fetching ─────────────────────────────────────────────────────────────
+interface CaseProfile {
+  client: ClientSummary;
+  intakeSnapshot: Record<string, unknown> | null;
+  documents: CaseDocument[];
+  assignedTo: string | null;
+}
 
-async function fetchClient(
-  id: string
-): Promise<{ client: ClientData | null; error: string | null }> {
-  // Read the admin session cookie directly — server components have full
-  // access to cookies(). We call the backend directly here because a
-  // server component's fetch() does NOT forward the browser's Cookie header,
-  // so routing through /api/admin/clients/[id] always fails with 401.
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_session")?.value;
+interface ClientSummary {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  status?: string | null;
+  pipelineStatus?: string | null;
+}
 
-  if (!token) {
-    return { client: null, error: "Unauthorized: No active admin session." };
-  }
+interface CaseDocument {
+  id?: string | number;
+  fileName?: string | null;
+  filename?: string | null;
+  name?: string | null;
+  documentType?: string | null;
+  type?: string | null;
+  createdAt?: string | null;
+  uploadedAt?: string | null;
+}
 
-  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
-  if (!backendBase) {
-    console.error("[client-profile] NEXT_PUBLIC_AWS_API_URL is not set.");
-    return { client: null, error: "Server configuration error." };
-  }
+const STAFF_OPTIONS = ["Unassigned", "Lawyer John", "Intake Sally"];
 
-  const url = `${backendBase}/admin/clients/${id}`;
+const TABS: Array<{ id: TabId; label: string }> = [
+  { id: "intake", label: "Intake Overview" },
+  { id: "documents", label: "Documents" },
+  { id: "messages", label: "Messages" },
+  { id: "notes", label: "Notes" },
+];
 
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
+const STATUS_STYLES: Record<string, string> = {
+  "Pre-Filing": "bg-blue-50 text-blue-700 border-blue-200",
+  "Wait to File": "bg-purple-50 text-purple-700 border-purple-200",
+  Filed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Discharged: "bg-green-50 text-green-700 border-green-200",
+};
 
-    if (res.status === 404) {
-      return { client: null, error: "Client not found. They may have been removed." };
+export default function ClientCaseProfilePage({ params }: PageProps) {
+  const { id } = use(params);
+  const [profile, setProfile] = useState<CaseProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("intake");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignmentError, setAssignmentError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadProfile() {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch(`/api/admin/clients/${id}/profile`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(readMessage(data) ?? `Profile request failed (${res.status})`);
+        }
+
+        setProfile(normalizeProfile(data));
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Unable to load case profile.");
+      } finally {
+        setIsLoading(false);
+      }
     }
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const message =
-        (body as { message?: string; error?: string }).error ??
-        (body as { message?: string }).message ??
-        `Server error (${res.status})`;
-      return { client: null, error: message };
+    loadProfile();
+    return () => controller.abort();
+  }, [id]);
+
+  const clientName = useMemo(() => {
+    if (!profile) return "Client Profile";
+    return getClientName(profile.client);
+  }, [profile]);
+
+  async function handleAssignmentChange(nextValue: string) {
+    if (!profile) return;
+
+    const previous = profile.assignedTo;
+    const nextAssignedTo = nextValue === "Unassigned" ? null : nextValue;
+
+    setAssignmentError(null);
+    setIsAssigning(true);
+    setProfile({ ...profile, assignedTo: nextAssignedTo });
+
+    try {
+      const res = await fetch(`/api/admin/clients/${id}/assign`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedTo: nextAssignedTo }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(readMessage(data) ?? `Assignment failed (${res.status})`);
+      }
+
+      const updatedAssignment = readAssignment(data);
+      if (updatedAssignment !== undefined) {
+        setProfile((current) =>
+          current ? { ...current, assignedTo: updatedAssignment } : current
+        );
+      }
+    } catch (err) {
+      setProfile((current) => (current ? { ...current, assignedTo: previous } : current));
+      setAssignmentError(
+        err instanceof Error ? err.message : "Unable to update assignment."
+      );
+    } finally {
+      setIsAssigning(false);
     }
-
-    const data = await res.json();
-    // Backend returns { client: ClientData }
-    const client: ClientData = data.client ?? data;
-    return { client, error: null };
-  } catch (err) {
-    console.error("[client-profile] Failed to fetch client:", err);
-    return {
-      client: null,
-      error: "Unable to connect to the server. Please try again.",
-    };
   }
-}
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getInitials(email: string): string {
-  return email.charAt(0).toUpperCase();
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return "—";
+  if (isLoading) {
+    return <ProfileSkeleton />;
   }
-}
 
-type StatusLabel =
-  | "Pending Email Verification"
-  | "Intake Pending"
-  | "Ready for Review";
-
-function getStatus(client: ClientData): StatusLabel {
-  if (!client.isVerified) return "Pending Email Verification";
-  if (!client.intakeProfile || !client.intakeProfile.isCompleted)
-    return "Intake Pending";
-  return "Ready for Review";
-}
-
-// ── Page component ────────────────────────────────────────────────────────────
-
-export default async function ClientProfilePage({ params }: PageProps) {
-  const { id } = await params;
-  const { client, error } = await fetchClient(id);
-
-  // ── Error / not-found state ──────────────────────────────────────────────
-  if (error || !client) {
+  if (error || !profile) {
     return (
-      <div className={`${styles.page} animate-fade-in`}>
-        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-          <Link href="/admin/dashboard" className={styles.breadcrumbLink}>
-            Dashboard
-          </Link>
-          <span className={styles.breadcrumbSep} aria-hidden>›</span>
-          <span className={styles.breadcrumbCurrent}>Client Profile</span>
-        </nav>
-
-        <div className={styles.errorCard} role="alert">
-          <p className={styles.errorTitle}>Failed to Load Profile</p>
-          <p className={styles.errorBody}>{error ?? "An unexpected error occurred."}</p>
+      <div className="flex max-w-[1100px] flex-col gap-5 animate-fade-in">
+        <Breadcrumb current="Client Profile" />
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+          <p className="font-serif text-lg font-bold text-red-800">
+            Failed to Load Case Profile
+          </p>
+          <p className="mt-1 text-sm text-red-700">
+            {error ?? "An unexpected error occurred."}
+          </p>
         </div>
-
-        <Link href="/admin/dashboard" className={styles.backLink}>
-          <BackArrow /> Back to Client Roster
+        <Link href="/admin/clients" className="text-sm font-semibold text-navy">
+          Back to Client Directory
         </Link>
       </div>
     );
   }
 
-  const status = getStatus(client);
-  const badgeClass =
-    status === "Ready for Review"
-      ? styles.badgeSuccess
-      : status === "Intake Pending"
-      ? styles.badgeWarning
-      : styles.badgeMuted;
+  const status = profile.client.pipelineStatus ?? profile.client.status ?? "Pre-Filing";
+  const assignmentValue = profile.assignedTo ?? "Unassigned";
 
-  // ── Success state ────────────────────────────────────────────────────────
   return (
-    <div className={`${styles.page} animate-fade-in`}>
+    <div className="flex max-w-[1200px] flex-col gap-6 animate-fade-in">
+      <Breadcrumb current={clientName} />
 
-      {/* ── Breadcrumb ──────────────────────────────────────── */}
-      <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-        <Link href="/admin/dashboard" className={styles.breadcrumbLink}>
-          Dashboard
-        </Link>
-        <span className={styles.breadcrumbSep} aria-hidden>›</span>
-        <span
-          className={styles.breadcrumbCurrent}
-          title={client.email}
-        >
-          {client.email}
-        </span>
-      </nav>
-
-      {/* ── Client identity card ─────────────────────────────── */}
-      <div className={styles.profileCard}>
-        <div className={styles.profileLeft}>
-          <div className={styles.avatar} aria-hidden>
-            {getInitials(client.email)}
-          </div>
-          <div className={styles.profileMeta}>
-            <p className={styles.profileEmail}>{client.email}</p>
-            <div className={styles.profileDetails}>
-              <span className={styles.profileDetail}>
-                <CalendarIcon />
-                Joined {formatDate(client.createdAt)}
+      <section className="rounded-lg border border-border bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-serif text-[clamp(1.5rem,2.5vw,2rem)] font-black italic leading-tight text-navy">
+                {clientName}
+              </h1>
+              <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusClass(status)}`}>
+                {formatStatus(status)}
               </span>
-              {client.intakeProfile && (
-                <span className={styles.profileDetail}>
-                  <CheckIcon />
-                  Intake {client.intakeProfile.isCompleted ? "complete" : "in progress"}
-                </span>
-              )}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-muted">
+              <span>{profile.client.phone || "No phone on file"}</span>
+              <span className="break-all">{profile.client.email || "No email on file"}</span>
             </div>
           </div>
+
+          <div className="flex min-w-[220px] flex-col gap-2">
+            <label
+              htmlFor="assigned-to"
+              className="text-xs font-bold uppercase tracking-[0.06em] text-text-muted"
+            >
+              Assigned To
+            </label>
+            <select
+              id="assigned-to"
+              value={assignmentValue}
+              disabled={isAssigning}
+              onChange={(event) => handleAssignmentChange(event.target.value)}
+              className="h-10 rounded-md border border-border bg-white px-3 text-sm font-semibold text-text-primary shadow-sm outline-none transition focus:border-navy focus:ring-2 focus:ring-navy/10 disabled:cursor-wait disabled:opacity-70"
+            >
+              {STAFF_OPTIONS.map((staff) => (
+                <option key={staff} value={staff}>
+                  {staff}
+                </option>
+              ))}
+            </select>
+            {assignmentError && (
+              <p className="text-xs font-medium text-red-700">{assignmentError}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-lg border border-border bg-white shadow-sm">
+        <div className="flex overflow-x-auto border-b border-border bg-bg">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`min-h-12 whitespace-nowrap border-b-2 px-5 text-sm font-semibold transition ${
+                activeTab === tab.id
+                  ? "border-crimson bg-white text-navy"
+                  : "border-transparent text-text-muted hover:bg-white/70 hover:text-navy"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <div className={styles.profileRight}>
-          <span className={`${styles.badge} ${badgeClass}`}>
-            <span className={styles.badgeDot} aria-hidden />
-            {status}
-          </span>
+        <div className="p-6">
+          {activeTab === "intake" && (
+            <IntakeOverview snapshot={profile.intakeSnapshot} />
+          )}
+          {activeTab === "documents" && (
+            <DocumentsPanel documents={profile.documents} />
+          )}
+          {activeTab === "messages" && (
+            <PlaceholderPanel title="Secure Messaging UI coming soon." />
+          )}
+          {activeTab === "notes" && (
+            <PlaceholderPanel title="Internal Firm Notes coming soon." />
+          )}
         </div>
-      </div>
-
-      {/* ── Tabbed profile ───────────────────────────────────── */}
-      <ClientProfileTabs client={client} />
-
+      </section>
     </div>
   );
 }
 
-// ── Inline SVG icons ──────────────────────────────────────────────────────────
-
-function CalendarIcon() {
+function Breadcrumb({ current }: { current: string }) {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
+    <nav className="flex items-center gap-2 text-sm text-text-muted" aria-label="Breadcrumb">
+      <Link href="/admin/clients" className="font-medium hover:text-navy">
+        Clients
+      </Link>
+      <span aria-hidden>/</span>
+      <span className="min-w-0 truncate text-text-secondary">{current}</span>
+    </nav>
   );
 }
 
-function CheckIcon() {
+function IntakeOverview({ snapshot }: { snapshot: Record<string, unknown> | null }) {
+  if (!snapshot || Object.keys(snapshot).length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-text-muted">
+        No intake snapshot is available for this client yet.
+      </div>
+    );
+  }
+
+  const sections = [
+    { title: "Military", entries: entriesFor(snapshot, ["military", "militaryStatus", "veteranStatus", "serviceBranch", "activeDuty", "disabledVeteran"]) },
+    { title: "Financials", entries: entriesFor(snapshot, ["employment", "isEmployed", "monthlyIncome", "annualIncome", "householdSize", "totalDebt", "studentLoanDebt"]) },
+    { title: "Expenses", entries: entriesFor(snapshot, ["expenses", "monthlyExpenses", "expFood", "expHousing", "expUtilities", "expTransportGas", "expCarInsurance"]) },
+  ];
+
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
+    <div className="grid gap-5">
+      {sections.map((section) => (
+        <section key={section.title} className="rounded-lg border border-border">
+          <h2 className="border-b border-border px-5 py-3 font-serif text-base font-bold text-navy">
+            {section.title}
+          </h2>
+          {section.entries.length > 0 ? (
+            <dl className="grid grid-cols-1 gap-0 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {section.entries.map(([label, value]) => (
+                <div key={label} className="rounded-md px-3 py-3">
+                  <dt className="text-xs font-bold uppercase tracking-[0.06em] text-text-muted">
+                    {label}
+                  </dt>
+                  <dd className="mt-1 break-words text-sm font-semibold text-text-primary">
+                    {formatValue(value)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="px-5 py-5 text-sm italic text-text-muted">
+              No {section.title.toLowerCase()} details provided.
+            </p>
+          )}
+        </section>
+      ))}
+    </div>
   );
 }
 
-function BackArrow() {
+function DocumentsPanel({ documents }: { documents: CaseDocument[] }) {
+  if (documents.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-text-muted">
+        No uploaded documents are attached to this client yet.
+      </div>
+    );
+  }
+
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="19" y1="12" x2="5" y2="12" />
-      <polyline points="12 19 5 12 12 5" />
-    </svg>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {documents.map((document, index) => (
+        <article
+          key={String(document.id ?? `${document.fileName ?? document.name}-${index}`)}
+          className="flex min-h-[150px] flex-col justify-between rounded-lg border border-border p-4"
+        >
+          <div>
+            <p className="break-words font-semibold text-text-primary">
+              {document.fileName ?? document.filename ?? document.name ?? "Untitled document"}
+            </p>
+            <p className="mt-2 text-sm text-text-muted">
+              {document.documentType ?? document.type ?? "Document"}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="mt-4 h-9 self-start rounded-md border border-border px-3 text-sm font-bold text-navy transition hover:border-navy hover:bg-bg"
+          >
+            Download/View
+          </button>
+        </article>
+      ))}
+    </div>
   );
+}
+
+function PlaceholderPanel({ title }: { title: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border p-10 text-center">
+      <p className="font-serif text-lg font-bold text-navy">{title}</p>
+    </div>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="flex max-w-[1200px] flex-col gap-6 animate-pulse">
+      <div className="h-4 w-56 rounded bg-border" />
+      <div className="rounded-lg border border-border bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap justify-between gap-6">
+          <div className="space-y-3">
+            <div className="h-8 w-72 rounded bg-border" />
+            <div className="h-4 w-96 max-w-full rounded bg-border" />
+          </div>
+          <div className="h-10 w-56 rounded bg-border" />
+        </div>
+      </div>
+      <div className="h-[360px] rounded-lg border border-border bg-white shadow-sm" />
+    </div>
+  );
+}
+
+function normalizeProfile(data: unknown): CaseProfile {
+  const record = isRecord(data) ? data : {};
+  const nestedProfile = firstRecord(record, ["profile", "caseProfile", "data"]) ?? record;
+  const client = firstRecord(nestedProfile, ["client", "borrower"]) ?? nestedProfile;
+  const intakeSnapshot =
+    firstRecord(nestedProfile, ["intakeSnapshot", "intake", "snapshot"]) ??
+    firstRecord(client, ["intakeProfile"]) ??
+    null;
+  const documents =
+    firstArray(nestedProfile, ["documents", "uploadedDocuments"]) ??
+    firstArray(client, ["documents"]) ??
+    [];
+
+  return {
+    client: toClientSummary(client),
+    intakeSnapshot,
+    documents: documents.filter(isRecord) as CaseDocument[],
+    assignedTo: readAssignment(nestedProfile) ?? readAssignment(client) ?? null,
+  };
+}
+
+function toClientSummary(source: Record<string, unknown>): ClientSummary {
+  return {
+    id: typeof source.id === "string" ? source.id : "",
+    firstName: readOptionalString(source.firstName),
+    lastName: readOptionalString(source.lastName),
+    fullName: readOptionalString(source.fullName),
+    name: readOptionalString(source.name),
+    email: readOptionalString(source.email),
+    phone: readOptionalString(source.phone),
+    status: readOptionalString(source.status),
+    pipelineStatus: readOptionalString(source.pipelineStatus),
+  };
+}
+
+function readOptionalString(value: unknown): string | null | undefined {
+  return typeof value === "string" ? value : value === null ? null : undefined;
+}
+
+function firstRecord(
+  source: Record<string, unknown>,
+  keys: string[]
+): Record<string, unknown> | null {
+  for (const key of keys) {
+    const value = source[key];
+    if (isRecord(value)) return value;
+  }
+  return null;
+}
+
+function firstArray(source: Record<string, unknown>, keys: string[]): unknown[] | null {
+  for (const key of keys) {
+    const value = source[key];
+    if (Array.isArray(value)) return value;
+  }
+  return null;
+}
+
+function readAssignment(source: unknown): string | null | undefined {
+  if (!isRecord(source)) return undefined;
+  const direct = source.assignedTo ?? source.assignee ?? source.staffAssigned;
+  if (typeof direct === "string") return direct;
+  if (direct === null) return null;
+
+  const staff = source.staffAssignment;
+  if (isRecord(staff)) {
+    const name = staff.name ?? staff.fullName ?? staff.assignedTo;
+    if (typeof name === "string") return name;
+  }
+
+  return undefined;
+}
+
+function entriesFor(
+  snapshot: Record<string, unknown>,
+  keys: string[]
+): Array<[string, unknown]> {
+  const rows: Array<[string, unknown]> = [];
+
+  for (const key of keys) {
+    const value = snapshot[key];
+    if (isRecord(value)) {
+      for (const [nestedKey, nestedValue] of Object.entries(value)) {
+        rows.push([humanize(nestedKey), nestedValue]);
+      }
+    } else if (value !== undefined && value !== null && value !== "") {
+      rows.push([humanize(key), value]);
+    }
+  }
+
+  return rows;
+}
+
+function getClientName(client: ClientSummary): string {
+  if (client.fullName) return client.fullName;
+  if (client.name) return client.name;
+
+  const parts = [client.firstName, client.lastName].filter(Boolean);
+  if (parts.length > 0) return parts.join(" ");
+
+  return client.email ?? "Client Profile";
+}
+
+function getStatusClass(status: string): string {
+  return STATUS_STYLES[formatStatus(status)] ?? "bg-slate-50 text-slate-700 border-slate-200";
+}
+
+function formatStatus(status: string): string {
+  const normalized = status.trim().toLowerCase().replace(/[_\s-]+/g, " ");
+  const knownStatuses: Record<string, string> = {
+    "pre filing": "Pre-Filing",
+    "wait to file": "Wait to File",
+    filed: "Filed",
+    discharged: "Discharged",
+  };
+
+  return (
+    knownStatuses[normalized] ??
+    normalized.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1))
+  );
+}
+
+function formatValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") {
+    if (Number.isFinite(value) && Math.abs(value) >= 100) {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+      }).format(value);
+    }
+    return String(value);
+  }
+  if (Array.isArray(value)) return value.map(formatValue).join(", ");
+  if (isRecord(value)) {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => `${humanize(key)}: ${formatValue(nestedValue)}`)
+      .join("; ");
+  }
+  return typeof value === "string" && value.trim() ? value : "Not provided";
+}
+
+function humanize(key: string): string {
+  return key
+    .replace(/^exp/, "expense")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function readMessage(data: unknown): string | null {
+  if (!isRecord(data)) return null;
+  const message = data.message ?? data.error;
+  return typeof message === "string" ? message : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
