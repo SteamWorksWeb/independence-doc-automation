@@ -6,7 +6,7 @@
  * Receives the full list of clients (server-fetched) and implements
  * client-side filtering with pill-style status filter buttons.
  *
- * Client statuses: Pre-Filing -> Filed
+ * Client statuses: Pre-Filing -> Wait to File -> Filed -> Discharged
  *
  * The Action column provides a dropdown to update a client's status
  * via PATCH /admin/clients/:id/status.
@@ -21,7 +21,9 @@ import Link from "next/link";
 
 export type ClientStatus =
   | "Pre-Filing"
-  | "Filed";
+  | "Wait to File"
+  | "Filed"
+  | "Discharged";
 
 export interface ClientRow {
   id: string;
@@ -52,7 +54,9 @@ interface Toast {
 
 const STATUS_ACTIONS: { label: string; target: ClientStatus; style: string }[] = [
   { label: "Mark as Pre-Filing", target: "Pre-Filing", style: "text-[#2563eb] hover:bg-[#eff4ff]" },
+  { label: "Mark as Wait to File", target: "Wait to File", style: "text-[#a855f7] hover:bg-[#faf5ff]" },
   { label: "Mark as Filed", target: "Filed", style: "text-success hover:bg-success-bg" },
+  { label: "Mark as Discharged", target: "Discharged", style: "text-[#15803d] hover:bg-[#ecfdf3]" },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,9 +104,19 @@ const FILTER_OPTIONS: { value: FilterOption; label: string; icon?: React.ReactEl
     icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
   },
   {
+    value: "Wait to File",
+    label: "Wait to File",
+    icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 4h16" /><path d="M4 20h16" /><path d="M6 4c0 5 12 5 12 16" /><path d="M18 4c0 5-12 5-12 16" /></svg>,
+  },
+  {
     value: "Filed",
     label: "Filed",
     icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>,
+  },
+  {
+    value: "Discharged",
+    label: "Discharged",
+    icon: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 3l7 4v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V7l7-4z" /><path d="M9 12l2 2 4-5" /></svg>,
   },
 ];
 
@@ -110,14 +124,18 @@ const FILTER_OPTIONS: { value: FilterOption; label: string; icon?: React.ReactEl
 const ACTIVE_PILL_STYLES: Record<FilterOption, string> = {
   All: "bg-navy text-white shadow-sm",
   "Pre-Filing": "bg-[#2563eb] text-white shadow-sm",
+  "Wait to File": "bg-[#a855f7] text-white shadow-sm",
   Filed: "bg-success text-white shadow-sm",
+  Discharged: "bg-[#15803d] text-white shadow-sm",
 };
 
 // ── Status badge color map ────────────────────────────────────────────────────
 
 const STATUS_BADGE_STYLES: Record<ClientStatus, string> = {
   "Pre-Filing": "bg-[#eff4ff] text-[#2563eb]",
+  "Wait to File": "bg-[#faf5ff] text-[#a855f7]",
   Filed: "bg-success-bg text-success",
+  Discharged: "bg-[#ecfdf3] text-[#15803d] ring-1 ring-[#bbf7d0]",
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -371,7 +389,9 @@ export default function ClientFilterTable({ clients: initialClients, adminToken,
     const map: Record<FilterOption, number> = {
       All: visibleClients.length,
       "Pre-Filing": 0,
+      "Wait to File": 0,
       Filed: 0,
+      Discharged: 0,
     };
     for (const c of visibleClients) {
       map[c.status] = (map[c.status] ?? 0) + 1;

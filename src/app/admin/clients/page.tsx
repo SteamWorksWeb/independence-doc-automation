@@ -6,7 +6,7 @@
  * React Server Component that fetches clients and passes them to the
  * ClientFilterTable client component for interactive filtering.
  *
- * Statuses: Pre-Filing -> Filed
+ * Statuses: Pre-Filing -> Wait to File -> Filed -> Discharged
  */
 
 import type { Metadata } from "next";
@@ -45,7 +45,9 @@ interface Client {
 
 const VALID_STATUSES: ClientStatus[] = [
   "Pre-Filing",
+  "Wait to File",
   "Filed",
+  "Discharged",
 ];
 
 function getStatus(client: Client): ClientStatus {
@@ -160,7 +162,9 @@ export default async function ClientsPage() {
   const total = clients?.length ?? 0;
   const archivedTotal = archivedClients?.length ?? 0;
   const preFiling = clients?.filter((c) => c.status === "Pre-Filing").length ?? 0;
+  const waitToFile = clients?.filter((c) => c.status === "Wait to File").length ?? 0;
   const filed = clients?.filter((c) => c.status === "Filed").length ?? 0;
+  const discharged = clients?.filter((c) => c.status === "Discharged").length ?? 0;
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
@@ -189,10 +193,12 @@ export default async function ClientsPage() {
       </div>
 
       {/* ── Pipeline stat strip ───────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
+      <div className="grid grid-cols-5 gap-3 max-[900px]:grid-cols-3 max-[640px]:grid-cols-2 max-[640px]:gap-2.5 max-[400px]:grid-cols-1">
         <StatPill label="Total Clients" value={error ? "—" : String(total)} color="navy" />
         <StatPill label="Pre-Filing" value={error ? "—" : String(preFiling)} color="info" />
+        <StatPill label="Wait to File" value={error ? "—" : String(waitToFile)} color="purple" />
         <StatPill label="Filed" value={error ? "—" : String(filed)} color="success" />
+        <StatPill label="Discharged" value={error ? "—" : String(discharged)} color="green" />
       </div>
 
       {/* ── Main table card (tabbed) ─────────────────────── */}
@@ -250,13 +256,15 @@ export default async function ClientsPage() {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatPill({ label, value, color }: { label: string; value: string; color: "navy" | "success" | "warning" | "muted" | "info" }) {
+function StatPill({ label, value, color }: { label: string; value: string; color: "navy" | "success" | "warning" | "muted" | "info" | "purple" | "green" }) {
   const borderColorMap: Record<string, string> = {
     navy: "border-l-navy",
     success: "border-l-success",
     warning: "border-l-warning",
     muted: "border-l-border",
     info: "border-l-[#2563eb]",
+    purple: "border-l-[#a855f7]",
+    green: "border-l-[#15803d]",
   };
   const valueColorMap: Record<string, string> = {
     navy: "text-navy",
@@ -264,6 +272,8 @@ function StatPill({ label, value, color }: { label: string; value: string; color
     warning: "text-warning",
     muted: "text-text-muted",
     info: "text-[#2563eb]",
+    purple: "text-[#a855f7]",
+    green: "text-[#15803d]",
   };
   return (
     <div className={`bg-white border border-border rounded-lg py-4 px-5 flex flex-col gap-1 shadow-sm transition-[box-shadow,transform] duration-200 ease-in-out hover:shadow-md hover:-translate-y-px border-l-[3px] ${borderColorMap[color]}`}>
