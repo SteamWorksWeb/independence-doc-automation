@@ -112,9 +112,7 @@ export default async function VerifyPage({ searchParams }: PageProps) {
       {/* Brand mark — top-left */}
       <header className={styles.brand} aria-label="Firm identity">
         <ScalesIcon />
-        <div className={styles.brandText}>
-          <span className={styles.brandName}>Liberty</span>
-        </div>
+
       </header>
 
       {/* Centred card */}

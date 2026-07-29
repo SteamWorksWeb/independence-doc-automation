@@ -31,9 +31,7 @@ export default function HomePage() {
         {/* Logo & firm name */}
         <div className={styles.brandLogo}>
           <ScalesIcon />
-          <div>
-            <p className={styles.brandFirmName}>Liberty</p>
-          </div>
+
         </div>
 
         {/* Hero statement */}
@@ -97,7 +95,7 @@ export default function HomePage() {
         {/* Mobile-only firm name strip */}
         <div className={styles.mobileHeader} aria-hidden>
           <ScalesIcon size={28} />
-          <span className={styles.mobileFirmName}>Liberty</span>
+
         </div>
 
         <div className={styles.authInner}>

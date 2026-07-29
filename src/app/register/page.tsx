@@ -194,9 +194,7 @@ function RegisterPageInner() {
         <aside className={styles.brandPanel} aria-label="Firm information">
           <div className={styles.brandLogo}>
             <ScalesIcon />
-            <div>
-              <p className={styles.brandFirmName}>Liberty</p>
-            </div>
+
           </div>
           <div className={styles.brandHero}>
             <h2 className={styles.brandHeadline}>
@@ -251,9 +249,7 @@ function RegisterPageInner() {
         <aside className={styles.brandPanel} aria-label="Firm information">
           <div className={styles.brandLogo}>
             <ScalesIcon />
-            <div>
-              <p className={styles.brandFirmName}>Liberty</p>
-            </div>
+
           </div>
           <div className={styles.brandHero}>
             <h2 className={styles.brandHeadline}>
@@ -278,7 +274,7 @@ function RegisterPageInner() {
             {/* Mobile firm name strip */}
             <div className={styles.mobileHeader} aria-hidden>
               <ScalesIcon size={32} />
-              <span className={styles.mobileFirmName}>Liberty</span>
+
             </div>
 
             <div className={styles.card}>
@@ -328,9 +324,7 @@ function RegisterPageInner() {
       <aside className={styles.brandPanel} aria-label="Firm information">
         <div className={styles.brandLogo}>
           <ScalesIcon />
-          <div>
-            <p className={styles.brandFirmName}>Liberty</p>
-          </div>
+
         </div>
 
         <div className={styles.brandHero}>
@@ -361,7 +355,7 @@ function RegisterPageInner() {
           {/* Mobile firm name strip */}
           <div className={styles.mobileHeader} aria-hidden>
             <ScalesIcon size={32} />
-            <span className={styles.mobileFirmName}>Liberty</span>
+
           </div>
 
           <div className={styles.card}>

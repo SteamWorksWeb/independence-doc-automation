@@ -35,9 +35,7 @@ export default function ClientLoginLayout({
       {/* ── Brand mark: top-left only ─────────────────────── */}
       <header className={styles.brand} aria-label="Firm identity">
         <ScalesIcon />
-        <div className={styles.brandText}>
-          <span className={styles.brandName}>Liberty</span>
-        </div>
+
       </header>
 
       {/* ── Centered content slot ─────────────────────────── */}

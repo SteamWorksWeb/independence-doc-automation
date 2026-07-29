@@ -111,17 +111,7 @@ export default function AdminSidebar() {
           <div>
             <ScalesIcon />
           </div>
-          <div className="flex flex-col">
-            <span className="font-sans text-[0.55rem] font-bold tracking-[0.28em] text-crimson uppercase leading-none">
-              THE
-            </span>
-            <span className="font-serif text-[0.8rem] font-bold text-[rgba(255,255,255,0.9)] leading-[1.25]">
-              Independence
-            </span>
-            <span className="font-serif text-[0.8rem] font-bold text-[rgba(255,255,255,0.9)] leading-[1.25]">
-              Law Firm
-            </span>
-          </div>
+
         </div>
 
         {/* Section label */}

@@ -30,14 +30,7 @@ export default function DashboardLayout({
             <div className="shrink-0">
               <ScalesIcon />
             </div>
-            <div className="flex flex-col leading-[1.15]">
-              <span className="font-sans text-[0.5625rem] font-bold tracking-[0.25em] uppercase text-white/50">
-                THE
-              </span>
-              <span className="font-serif text-[0.9375rem] max-[640px]:text-[0.8125rem] font-bold text-white">
-                Liberty
-              </span>
-            </div>
+
           </div>
 
           <div className="flex items-center gap-4">
