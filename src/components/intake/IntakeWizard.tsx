@@ -15,12 +15,16 @@ import { z } from 'zod';
 import PersonalInfoStep, {
   type PersonalInfoFormData,
 } from './steps/PersonalInfoStep';
+import ExpenseStep, {
+  type ExpenseFormData,
+} from './steps/ExpenseStep';
 
 const LEGACY_TOTAL_STEPS = 5;
-const PUBLIC_TOTAL_STEPS = 4;
-const PUBLIC_LAST_STEP = 3;
+const PUBLIC_TOTAL_STEPS = 5;
+const PUBLIC_LAST_STEP = 4;
 const MIN_PASSWORD_LENGTH = 8;
 const PERSONAL_INFO_FORM_ID = 'personal-info-form';
+const EXPENSE_FORM_ID = 'expense-form';
 
 const accountSetupSchema = z
   .object({
@@ -46,7 +50,7 @@ interface AccountSetupErrors {
   confirmPassword?: string;
 }
 
-type PublicPlaceholderStep = 2 | 3;
+type PublicPlaceholderStep = 2 | 4;
 
 const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
   title: string;
@@ -58,10 +62,10 @@ const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
     eyebrow: 'Step 2',
     body: 'This section will capture service history and benefits information relevant to your student loan review.',
   },
-  3: {
-    title: 'Financial Snapshot',
-    eyebrow: 'Step 3',
-    body: 'This section will collect income, expenses, and debt information so the legal team can evaluate next steps.',
+  4: {
+    title: 'Review',
+    eyebrow: 'Step 5',
+    body: 'This section will let you review your answers before the final intake submission.',
   },
 };
 
@@ -92,6 +96,12 @@ interface FormData {
   expPersonalCare: string;
 
   // Step 4
+  rentExpense:            number;
+  medicalExpense:         number;
+  utilitiesExpense:       number;
+  homeMaintenanceExpense: number;
+  carInsuranceExpense:    number;
+  gasExpense:             number;
   expHousing:      string;
   expUtilities:    string;
   expTransportGas: string;
@@ -111,6 +121,8 @@ const INITIAL: FormData = {
   hasDisability: false, isEmployed: false, unemployed5of10: false, hasCar: false,
   monthlyIncome: '',
   expFood: '', expHousekeeping: '', expApparel: '', expPersonalCare: '',
+  rentExpense: 0, medicalExpense: 0, utilitiesExpense: 0,
+  homeMaintenanceExpense: 0, carInsuranceExpense: 0, gasExpense: 0,
   expHousing: '', expUtilities: '', expTransportGas: '', expCarInsurance: '',
   unmetBasicNeeds: '',
   totalDebt: '', studentLoanDebt: '', schoolsHistory: '', hardshipNotes: '',
@@ -293,6 +305,18 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     next();
   };
 
+  const handleExpenseNext = (data: ExpenseFormData) => {
+    setForm((prev) => ({
+      ...prev,
+      ...data,
+      expHousing: String(data.rentExpense),
+      expUtilities: String(data.utilitiesExpense),
+      expTransportGas: String(data.gasExpense),
+      expCarInsurance: String(data.carInsuranceExpense),
+    }));
+    next();
+  };
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setError('');
@@ -316,6 +340,12 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       expHousekeeping: pf(form.expHousekeeping),
       expApparel:      pf(form.expApparel),
       expPersonalCare: pf(form.expPersonalCare),
+      rentExpense: form.rentExpense,
+      medicalExpense: form.medicalExpense,
+      utilitiesExpense: form.utilitiesExpense,
+      homeMaintenanceExpense: form.homeMaintenanceExpense,
+      carInsuranceExpense: form.carInsuranceExpense,
+      gasExpense: form.gasExpense,
       expHousing:      pf(form.expHousing),
       expUtilities:    pf(form.expUtilities),
       expTransportGas: pf(form.expTransportGas),
@@ -401,7 +431,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
   );
 
   const publicPlaceholderStep =
-    currentStep === 2 || currentStep === 3
+    currentStep === 2 || currentStep === 4
       ? PUBLIC_PLACEHOLDER_STEPS[currentStep]
       : null;
 
@@ -575,6 +605,21 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                 />
               )}
 
+              {currentStep === 3 && (
+                <ExpenseStep
+                  formId={EXPENSE_FORM_ID}
+                  defaultValues={{
+                    rentExpense: form.rentExpense,
+                    medicalExpense: form.medicalExpense,
+                    utilitiesExpense: form.utilitiesExpense,
+                    homeMaintenanceExpense: form.homeMaintenanceExpense,
+                    carInsuranceExpense: form.carInsuranceExpense,
+                    gasExpense: form.gasExpense,
+                  }}
+                  onSubmit={handleExpenseNext}
+                />
+              )}
+
               {publicPlaceholderStep && (
                 <div key={`public-step-${currentStep}`} className="min-h-[280px] animate-step-enter">
                   <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
@@ -677,31 +722,18 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
 
           {/* ── STEP 4: Housing & Transportation ─────────────────────── */}
           {step === 4 && (
-            <div key="s4" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
-              <h2 className="font-serif text-[1.375rem] text-navy mb-2">Housing &amp; Transportation</h2>
-              <div className="flex flex-col gap-5">
-                <div className="grid grid-cols-2 gap-4 mb-5 max-[540px]:grid-cols-1">
-                  {numInput('expHousing',      'Housing (Rent / Mortgage)')}
-                  {numInput('expUtilities',    'Utilities (Gas, Electric, Water)')}
-                  {numInput('expTransportGas', 'Vehicle Gas')}
-                  {numInput('expCarInsurance', 'Car Insurance')}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="unmetBasicNeeds" className={labelCls}>
-                    Unmet Basic Needs
-                  </label>
-                  <p className="text-[0.8125rem] text-text-muted leading-[1.5] mb-2">
-                    Are there basic expenses you currently cannot afford? Detail why they are necessary.
-                  </p>
-                  <textarea
-                    id="unmetBasicNeeds"
-                    className={`${inputCls} resize-y min-h-[140px] leading-relaxed`}
-                    value={form.unmetBasicNeeds}
-                    onChange={(e) => update('unmetBasicNeeds', e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
+            <ExpenseStep
+              formId={EXPENSE_FORM_ID}
+              defaultValues={{
+                rentExpense: form.rentExpense,
+                medicalExpense: form.medicalExpense,
+                utilitiesExpense: form.utilitiesExpense,
+                homeMaintenanceExpense: form.homeMaintenanceExpense,
+                carInsuranceExpense: form.carInsuranceExpense,
+                gasExpense: form.gasExpense,
+              }}
+              onSubmit={handleExpenseNext}
+            />
           )}
 
           {/* ── STEP 5: Education & Hardship ─────────────────────────── */}
@@ -785,10 +817,16 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
               ) : currentStep < PUBLIC_LAST_STEP ? (
                 <button
                   id="intake-next"
-                  form={currentStep === 1 ? PERSONAL_INFO_FORM_ID : undefined}
+                  form={
+                    currentStep === 1
+                      ? PERSONAL_INFO_FORM_ID
+                      : currentStep === 3
+                        ? EXPENSE_FORM_ID
+                        : undefined
+                  }
                   className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
-                  onClick={currentStep === 1 ? undefined : next}
-                  type={currentStep === 1 ? 'submit' : 'button'}
+                  onClick={currentStep === 1 || currentStep === 3 ? undefined : next}
+                  type={currentStep === 1 || currentStep === 3 ? 'submit' : 'button'}
                 >
                   Next
                 </button>
@@ -822,9 +860,10 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
           {step < LEGACY_TOTAL_STEPS ? (
             <button
               id="intake-next"
+              form={step === 4 ? EXPENSE_FORM_ID : undefined}
               className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
-              onClick={next}
-              type="button"
+              onClick={step === 4 ? undefined : next}
+              type={step === 4 ? 'submit' : 'button'}
             >
               Next
             </button>
