@@ -39,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
   if (!backendBase) {
     console.error(
-      "[proxy/admin/discharge-snapshots] NEXT_PUBLIC_AWS_API_URL is not set."
+      "[proxy/admin/leads] NEXT_PUBLIC_AWS_API_URL is not set."
     );
     return NextResponse.json(
       { message: "Server configuration error." },
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   } catch (err) {
     console.error(
-      "[proxy/admin/discharge-snapshots] Network error reaching backend:",
+      "[proxy/admin/leads] Network error reaching backend:",
       err
     );
     return NextResponse.json(
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     data = await backendRes.json();
   } catch {
     console.error(
-      "[proxy/admin/discharge-snapshots] Backend returned non-JSON response."
+      "[proxy/admin/leads] Backend returned non-JSON response."
     );
     return NextResponse.json(
       { message: "Unexpected response from backend." },
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
   if (!backendBase) {
     console.error(
-      "[proxy/admin/discharge-snapshots GET] NEXT_PUBLIC_AWS_API_URL is not set."
+      "[proxy/admin/leads GET] NEXT_PUBLIC_AWS_API_URL is not set."
     );
     return NextResponse.json(
       { message: "Server configuration error." },
@@ -151,7 +151,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     });
   } catch (err) {
     console.error(
-      "[proxy/admin/discharge-snapshots GET] Network error reaching backend:",
+      "[proxy/admin/leads GET] Network error reaching backend:",
       err
     );
     return NextResponse.json(
@@ -166,7 +166,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     data = await backendRes.json();
   } catch {
     console.error(
-      "[proxy/admin/discharge-snapshots GET] Backend returned non-JSON response."
+      "[proxy/admin/leads GET] Backend returned non-JSON response."
     );
     return NextResponse.json(
       { message: "Unexpected response from backend." },

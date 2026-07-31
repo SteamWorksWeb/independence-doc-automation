@@ -57,9 +57,9 @@ const NAV_ITEMS: NavItem[] = [
     label: "Leads",
     icon: <DischargeIcon />,
     dropdown: [
-      { label: "Start New",     href: "/admin/discharge-snapshots/new",  icon: <FilePlusIcon /> },
+      { label: "Start New",     href: "/admin/leads/new",  icon: <FilePlusIcon /> },
       { label: "Invite New",    action: "invite-borrower" },
-      { label: "View Existing", href: "/admin/discharge-snapshots",      icon: <ListIcon /> },
+      { label: "View Existing", href: "/admin/leads",      icon: <ListIcon /> },
     ],
   },
   {

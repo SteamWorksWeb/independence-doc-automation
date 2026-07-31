@@ -1,8 +1,8 @@
 /**
- * src/app/admin/discharge-snapshots/page.tsx
+ * src/app/admin/leads/page.tsx
  *
- * "View Existing" page for the Discharge SnapShot tool.
- * Route: /admin/discharge-snapshots
+ * "View Existing" page for the Leads tool.
+ * Route: /admin/leads
  *
  * Auth pattern (matches admin dashboard & client roster):
  *   React Server Component → reads HttpOnly `admin_session` cookie via
@@ -169,27 +169,27 @@ async function fetchSnapshots(): Promise<{
   const token = cookieStore.get("admin_session")?.value;
 
   if (!token) {
-    console.error("[discharge-snapshots] FAIL: No admin_session cookie found in Server Component.");
+    console.error("[leads] FAIL: No admin_session cookie found in Server Component.");
     return { borrowers: [], error: "Unauthorized: No active admin session.", adminToken: "" };
   }
 
   const masked = token.length > 10
     ? `${token.slice(0, 5)}…${token.slice(-5)}`
     : "****";
-  console.log(`[discharge-snapshots] admin_session token present: ${masked} (${token.length} chars)`);
+  console.log(`[leads] admin_session token present: ${masked} (${token.length} chars)`);
 
   // ── 2. Validate backend env var ─────────────────────────────────────────
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
   if (!backendBase) {
     console.error(
-      "[discharge-snapshots] FAIL: NEXT_PUBLIC_AWS_API_URL is undefined.",
+      "[leads] FAIL: NEXT_PUBLIC_AWS_API_URL is undefined.",
       "Available env keys:", Object.keys(process.env).filter((k) => k.startsWith("NEXT_PUBLIC_")).join(", ") || "(none)"
     );
     return { borrowers: [], error: "Server configuration error. Please check server logs.", adminToken: token };
   }
 
   const targetUrl = `${backendBase}/admin/leads`;
-  console.log(`[discharge-snapshots] Fetching from backend: ${targetUrl}`);
+  console.log(`[leads] Fetching from backend: ${targetUrl}`);
 
   // ── 3. Fetch with Bearer token (no cross-origin CORS concerns) ──────────
   try {
@@ -202,16 +202,16 @@ async function fetchSnapshots(): Promise<{
       cache: "no-store",
     });
 
-    console.log(`[discharge-snapshots] Backend responded: ${res.status} ${res.statusText}`);
+    console.log(`[leads] Backend responded: ${res.status} ${res.statusText}`);
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => "(could not read response body)");
       console.error(
-        `[discharge-snapshots] FAIL: Backend returned ${res.status}`,
+        `[leads] FAIL: Backend returned ${res.status}`,
         `| URL: ${targetUrl}`,
         `| Body: ${errorText.slice(0, 500)}`
       );
-      return { borrowers: [], error: `Failed to load snapshots (${res.status}). Please check server logs.`, adminToken: token };
+      return { borrowers: [], error: `Failed to load leads.`, adminToken: token };
     }
 
     const data = await res.json();
@@ -222,10 +222,10 @@ async function fetchSnapshots(): Promise<{
       ? data.snapshots
       : [];
 
-    console.log(`[discharge-snapshots] SUCCESS: Loaded ${raw.length} snapshots from backend.`);
+    console.log(`[leads] SUCCESS: Loaded ${raw.length} snapshots from backend.`);
     return { borrowers: raw.map(mapSnapshot), error: null, adminToken: token };
   } catch (err) {
-    console.error("[discharge-snapshots] FETCH EXCEPTION:", err);
+    console.error("[leads] FETCH EXCEPTION:", err);
     return {
       borrowers: [],
       error: `Network error: ${err instanceof Error ? err.message : "Unknown error"}`,

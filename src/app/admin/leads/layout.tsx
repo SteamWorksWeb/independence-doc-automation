@@ -1,7 +1,7 @@
 /**
- * src/app/admin/discharge-snapshots/layout.tsx
+ * src/app/admin/leads/layout.tsx
  *
- * Shell layout for /admin/discharge-snapshots/* routes.
+ * Shell layout for /admin/leads/* routes.
  * Delegates all chrome (sidebar, top bar, tool nav) to AdminShell.
  */
 

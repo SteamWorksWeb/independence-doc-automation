@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * src/app/admin/discharge-snapshots/new/page.tsx
+ * src/app/admin/leads/new/page.tsx
  *
  * Multi-step onboarding wizard for creating a new Discharge SnapShot.
- * Route: /admin/discharge-snapshots/new
+ * Route: /admin/leads/new
  *
  * Steps:
  *   1 — Client Setup       (First Name, Last Name, Email, Phone)
@@ -16,8 +16,8 @@
  *   7 — Education & Age    (3 × Yes/No + date + Yes/No)
  *
  * On final step "Submit Discharge Snapshot":
- *   - POSTs to the Next.js proxy  POST /api/admin/discharge-snapshots
- *   - Proxy forwards to backend   POST /api/v1/admin/discharge-snapshots
+ *   - POSTs to the Next.js proxy  POST /api/admin/leads
+ *   - Proxy forwards to backend   POST /api/v1/admin/leads
  *   - 201 success  → router.push + router.refresh to list page
  *   - Non-201      → inline error banner shown to the user
  */
@@ -287,7 +287,7 @@ export default function NewDischargeSnapshotPage() {
 
       if (res.status === 201) {
         // Success — navigate back to the list and bust the RSC cache
-        router.push("/admin/discharge-snapshots");
+        router.push("/admin/leads");
         router.refresh();
         return;
       }

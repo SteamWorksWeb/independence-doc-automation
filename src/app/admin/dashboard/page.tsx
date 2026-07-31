@@ -538,7 +538,7 @@ function ActiveSnapshotsWidget({
     <DashboardWidget
       title="Active Leads"
       subtitle="Most recently updated discharge assessments"
-      href="/admin/discharge-snapshots"
+      href="/admin/leads"
       linkLabel="View Full Pipeline"
     >
       {error ? (
