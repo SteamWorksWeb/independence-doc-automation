@@ -23,6 +23,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+function buildBackendUrl(path: string): string | null {
+  const base = process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, "");
+  if (!base) return null;
+
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const versionedBase = base.endsWith("/api/v1")
+    ? base
+    : base.endsWith("/api")
+    ? `${base}/v1`
+    : `${base}/api/v1`;
+  return `${versionedBase}${normalizedPath}`;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   // ── 1. Read the admin session cookie ────────────────────────────────────────
   const cookieStore = await cookies();
@@ -36,8 +49,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── 2. Resolve backend URL ───────────────────────────────────────────────────
-  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
-  if (!backendBase) {
+  const targetUrl = buildBackendUrl("/admin/leads");
+  if (!targetUrl) {
     console.error(
       "[proxy/admin/leads] NEXT_PUBLIC_AWS_API_URL is not set."
     );
@@ -46,8 +59,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 503 }
     );
   }
-
-  const targetUrl = `${backendBase}/admin/leads`;
 
   // ── 3. Parse the incoming body ───────────────────────────────────────────────
   let body: unknown;
@@ -122,8 +133,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── 2. Resolve backend URL ───────────────────────────────────────────────────
-  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
-  if (!backendBase) {
+  const targetBaseUrl = buildBackendUrl("/admin/leads");
+  if (!targetBaseUrl) {
     console.error(
       "[proxy/admin/leads GET] NEXT_PUBLIC_AWS_API_URL is not set."
     );
@@ -136,8 +147,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Forward any query params (e.g. ?search=...) from the incoming request
   const incomingSearch = req.nextUrl.searchParams.toString();
   const targetUrl = incomingSearch
-    ? `${backendBase}/admin/leads?${incomingSearch}`
-    : `${backendBase}/admin/leads`;
+    ? `${targetBaseUrl}?${incomingSearch}`
+    : targetBaseUrl;
 
   // ── 3. Forward GET to backend ────────────────────────────────────────────────
   let backendRes: Response;

@@ -15,7 +15,7 @@
  */
 
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import DischargeSnapshotsTable from "@/components/admin/DischargeSnapshotsTable";
 import type { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
@@ -159,6 +159,18 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
 
 // ── Secure data fetch (Server-side — token never exposed to browser) ───────────
 
+async function getInternalApiUrl(path: string): Promise<string> {
+  const headerStore = await headers();
+  const host = headerStore.get("host");
+
+  if (!host) {
+    throw new Error("Missing host header.");
+  }
+
+  const proto = headerStore.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}${path}`;
+}
+
 async function fetchSnapshots(): Promise<{
   borrowers: SnapshotBorrower[];
   error: string | null;
@@ -179,25 +191,15 @@ async function fetchSnapshots(): Promise<{
   console.log(`[leads] admin_session token present: ${masked} (${token.length} chars)`);
 
   // ── 2. Validate backend env var ─────────────────────────────────────────
-  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
-  if (!backendBase) {
-    console.error(
-      "[leads] FAIL: NEXT_PUBLIC_AWS_API_URL is undefined.",
-      "Available env keys:", Object.keys(process.env).filter((k) => k.startsWith("NEXT_PUBLIC_")).join(", ") || "(none)"
-    );
-    return { borrowers: [], error: "Server configuration error. Please check server logs.", adminToken: token };
-  }
-
-  const targetUrl = `${backendBase}/admin/leads`;
-  console.log(`[leads] Fetching from backend: ${targetUrl}`);
+  const targetUrl = await getInternalApiUrl("/api/admin/leads");
+  console.log(`[leads] Fetching through Next proxy: ${targetUrl}`);
 
   // ── 3. Fetch with Bearer token (no cross-origin CORS concerns) ──────────
   try {
     const res = await fetch(targetUrl, {
       method: "GET",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Cookie: `admin_session=${token}`,
       },
       cache: "no-store",
     });

@@ -202,15 +202,10 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
     setIsDeleting(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/leads/${snapshotId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${adminToken}`,
-          },
-        }
-      );
+      const res = await fetch(`/api/admin/leads/${snapshotId}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -236,17 +231,14 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
     setIsSavingStatus(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/leads/${snapshotId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({ status: "Archived" }),
-        }
-      );
+      const res = await fetch(`/api/admin/leads/${snapshotId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "Archived" }),
+        cache: "no-store",
+      });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -283,17 +275,14 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
     setIsSavingStatus(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/leads/${snapshotId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
-          },
-          body: JSON.stringify({ status: selectedStatus }),
-        }
-      );
+      const res = await fetch(`/api/admin/leads/${snapshotId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: selectedStatus }),
+        cache: "no-store",
+      });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
