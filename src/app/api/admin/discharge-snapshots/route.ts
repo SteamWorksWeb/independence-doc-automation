@@ -47,7 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const targetUrl = `${backendBase}/admin/discharge-snapshots`;
+  const targetUrl = `${backendBase}/admin/leads`;
 
   // ── 3. Parse the incoming body ───────────────────────────────────────────────
   let body: unknown;
@@ -136,8 +136,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Forward any query params (e.g. ?search=...) from the incoming request
   const incomingSearch = req.nextUrl.searchParams.toString();
   const targetUrl = incomingSearch
-    ? `${backendBase}/admin/discharge-snapshots?${incomingSearch}`
-    : `${backendBase}/admin/discharge-snapshots`;
+    ? `${backendBase}/admin/leads?${incomingSearch}`
+    : `${backendBase}/admin/leads`;
 
   // ── 3. Forward GET to backend ────────────────────────────────────────────────
   let backendRes: Response;

@@ -203,7 +203,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
     setIsDeleting(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots/${snapshotId}`,
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/leads/${snapshotId}`,
         {
           method: "DELETE",
           headers: {
@@ -215,7 +215,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         console.error("[delete-snapshot] Backend error:", res.status, body);
-        alert("Failed to delete borrower. Please try again.");
+        alert("Failed to delete lead. Please try again.");
         return;
       }
 
@@ -224,7 +224,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
       closeModal();
     } catch (err) {
       console.error("[delete-snapshot] Network error:", err);
-      alert("Failed to delete borrower. Please check your connection and try again.");
+      alert("Failed to delete lead. Please check your connection and try again.");
     } finally {
       setIsDeleting(false);
     }
@@ -237,7 +237,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
     setIsSavingStatus(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots/${snapshotId}/status`,
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/leads/${snapshotId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -284,7 +284,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
     setIsSavingStatus(true);
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/discharge-snapshots/${snapshotId}/status`,
+        `${process.env.NEXT_PUBLIC_AWS_API_URL}/admin/leads/${snapshotId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -321,7 +321,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
     <>
       {/* ── Stat pill strip ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-3 max-[1024px]:grid-cols-2 max-[640px]:grid-cols-2 max-[400px]:grid-cols-1 mb-6">
-        <StatPill label="Total Borrowers" value={fetchError ? "—" : String(counts.All)} color="navy" />
+        <StatPill label="Total Leads" value={fetchError ? "—" : String(counts.All)} color="navy" />
         <StatPill label="Incomplete" value={fetchError ? "—" : String(counts.Incomplete)} color="warning" />
         <StatPill label="Dischargeable" value={fetchError ? "—" : String(counts.Yes)} color="success" />
         <StatPill label="Not Dischargeable" value={fetchError ? "—" : String(counts.No)} color="muted" />
@@ -334,7 +334,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
         <div className="flex items-start justify-between py-5 px-6 border-b border-border gap-4 flex-wrap max-[640px]:flex-col">
           <div>
             <h2 className="font-serif text-[1.0625rem] font-bold text-navy mb-0.5">
-              Borrower Pipeline
+              Lead Pipeline
             </h2>
             {!fetchError && (
               <p className="text-[0.8125rem] text-text-muted">
@@ -399,7 +399,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
             </div>
             <p className="font-serif text-[1.0625rem] font-bold text-text-primary">No snapshots yet</p>
             <p className="text-[0.9rem] text-text-muted max-w-[380px] leading-relaxed">
-              Discharge snapshots will appear here once borrowers are submitted through the wizard.
+              Leads will appear here once leads are submitted through the wizard.
             </p>
           </div>
         )}
@@ -434,7 +434,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
             >
               <thead>
                 <tr>
-                  {["#", "Borrower", "Submitted", "Last Updated", "Status", "Action"].map((h, i) => (
+                  {["#", "Lead", "Submitted", "Last Updated", "Status", "Action"].map((h, i) => (
                     <th
                       key={h}
                       className={`py-[11px] px-4 text-left text-[0.6875rem] font-bold tracking-[0.07em] uppercase text-text-muted bg-bg border-b border-border whitespace-nowrap select-none ${i === 0 ? "pl-6" : ""} ${i === 5 ? "pr-6" : ""}`}

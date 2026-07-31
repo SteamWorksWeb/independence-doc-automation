@@ -1,12 +1,12 @@
 /**
  * src/components/admin/InviteBorrowerModal.tsx
  *
- * "Invite Borrower" button + modal dialog for the Discharge Snapshots page.
+ * "Invite Lead" button + modal dialog for the Discharge Snapshots page.
  *
  * Duplicate of InviteClientModal with the following changes:
- *   - All UI text/labels use "Borrower" terminology (not "Client")
- *   - POST endpoint → /admin/borrowers/invite
- *   - Button id → "invite-borrower-btn"
+ *   - All UI text/labels use "Lead" terminology (not "Client")
+ *   - POST endpoint → /admin/leads/invite
+ *   - Button id → "invite-lead-btn"
  */
 
 "use client";
@@ -108,7 +108,7 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
 
       try {
         const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
-        const res = await fetch(`${apiUrl}/admin/borrowers/invite`, {
+        const res = await fetch(`${apiUrl}/admin/leads/invite`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -132,8 +132,8 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
           message: data.message,
         });
         setModalState("success");
-        // Notify any sibling components that a borrower invite was sent
-        window.dispatchEvent(new CustomEvent("borrowerInviteSent"));
+        // Notify any sibling components that a lead invite was sent
+        window.dispatchEvent(new CustomEvent("leadInviteSent"));
       } catch (err) {
         setErrorMessage(
           err instanceof Error ? err.message : "Failed to send invite."
@@ -168,14 +168,14 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
     <>
       {/* ── Trigger Button ──────────────────────────────────── */}
       <button
-        id="invite-borrower-btn"
+        id="invite-lead-btn"
         type="button"
         className={styles.inviteBtn}
         onClick={openModal}
         aria-haspopup="dialog"
       >
         <PlusIcon />
-        Invite Borrower
+        Invite Lead
       </button>
 
       {/* ── Modal Dialog ────────────────────────────────────── */}
@@ -195,11 +195,11 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
               <h2 id={`${uid}-title`} className={styles.dialogTitle}>
                 {modalState === "success"
                   ? "Invitation Sent"
-                  : "Invite a New Borrower"}
+                  : "Invite a New Lead"}
               </h2>
               {modalState !== "success" && (
                 <p className={styles.dialogSubtitle}>
-                  Enter the borrower&apos;s email to generate a secure
+                  Enter the lead&apos;s email to generate a secure
                   registration invite.
                 </p>
               )}
@@ -224,7 +224,7 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
                     htmlFor={`${uid}-email`}
                     className={styles.fieldLabel}
                   >
-                    Borrower Email Address
+                    Lead Email Address
                   </label>
                   <input
                     ref={emailInputRef}
@@ -235,7 +235,7 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
                     className={`${styles.fieldInput} ${
                       emailError ? styles.fieldInputError : ""
                     }`}
-                    placeholder="borrower@example.com"
+                    placeholder="lead@example.com"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -297,7 +297,7 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
                 </div>
                 <p className={styles.successMessage}>
                   {result.message ||
-                    `Invitation sent to ${result.email || "the borrower"}.`}
+                    `Invitation sent to ${result.email || "the lead"}.`}
                 </p>
 
                 {displayLink && (

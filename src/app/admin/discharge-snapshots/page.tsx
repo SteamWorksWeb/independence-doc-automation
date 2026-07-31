@@ -21,7 +21,7 @@ import type { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
 
 export const metadata: Metadata = {
-  title: "Discharge Snapshots",
+  title: "Leads",
 };
 
 export const maxDuration = 60; // Allow 60s for Render cold starts
@@ -130,7 +130,7 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
     snap.client?.lastName?.trim() ||
     // Legacy fallback: take everything after the first space
     snap.client?.name?.trim().split(' ').slice(1).join(' ') ||
-    'Borrower';
+    'Lead';
 
   return {
     id: snap.id,
@@ -188,7 +188,7 @@ async function fetchSnapshots(): Promise<{
     return { borrowers: [], error: "Server configuration error. Please check server logs.", adminToken: token };
   }
 
-  const targetUrl = `${backendBase}/admin/discharge-snapshots`;
+  const targetUrl = `${backendBase}/admin/leads`;
   console.log(`[discharge-snapshots] Fetching from backend: ${targetUrl}`);
 
   // ── 3. Fetch with Bearer token (no cross-origin CORS concerns) ──────────
@@ -246,10 +246,10 @@ export default async function DischargeSnapshotsPage() {
       <div className="flex items-start justify-between gap-4 flex-wrap max-[640px]:flex-col">
         <div>
           <h1 className="font-serif text-[clamp(1.375rem,2.5vw,1.75rem)] font-black italic text-navy mb-1 leading-[1.1]">
-            Discharge Snapshots
+            Leads
           </h1>
           <p className="text-sm text-text-muted">
-            Manage borrower discharge eligibility assessments
+            Manage lead discharge eligibility assessments
           </p>
         </div>
         <InviteBorrowerModal adminToken={adminToken} />

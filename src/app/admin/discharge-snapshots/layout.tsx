@@ -10,7 +10,7 @@ import AdminShell from "@/components/admin/AdminShell";
 
 export const metadata: Metadata = {
   title: {
-    default: "Discharge Snapshots | Admin | Liberty",
+    default: "Leads | Admin | Liberty",
     template: "%s | Admin | Liberty",
   },
   robots: { index: false, follow: false },

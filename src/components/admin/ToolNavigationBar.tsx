@@ -9,7 +9,7 @@ import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
  * Horizontal tool navigation bar for the authenticated admin/lawyer dashboard.
  *
  * Contains:
- *   - Icon-based nav: Home, Discharge SnapShot, BK Analyzer, Repayment Analyzer,
+ *   - Icon-based nav: Home, Leads, BK Analyzer, Repayment Analyzer,
  *     Message Center, Student Loan Calculator
  *   - Dropdown menus with cascading sub-menus (CSS + JS hybrid)
  *   - Borrower Search input + Advanced Search modal
@@ -54,7 +54,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "discharge-snapshot",
-    label: "Discharge SnapShot",
+    label: "Leads",
     icon: <DischargeIcon />,
     dropdown: [
       { label: "Start New",     href: "/admin/discharge-snapshots/new",  icon: <FilePlusIcon /> },
@@ -363,7 +363,7 @@ export default function ToolNavigationBar() {
         />
       )}
 
-      {/* ── Invite Borrower Modal (Discharge SnapShot → Invite New) ───────────── */}
+      {/* ── Invite Lead Modal (Leads → Invite New) ───────────── */}
       {showBorrowerInvite && (
         <InviteBorrowerModal
           adminToken={adminToken}

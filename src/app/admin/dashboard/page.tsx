@@ -536,7 +536,7 @@ function ActiveSnapshotsWidget({
 }) {
   return (
     <DashboardWidget
-      title="Active Snapshots"
+      title="Active Leads"
       subtitle="Most recently updated discharge assessments"
       href="/admin/discharge-snapshots"
       linkLabel="View Full Pipeline"
@@ -544,7 +544,7 @@ function ActiveSnapshotsWidget({
       {error ? (
         <InlineErrorState message={error} />
       ) : snapshots.length === 0 ? (
-        <CompactEmptyState title="No active snapshots" />
+        <CompactEmptyState title="No active leads" />
       ) : (
         <ul className="divide-y divide-border" role="list">
           {snapshots.map((snapshot) => (
