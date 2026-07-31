@@ -3,7 +3,7 @@
 /**
  * src/components/admin/AdminFinancialScoreboard.tsx
  *
- * ADMIN-ONLY — NEVER import this from any client-facing page
+ * ADMIN-ONLY â€” NEVER import this from any client-facing page
  * (/apply, client dashboard, or portal routes).
  * It is strictly for internal staff evaluation.
  *
@@ -22,7 +22,7 @@ export interface AdminFinancialScoreboardProps {
   /** Primary wage / salary income */
   monthlyGrossIncome?: string;
   /**
-   * Take-home (after-tax) pay — used as the baseline income figure when
+   * Take-home (after-tax) pay â€” used as the baseline income figure when
    * present; falls back to monthlyGrossIncome if blank.
    */
   monthlyTakeHomePay?: string;
