@@ -149,7 +149,7 @@ export default function MessageCenterPage() {
     if (composeClients.length > 0) return; // already loaded
     setComposeLoading(true);
     try {
-      const res = await fetch("/api/admin/discharge-snapshots", { cache: "no-store" });
+      const res = await fetch("/api/admin/leads", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { snapshots?: { client: ComposeClient }[] };
       const clients = (data.snapshots ?? []).map((s) => s.client).filter(Boolean);
@@ -159,7 +159,7 @@ export default function MessageCenterPage() {
         clients.filter((c) => { if (seen.has(c.id)) return false; seen.add(c.id); return true; })
       );
     } catch {
-      setComposeError("Could not load borrowers. Please try again.");
+      setComposeError("Could not load leads. Please try again.");
     } finally {
       setComposeLoading(false);
     }
@@ -517,8 +517,8 @@ function EmptyInboxIcon() {
 }
 // ── ComposeModal ──────────────────────────────────────────────────────────────
 //
-// Full-screen overlay modal for selecting a borrower to start a chat with.
-// Fetches the borrower list from /api/admin/discharge-snapshots on open,
+// Full-screen overlay modal for selecting a lead to start a chat with.
+// Fetches the lead list from /api/admin/leads on open,
 // supports live search filtering, and calls POST /api/admin/conversations
 // with the selected borrowerId.
 

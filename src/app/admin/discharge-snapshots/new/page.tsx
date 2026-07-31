@@ -276,7 +276,7 @@ export default function NewDischargeSnapshotPage() {
     setSubmitError(null);
 
     try {
-      const res = await fetch("/api/admin/discharge-snapshots", {
+      const res = await fetch("/api/admin/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Credentials not required for same-origin proxy calls, but kept for

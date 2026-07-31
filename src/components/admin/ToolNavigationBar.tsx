@@ -12,7 +12,7 @@ import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
  *   - Icon-based nav: Home, Leads, BK Analyzer, Repayment Analyzer,
  *     Message Center, Student Loan Calculator
  *   - Dropdown menus with cascading sub-menus (CSS + JS hybrid)
- *   - Borrower Search input + Advanced Search modal
+ *   - Lead Search input + Advanced Search modal
  *
  * Brand: Navy (#1a2744) default, Crimson (#b31e3c) hover/active — no Stretto, no green.
  */
@@ -320,12 +320,12 @@ export default function ToolNavigationBar() {
             <input
               id="tool-borrower-search-input"
               type="text"
-              placeholder="Borrower Search"
+              placeholder="Lead Search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && console.log("search:", searchQuery)}
               className="px-3 py-1.5 text-[0.8125rem] bg-transparent outline-none w-44 placeholder:text-[#9ca3af] text-[#374151]"
-              aria-label="Borrower Search"
+              aria-label="Lead Search"
             />
             <button
               id="tool-borrower-search-btn"
@@ -498,7 +498,7 @@ function AdvancedSearchModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-label="Advanced Borrower Search"
+      aria-label="Advanced Lead Search"
     >
       <div className="bg-white rounded-xl shadow-2xl w-[min(90vw,580px)] relative animate-slide-in">
         {/* Close */}
@@ -513,7 +513,7 @@ function AdvancedSearchModal({
 
         <div className="px-8 pt-8 pb-8">
           <h2 className="font-sans text-[1.25rem] font-bold text-[#1a2744] mb-6">
-            Advanced Borrower Search
+            Advanced Lead Search
           </h2>
 
           <div className="grid grid-cols-2 gap-4 mb-4">

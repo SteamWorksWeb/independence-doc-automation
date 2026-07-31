@@ -268,7 +268,7 @@ async function fetchSnapshots(
   adminToken: string
 ): Promise<{ snapshots: DashboardSnapshot[]; error: string | null }> {
   const { data, error } = await fetchAdminRoute(
-    "/api/admin/discharge-snapshots",
+    "/api/admin/leads",
     requestOrigin,
     adminToken,
     "snapshots"

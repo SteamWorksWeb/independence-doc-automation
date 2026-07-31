@@ -1,10 +1,10 @@
 /**
- * src/app/api/admin/discharge-snapshots/route.ts
+ * src/app/api/admin/leads/route.ts
  *
- * POST /api/admin/discharge-snapshots
+ * POST /api/admin/leads
  *
  * Server-side proxy for the backend route:
- *   POST /api/v1/admin/discharge-snapshots
+ *   POST /api/v1/admin/leads
  *
  * Why a proxy?
  *   The lawyer's JWT lives in an HttpOnly cookie ("admin_session") that is
@@ -101,12 +101,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(data, { status: backendRes.status });
 }
 
-// ── GET /api/admin/discharge-snapshots?search=... ─────────────────────────────
+// ── GET /api/admin/leads?search=... ─────────────────────────────
 //
 // Server-side proxy for the backend:
-//   GET /api/v1/admin/discharge-snapshots[?search=...]
+//   GET /api/v1/admin/leads[?search=...]
 //
-// Used by the Compose modal borrower-picker to load all discharge-snapshot
+// Used by the Compose modal lead-picker to load all lead
 // client records.  An optional ?search= query param is forwarded verbatim.
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
