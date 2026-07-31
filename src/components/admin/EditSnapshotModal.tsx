@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect } from "react";
 import StaffMessageThread from "@/components/messaging/StaffMessageThread";
+import AdminFinancialScoreboard from "@/components/admin/AdminFinancialScoreboard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -295,6 +296,17 @@ export default function EditSnapshotModal({
           aria-labelledby="tab-borrower-data"
           hidden={activeTab !== "data"}
         >
+          {/* ── Admin Financial Scoreboard (sticky at top of form) ── */}
+          <AdminFinancialScoreboard
+            variant="sticky-top"
+            monthlyGrossIncome={form.monthlyGrossIncome}
+            monthlyTakeHomePay={form.monthlyTakeHomePay}
+            additionalMonthlyIncome={form.additionalMonthlyIncome}
+            housingExpenses={form.housingExpenses}
+            transportationExpenses={form.transportationExpenses}
+            dependentCareExpenses={form.dependentCareExpenses}
+          />
+
           {/* ── Scrollable form ── */}
           <div className="px-6 py-2">
 

@@ -24,6 +24,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import AdminFinancialScoreboard from "@/components/admin/AdminFinancialScoreboard";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -324,6 +325,19 @@ export default function NewDischargeSnapshotPage() {
 
   return (
     <div className="max-w-[700px] mx-auto px-2">
+
+      {/* ── Admin Financial Scoreboard (floating, Steps 4-7) ───────────────── */}
+      {step >= 4 && (
+        <AdminFinancialScoreboard
+          variant="floating"
+          monthlyGrossIncome={formData.monthlyGrossIncome}
+          monthlyTakeHomePay={formData.monthlyTakeHomePay}
+          additionalMonthlyIncome={formData.additionalMonthlyIncome}
+          housingExpenses={formData.housingExpenses}
+          transportationExpenses={formData.transportationExpenses}
+          dependentCareExpenses={formData.dependentCareExpenses}
+        />
+      )}
 
       {/* ── Progress bar (steps 2–7) ───────────────────────────────────── */}
       {step > 1 && (
