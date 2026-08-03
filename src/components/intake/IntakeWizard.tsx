@@ -22,7 +22,7 @@ import ReviewStep from './steps/ReviewStep';
 
 const LEGACY_TOTAL_STEPS = 5;
 const PUBLIC_TOTAL_STEPS = 5;
-const PUBLIC_LAST_STEP = 4;
+const PUBLIC_LAST_STEP = LEGACY_TOTAL_STEPS;
 const MIN_PASSWORD_LENGTH = 8;
 const PERSONAL_INFO_FORM_ID = 'personal-info-form';
 const EXPENSE_FORM_ID = 'expense-form';
@@ -50,20 +50,6 @@ interface AccountSetupErrors {
   password?: string;
   confirmPassword?: string;
 }
-
-type PublicPlaceholderStep = 2;
-
-const PUBLIC_PLACEHOLDER_STEPS: Record<PublicPlaceholderStep, {
-  title: string;
-  eyebrow: string;
-  body: string;
-}> = {
-  2: {
-    title: 'Military Service',
-    eyebrow: 'Step 2',
-    body: 'This section will capture service history and benefits information relevant to your student loan review.',
-  },
-};
 
 // ── Form state ────────────────────────────────────────────────────────────────
 interface FormData {
@@ -373,7 +359,8 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     }
   };
 
-  const displayedStep = isPublicInviteFlow ? currentStep + 1 : currentStep;
+  const isAccountSetupStep = isPublicInviteFlow && currentStep === 0;
+  const displayedStep = isPublicInviteFlow ? Math.max(currentStep, 1) : currentStep;
   const displayedTotalSteps = isPublicInviteFlow ? PUBLIC_TOTAL_STEPS : LEGACY_TOTAL_STEPS;
   const pct = ((displayedStep / displayedTotalSteps) * 100).toFixed(0);
 
@@ -426,11 +413,6 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     </label>
   );
 
-  const publicPlaceholderStep =
-    currentStep === 2
-      ? PUBLIC_PLACEHOLDER_STEPS[currentStep]
-      : null;
-
   return (
     <div className="min-h-dvh bg-bg flex flex-col items-center justify-start pt-10 px-4 pb-16">
       <header className="text-center mb-8">
@@ -442,7 +424,9 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
         </h1>
         <p className="text-[0.9375rem] text-text-muted max-w-[440px] mx-auto">
           {isPublicInviteFlow
-            ? 'First, create a permanent password so you can return to your portal without the email link.'
+            ? isAccountSetupStep
+              ? 'First, create a permanent password so you can return to your portal without the email link.'
+              : 'Your information is protected by attorney-client privilege and 256-bit encryption.'
             : 'Your information is protected by attorney-client privilege and 256-bit encryption.'}
         </p>
       </header>
@@ -455,7 +439,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
               Progress
             </span>
             <span className="font-serif text-[1.125rem] text-white font-bold">
-              Step {displayedStep} of {displayedTotalSteps}
+              {isAccountSetupStep ? 'Account Setup' : `Step ${displayedStep} of ${displayedTotalSteps}`}
             </span>
           </div>
           <div className="h-[3px] bg-white/[0.12] rounded-full overflow-hidden">
@@ -601,7 +585,64 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                 />
               )}
 
+              {currentStep === 2 && (
+                <div key="public-s2" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
+                  <div className="mb-6">
+                    <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
+                      Step 2
+                    </p>
+                    <h2 className="font-serif text-[1.5rem] text-navy mb-2">Health, Employment &amp; Assets</h2>
+                  </div>
+                  <div className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-3 mb-2">
+                      {checkRow('hasDisability',   'Do you have a disability or chronic injury impacting income potential?')}
+                      {checkRow('isEmployed',       'Are you currently employed?')}
+                      {checkRow('unemployed5of10',  'Have you been unemployed for at least 5 of the last 10 years?')}
+                      {checkRow('hasCar',           'Do you own a vehicle?')}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="monthlyIncome" className={labelCls}>
+                        Gross Monthly Income ($)
+                      </label>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-4 text-base text-text-muted font-medium pointer-events-none">$</span>
+                        <input
+                          id="monthlyIncome"
+                          type="number"
+                          min="0"
+                          step="100"
+                          className={`${inputCls} pl-8`}
+                          value={form.monthlyIncome}
+                          onChange={(e) => update('monthlyIncome', e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {currentStep === 3 && (
+                <div key="public-s3" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
+                  <div className="mb-6">
+                    <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
+                      Step 3
+                    </p>
+                    <h2 className="font-serif text-[1.5rem] text-navy mb-2">Average Monthly Expenses</h2>
+                    <p className="text-sm text-text-muted leading-relaxed py-3 px-4 bg-bg rounded-md border-l-[3px] border-crimson-light">
+                      Enter 0 if an expense does not apply to you.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mb-5 max-[540px]:grid-cols-1">
+                    {numInput('expFood',         'Food')}
+                    {numInput('expHousekeeping', 'Housekeeping Supplies')}
+                    {numInput('expApparel',      'Apparel & Services')}
+                    {numInput('expPersonalCare', 'Personal Care Products')}
+                  </div>
+                </div>
+              )}
+
+              {currentStep === 4 && (
                 <ExpenseStep
                   formId={EXPENSE_FORM_ID}
                   defaultValues={{
@@ -616,27 +657,8 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                 />
               )}
 
-              {currentStep === 4 && (
+              {currentStep === 5 && (
                 <ReviewStep wizardState={form} />
-              )}
-
-              {publicPlaceholderStep && (
-                <div key={`public-step-${currentStep}`} className="min-h-[280px] animate-step-enter">
-                  <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
-                    {publicPlaceholderStep.eyebrow}
-                  </p>
-                  <h2 className="font-serif text-[1.5rem] text-navy mb-3">
-                    {publicPlaceholderStep.title}
-                  </h2>
-                  <div className="border-l-[3px] border-crimson-light bg-bg py-4 pl-4 pr-2">
-                    <p className="text-[0.9375rem] text-text-secondary leading-relaxed">
-                      {publicPlaceholderStep.body}
-                    </p>
-                    <p className="mt-4 text-[0.8125rem] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                      Placeholder
-                    </p>
-                  </div>
-                </div>
               )}
             </>
           ) : (
@@ -780,13 +802,13 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                   form={
                     currentStep === 1
                       ? PERSONAL_INFO_FORM_ID
-                      : currentStep === 3
+                      : currentStep === 4
                         ? EXPENSE_FORM_ID
                         : undefined
                   }
                   className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
-                  onClick={currentStep === 1 || currentStep === 3 ? undefined : next}
-                  type={currentStep === 1 || currentStep === 3 ? 'submit' : 'button'}
+                  onClick={currentStep === 1 || currentStep === 4 ? undefined : next}
+                  type={currentStep === 1 || currentStep === 4 ? 'submit' : 'button'}
                 >
                   Next
                 </button>

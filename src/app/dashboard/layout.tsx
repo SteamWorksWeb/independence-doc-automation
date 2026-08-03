@@ -4,9 +4,11 @@
  * Client Dashboard Shell — wraps all /dashboard/* routes.
  *
  * Migrated from CSS Modules → Tailwind CSS (Phase 2).
+ * Updated: added tab navigation for Home, Documents, Messages.
  */
 
 import type { Metadata } from "next";
+import DashboardNav from "./DashboardNav";
 
 export const metadata: Metadata = {
   title: {
@@ -28,7 +30,6 @@ export default function DashboardLayout({
         <div className="max-w-[1200px] mx-auto flex items-center justify-between h-16 max-[640px]:h-14 gap-4">
           <div className="flex items-center gap-3">
             <ScalesIcon />
-
           </div>
 
           <div className="flex items-center gap-4">
@@ -51,6 +52,13 @@ export default function DashboardLayout({
         </div>
       </header>
 
+      {/* ── Tab navigation ─────────────────────────────────── */}
+      <div className="bg-white border-b border-border sticky top-[67px] z-[90] max-[640px]:top-[59px]">
+        <div className="max-w-[1200px] mx-auto px-6 max-[640px]:px-4">
+          <DashboardNav />
+        </div>
+      </div>
+
       {/* ── Page content ──────────────────────────────────── */}
       <main className="flex-1 max-w-[1200px] w-full mx-auto py-8 px-6 max-[640px]:py-5 max-[640px]:px-4">
         {children}
@@ -61,4 +69,4 @@ export default function DashboardLayout({
 
 // ── Inline SVG ────────────────────────────────────────────────────────────────
 
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} /> }
+function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} />; }
