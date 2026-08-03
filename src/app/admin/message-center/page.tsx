@@ -19,7 +19,8 @@
  * Auth: All fetches go through Next.js server-side proxy routes (HttpOnly cookie).
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import StaffMessageThread from "@/components/messaging/StaffMessageThread";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -84,11 +85,27 @@ function sortConversations(list: ConversationSummary[]): ConversationSummary[] {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
+/**
+ * Wrapper that provides the Suspense boundary required by useSearchParams().
+ * Next.js App Router will throw a build-time error if useSearchParams() is
+ * called outside a Suspense boundary during static rendering.
+ */
 export default function MessageCenterPage() {
+  return (
+    <Suspense fallback={null}>
+      <MessageCenterInner />
+    </Suspense>
+  );
+}
+
+function MessageCenterInner() {
+  const searchParams = useSearchParams();
   const [conversations, setConversations]   = useState<ConversationSummary[]>([]);
   const [loading, setLoading]               = useState(true);
   const [fetchError, setFetchError]         = useState<string | null>(null);
   const [activeId, setActiveId]             = useState<string | null>(null);
+  // Track whether we've applied the URL-requested conversation yet
+  const urlConvApplied = useRef(false);
 
   // ── Compose modal state ──────────────────────────────────────────────────────
   const [showCompose, setShowCompose]         = useState(false);
@@ -122,6 +139,8 @@ export default function MessageCenterPage() {
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+
+
   // ── Select a conversation & mark as read ────────────────────────────────────
 
   const handleSelect = useCallback(async (conv: ConversationSummary) => {
@@ -139,6 +158,20 @@ export default function MessageCenterPage() {
       // Non-critical — ignore silently
     }
   }, []);
+
+  // ── Auto-select conversation from URL ?conversation= param ─────────────────
+  useEffect(() => {
+    if (urlConvApplied.current) return;          // only apply once
+    if (loading) return;                          // wait for list to load
+    const urlConvId = searchParams.get("conversation");
+    if (!urlConvId) return;
+
+    const match = conversations.find((c) => c.id === urlConvId);
+    if (match) {
+      urlConvApplied.current = true;
+      handleSelect(match);
+    }
+  }, [loading, conversations, searchParams, handleSelect]);
 
   // ── Open compose modal — fetch client list ─────────────────────────────────
 

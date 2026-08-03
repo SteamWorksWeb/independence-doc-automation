@@ -66,6 +66,7 @@ interface ApiSnapshot {
   status?: string | null;
   lowestMonthlyPayment?: number | string | null;
   client?: {
+    id?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     name?: string | null;
@@ -75,6 +76,7 @@ interface ApiSnapshot {
 
 interface DashboardSnapshot {
   id: string;
+  clientId?: string;
   clientName: string;
   clientEmail?: string;
   statusLabel: SnapshotStatusLabel;
@@ -219,6 +221,7 @@ function mapSnapshot(snapshot: ApiSnapshot): DashboardSnapshot {
   const status = getSnapshotStatus(snapshot);
   return {
     id: snapshot.id,
+    clientId: typeof snapshot.client?.id === "string" ? snapshot.client.id : undefined,
     clientName: getSnapshotClientName(snapshot),
     clientEmail: snapshot.client?.email ?? undefined,
     statusLabel: status.label,
@@ -547,29 +550,40 @@ function ActiveSnapshotsWidget({
         <CompactEmptyState title="No active leads" />
       ) : (
         <ul className="divide-y divide-border" role="list">
-          {snapshots.map((snapshot) => (
-            <li key={snapshot.id} className="py-3 first:pt-0 last:pb-0">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-navy truncate">
-                    {snapshot.clientName}
-                  </p>
-                  <p className="text-[0.8125rem] text-text-muted truncate">
-                    {snapshot.clientEmail ?? "No email on file"}
-                  </p>
-                </div>
-                <StatusBadge label={snapshot.statusLabel} tone={snapshot.statusTone} />
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3 text-[0.75rem] text-text-muted">
-                <span>Updated {formatDate(snapshot.updatedAt ?? snapshot.createdAt)}</span>
-                {snapshot.lowestMonthlyPayment && (
-                  <span className="font-semibold text-text-secondary">
-                    {snapshot.lowestMonthlyPayment}
-                  </span>
-                )}
-              </div>
-            </li>
-          ))}
+          {snapshots.map((snapshot) => {
+            // Link to the client profile if we have their ID; otherwise the pipeline
+            const href = snapshot.clientId
+              ? `/admin/clients/${snapshot.clientId}`
+              : "/admin/leads";
+            return (
+              <li key={snapshot.id} className="py-3 first:pt-0 last:pb-0">
+                <Link
+                  href={href}
+                  className="group block rounded-md -mx-2 px-2 py-1 transition-[background] duration-150 hover:bg-bg"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-navy truncate transition-[color] duration-fast group-hover:text-crimson group-hover:underline">
+                        {snapshot.clientName}
+                      </p>
+                      <p className="text-[0.8125rem] text-text-muted truncate">
+                        {snapshot.clientEmail ?? "No email on file"}
+                      </p>
+                    </div>
+                    <StatusBadge label={snapshot.statusLabel} tone={snapshot.statusTone} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-[0.75rem] text-text-muted">
+                    <span>Updated {formatDate(snapshot.updatedAt ?? snapshot.createdAt)}</span>
+                    {snapshot.lowestMonthlyPayment && (
+                      <span className="font-semibold text-text-secondary">
+                        {snapshot.lowestMonthlyPayment}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </DashboardWidget>
@@ -653,9 +667,12 @@ function MessageCenterWidget({
             const unread = conversation.unreadCount ?? 0;
             return (
               <li key={conversation.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
+                <Link
+                  href={`/admin/message-center?conversation=${conversation.id}`}
+                  className="group flex items-start justify-between gap-3 rounded-md -mx-2 px-2 py-1 transition-[background] duration-150 hover:bg-bg"
+                >
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-navy truncate">
+                    <p className="text-sm font-semibold text-navy truncate transition-[color] duration-fast group-hover:text-crimson group-hover:underline">
                       {getConversationBorrowerName(conversation)}
                     </p>
                     <p className="text-[0.75rem] text-text-muted">
@@ -670,7 +687,7 @@ function MessageCenterWidget({
                       {unread > 99 ? "99+" : unread}
                     </span>
                   )}
-                </div>
+                </Link>
               </li>
             );
           })}
