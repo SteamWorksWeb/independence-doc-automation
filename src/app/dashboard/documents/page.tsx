@@ -12,6 +12,11 @@
  *
  * Document categories / buckets:
  *   tax_returns | pay_stubs | bank_statements | id_documents | other
+ *
+ * Delete flow:
+ *   Trash icon → opens DeleteConfirmModal (state: documentToDelete)
+ *   "Yes, Delete" → DELETE /api/client/documents/delete?id=<id>
+ *   On success   → remove from local uploadedFiles list
  */
 
 import React, {
@@ -166,6 +171,11 @@ export default function ClientDocumentsPage() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [loadingUploaded, setLoadingUploaded] = useState(true);
 
+  // Delete confirmation modal state
+  const [documentToDelete, setDocumentToDelete] = useState<UploadedFile | null>(null);
+  const [isDeleting,       setIsDeleting]       = useState(false);
+  const [deleteError,      setDeleteError]      = useState("");
+
   // Upload form state
   const [selectedCategory, setSelectedCategory] = useState<CategoryValue>("tax_returns");
   const [pendingFile,      setPendingFile]       = useState<File | null>(null);
@@ -260,6 +270,42 @@ export default function ClientDocumentsPage() {
     selectFile(e.dataTransfer.files[0]);
   }
 
+  // ── Delete ────────────────────────────────────────────────────────────────
+
+  async function handleDeleteConfirm() {
+    if (!documentToDelete || isDeleting) return;
+    setIsDeleting(true);
+    setDeleteError("");
+
+    try {
+      const res = await fetch(
+        `/api/client/documents/delete?id=${encodeURIComponent(documentToDelete.id)}`,
+        { method: "DELETE", cache: "no-store" }
+      );
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg = getErrorMessage(payload, "Failed to delete the document. Please try again.");
+        setDeleteError(msg);
+        return;
+      }
+
+      // Optimistically remove from list
+      setUploadedFiles((prev) => prev.filter((f) => f.id !== documentToDelete.id));
+      setDocumentToDelete(null);
+    } catch {
+      setDeleteError("Network error. Please check your connection and try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  function handleDeleteCancel() {
+    if (isDeleting) return;
+    setDocumentToDelete(null);
+    setDeleteError("");
+  }
+
   // ── Upload ────────────────────────────────────────────────────────────────
 
   async function handleUpload(e: React.FormEvent) {
@@ -293,6 +339,17 @@ export default function ClientDocumentsPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
+
+      {/* ── Delete confirmation modal ─────────────────────────────────────── */}
+      {documentToDelete && (
+        <DeleteConfirmModal
+          file={documentToDelete}
+          isDeleting={isDeleting}
+          error={deleteError}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1.5">
@@ -564,6 +621,17 @@ export default function ClientDocumentsPage() {
                       <span className="shrink-0 inline-flex items-center rounded-full bg-success-bg px-2 py-0.5 text-[0.6875rem] font-semibold text-success">
                         Uploaded
                       </span>
+                      {/* Trash-can — opens modal, does NOT delete immediately */}
+                      <button
+                        type="button"
+                        id={`delete-doc-${file.id || file.s3Key}`}
+                        title={`Delete ${file.fileName}`}
+                        onClick={() => { setDocumentToDelete(file); setDeleteError(""); }}
+                        className="shrink-0 ml-1 flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-error-bg hover:text-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/50"
+                        aria-label={`Delete ${file.fileName}`}
+                      >
+                        <TrashIcon />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -602,6 +670,135 @@ function CategoryIcon({ category }: { category: string }) {
     other:           <span>📁</span>,
   };
   return icons[category] ?? <span>📁</span>;
+}
+
+// ── Delete Confirm Modal ─────────────────────────────────────────────────────
+
+type DeleteConfirmModalProps = {
+  file: UploadedFile;
+  isDeleting: boolean;
+  error: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+};
+
+function DeleteConfirmModal({ file, isDeleting, error, onConfirm, onCancel }: DeleteConfirmModalProps) {
+  // Close on backdrop click (but not while deleting)
+  function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget && !isDeleting) onCancel();
+  }
+
+  // Trap Escape key
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !isDeleting) onCancel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isDeleting, onCancel]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-modal-title"
+      aria-describedby="delete-modal-desc"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={handleBackdropClick}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-navy/40 backdrop-blur-[2px] transition-opacity" aria-hidden />
+
+      {/* Panel */}
+      <div className="relative z-10 w-full max-w-md rounded-xl bg-white shadow-2xl ring-1 ring-border animate-fade-in">
+
+        {/* Header */}
+        <div className="flex items-start gap-4 border-b border-border px-6 py-5">
+          {/* Warning icon circle */}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-bg text-error" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 id="delete-modal-title" className="font-serif text-[1.0625rem] font-bold text-navy m-0">
+              Delete Document?
+            </h2>
+            <p className="mt-1 text-[0.8125rem] text-text-muted">
+              This action is permanent and cannot be undone.
+            </p>
+          </div>
+          {/* Close × */}
+          {!isDeleting && (
+            <button
+              type="button"
+              onClick={onCancel}
+              aria-label="Close"
+              className="shrink-0 -mt-0.5 flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5">
+          <p id="delete-modal-desc" className="text-sm leading-relaxed text-text-secondary">
+            Are you absolutely sure you want to delete{" "}
+            <span className="font-semibold text-text-primary break-all">"{file.fileName}"</span>?
+            {" "}This will permanently destroy the file in Amazon S3 and remove the database record.{" "}
+            <span className="font-semibold text-error">This action cannot be undone.</span>
+          </p>
+
+          {/* Inline error */}
+          {error && (
+            <div role="alert" className="mt-4 rounded-md border border-error/20 bg-error-bg px-4 py-2.5 text-sm text-error">
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer buttons */}
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+          <button
+            id="delete-modal-cancel"
+            type="button"
+            onClick={onCancel}
+            disabled={isDeleting}
+            className="rounded-lg border border-border bg-white px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:bg-bg hover:text-navy disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border"
+          >
+            Cancel
+          </button>
+          <button
+            id="delete-modal-confirm"
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            className="inline-flex items-center gap-2 rounded-lg bg-error px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#a93226] active:scale-[0.98] disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error/50"
+          >
+            {isDeleting ? (
+              <>
+                <span
+                  className="inline-block h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin"
+                  aria-hidden
+                />
+                Deleting…
+              </>
+            ) : (
+              <>
+                <TrashIcon />
+                Yes, Delete Document
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -650,6 +847,18 @@ function RefreshIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-4" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   );
 }
