@@ -16,11 +16,11 @@ function buildBackendUrl(path: string): string | null {
   return `${versionedBase}${path}`;
 }
 
-export async function PATCH(
+async function forwardAssignment(
   req: NextRequest,
-  context: RouteContext
+  id: string,
+  httpMethod: "PATCH" | "PUT"
 ): Promise<NextResponse> {
-  const { id } = await context.params;
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("admin_session");
 
@@ -33,7 +33,7 @@ export async function PATCH(
 
   const targetUrl = buildBackendUrl(`/admin/clients/${id}/assign`);
   if (!targetUrl) {
-    console.error("[proxy/admin/clients/:id/assign] NEXT_PUBLIC_AWS_API_URL is not set.");
+    console.error(`[proxy/admin/clients/:id/assign] NEXT_PUBLIC_AWS_API_URL is not set.`);
     return NextResponse.json(
       { message: "Server configuration error." },
       { status: 503 }
@@ -53,7 +53,7 @@ export async function PATCH(
   let backendRes: Response;
   try {
     backendRes = await fetch(targetUrl, {
-      method: "PATCH",
+      method: httpMethod,
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
@@ -63,7 +63,7 @@ export async function PATCH(
       cache: "no-store",
     });
   } catch (err) {
-    console.error("[proxy/admin/clients/:id/assign] Network error:", err);
+    console.error(`[proxy/admin/clients/:id/assign] Network error:`, err);
     return NextResponse.json(
       { message: "Unable to reach the backend. Please try again." },
       { status: 502 }
@@ -72,6 +72,22 @@ export async function PATCH(
 
   const data = await backendRes.json().catch(() => ({}));
   return NextResponse.json(data, { status: backendRes.status });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const { id } = await context.params;
+  return forwardAssignment(req, id, "PATCH");
+}
+
+export async function PUT(
+  req: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  const { id } = await context.params;
+  return forwardAssignment(req, id, "PUT");
 }
 
 export function GET(): NextResponse {

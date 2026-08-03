@@ -14,6 +14,14 @@ interface CaseProfile {
   intakeSnapshot: Record<string, unknown> | null;
   documents: CaseDocument[];
   assignedTo: string | null;
+  assignedToId: string | null;
+}
+
+interface AdminUser {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
 }
 
 interface ClientSummary {
@@ -42,8 +50,6 @@ interface CaseDocument {
 
 type DocActionState = "idle" | "viewing" | "deleting";
 
-const STAFF_OPTIONS = ["Unassigned", "Lawyer John", "Intake Sally"];
-
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "intake", label: "Intake Overview" },
   { id: "documents", label: "Documents" },
@@ -66,6 +72,8 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignmentError, setAssignmentError] = useState<string | null>(null);
+  const [assignSuccess, setAssignSuccess] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,26 +107,56 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
     return () => controller.abort();
   }, [id]);
 
+  // Load admin user list for the assignment dropdown
+  useEffect(() => {
+    async function loadAdmins() {
+      try {
+        const res = await fetch("/api/admin/users", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        const users = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.users)
+          ? data.users
+          : Array.isArray(data?.data)
+          ? data.data
+          : [];
+        setAdminUsers(users as AdminUser[]);
+      } catch {
+        // Non-fatal — dropdown falls back to empty list
+      }
+    }
+    loadAdmins();
+  }, []);
+
   const clientName = useMemo(() => {
     if (!profile) return "Client Profile";
     return getClientName(profile.client);
   }, [profile]);
 
-  async function handleAssignmentChange(nextValue: string) {
+  async function handleAssignmentChange(nextAdminId: string) {
     if (!profile) return;
 
-    const previous = profile.assignedTo;
-    const nextAssignedTo = nextValue === "Unassigned" ? null : nextValue;
+    const previousId = profile.assignedToId;
+    const previousName = profile.assignedTo;
+    const assignedToId = nextAdminId === "" ? null : nextAdminId;
+
+    // Optimistically update the display name from the adminUsers list
+    const selectedUser = adminUsers.find((u) => u.id === nextAdminId);
+    const displayName = selectedUser
+      ? getAdminDisplayName(selectedUser)
+      : null;
 
     setAssignmentError(null);
+    setAssignSuccess(false);
     setIsAssigning(true);
-    setProfile({ ...profile, assignedTo: nextAssignedTo });
+    setProfile({ ...profile, assignedToId, assignedTo: displayName });
 
     try {
       const res = await fetch(`/api/admin/clients/${id}/assign`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignedTo: nextAssignedTo }),
+        body: JSON.stringify({ assignedToId }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -126,14 +164,15 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
         throw new Error(readMessage(data) ?? `Assignment failed (${res.status})`);
       }
 
-      const updatedAssignment = readAssignment(data);
-      if (updatedAssignment !== undefined) {
-        setProfile((current) =>
-          current ? { ...current, assignedTo: updatedAssignment } : current
-        );
-      }
+      setAssignSuccess(true);
+      setTimeout(() => setAssignSuccess(false), 2500);
     } catch (err) {
-      setProfile((current) => (current ? { ...current, assignedTo: previous } : current));
+      // Rollback on error
+      setProfile((current) =>
+        current
+          ? { ...current, assignedToId: previousId, assignedTo: previousName }
+          : current
+      );
       setAssignmentError(
         err instanceof Error ? err.message : "Unable to update assignment."
       );
@@ -166,7 +205,8 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
   }
 
   const status = profile.client.pipelineStatus ?? profile.client.status ?? "Pre-Filing";
-  const assignmentValue = profile.assignedTo ?? "Unassigned";
+  // The select value is the admin's ID (or "" for unassigned)
+  const assignmentValue = profile.assignedToId ?? "";
 
   return (
     <div className="flex max-w-[1200px] flex-col gap-6 animate-fade-in">
@@ -203,14 +243,20 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
               onChange={(event) => handleAssignmentChange(event.target.value)}
               className="h-10 rounded-md border border-border bg-white px-3 text-sm font-semibold text-text-primary shadow-sm outline-none transition focus:border-navy focus:ring-2 focus:ring-navy/10 disabled:cursor-wait disabled:opacity-70"
             >
-              {STAFF_OPTIONS.map((staff) => (
-                <option key={staff} value={staff}>
-                  {staff}
+              <option value="">Unassigned</option>
+              {adminUsers.map((admin) => (
+                <option key={admin.id} value={admin.id}>
+                  {getAdminDisplayName(admin)}
                 </option>
               ))}
             </select>
+            {assignSuccess && (
+              <p className="text-xs font-semibold text-emerald-700" role="status">
+                ✓ Assignment saved
+              </p>
+            )}
             {assignmentError && (
-              <p className="text-xs font-medium text-red-700">{assignmentError}</p>
+              <p className="text-xs font-medium text-red-700" role="alert">{assignmentError}</p>
             )}
           </div>
         </div>
@@ -543,11 +589,15 @@ function normalizeProfile(data: unknown): CaseProfile {
     firstArray(client, ["documents"]) ??
     [];
 
+  // Read the ID of the assigned admin (UUID string) — used to seed the select value
+  const assignedToId = readAssignedToId(nestedProfile) ?? readAssignedToId(client) ?? null;
+
   return {
     client: toClientSummary(client),
     intakeSnapshot,
     documents: documents.filter(isRecord) as CaseDocument[],
     assignedTo: readAssignment(nestedProfile) ?? readAssignment(client) ?? null,
+    assignedToId,
   };
 }
 
@@ -603,6 +653,18 @@ function readAssignment(source: unknown): string | null | undefined {
   return undefined;
 }
 
+function readAssignedToId(source: unknown): string | null | undefined {
+  if (!isRecord(source)) return undefined;
+  const id =
+    source.assignedToId ??
+    source.assignedTo_id ??
+    (isRecord(source.assignedTo) ? source.assignedTo.id : undefined) ??
+    (isRecord(source.staffAssignment) ? source.staffAssignment.id : undefined);
+  if (typeof id === "string") return id;
+  if (id === null) return null;
+  return undefined;
+}
+
 function entriesFor(
   snapshot: Record<string, unknown>,
   keys: string[]
@@ -631,6 +693,12 @@ function getClientName(client: ClientSummary): string {
   if (parts.length > 0) return parts.join(" ");
 
   return client.email ?? "Client Profile";
+}
+
+function getAdminDisplayName(admin: AdminUser): string {
+  const parts = [admin.firstName, admin.lastName].filter(Boolean);
+  if (parts.length > 0) return parts.join(" ");
+  return admin.email ?? "Unknown admin";
 }
 
 function getStatusClass(status: string): string {

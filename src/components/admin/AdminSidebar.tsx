@@ -34,7 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "cases",     label: "Cases",     icon: FolderIcon,  href: "/admin/cases",            active: true },
   { id: "documents", label: "Documents", icon: FileIcon,    href: "/admin/documents",        active: true },
   { id: "messages",  label: "Messages",  icon: MessageIcon, href: "/admin/message-center",  active: true },
-  { id: "settings",  label: "Settings",  icon: GearIcon,    href: "/admin/settings",         active: false, soon: true },
+  { id: "settings",  label: "Settings",  icon: GearIcon,    href: "/admin/settings",         active: true },
 ];
 
 // ── Sidebar component ─────────────────────────────────────────────────────────
