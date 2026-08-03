@@ -3,12 +3,17 @@
  *
  * Client Dashboard Shell — wraps all /dashboard/* routes.
  *
- * Migrated from CSS Modules → Tailwind CSS (Phase 2).
- * Updated: added tab navigation for Home, Documents, Messages.
+ * Redesigned to mirror the Admin dashboard architecture:
+ *   - Dark navy sidebar (ClientSidebar, 240px)
+ *   - White top bar with Secure Session badge + client email
+ *   - Content area with consistent padding
+ *
+ * Previously used a flat top-nav + tab-bar pattern. Now delegates
+ * all chrome to ClientShell (mirrors AdminShell on the admin side).
  */
 
 import type { Metadata } from "next";
-import DashboardNav from "./DashboardNav";
+import ClientShell from "@/components/client/ClientShell";
 
 export const metadata: Metadata = {
   title: {
@@ -23,50 +28,5 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-dvh flex flex-col bg-bg">
-      {/* ── Top header ─────────────────────────────────────── */}
-      <header className="bg-navy border-b-[3px] border-crimson px-6 max-[640px]:px-4 sticky top-0 z-[100]">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between h-16 max-[640px]:h-14 gap-4">
-          <div className="flex items-center gap-3">
-            <ScalesIcon />
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="inline-flex items-center gap-1.5 font-sans text-xs font-semibold text-white/70 py-1 px-3 rounded-[20px] bg-white/[0.08] border border-white/[0.12] max-[640px]:hidden">
-              <span
-                className="w-1.5 h-1.5 rounded-full bg-[#34d399] animate-pulse shrink-0"
-                aria-hidden
-              />
-              Secure Session
-            </span>
-            <form action="/api/auth/client-logout" method="POST">
-              <button
-                type="submit"
-                className="font-sans text-[0.8125rem] font-semibold text-white/60 bg-transparent border border-white/[0.15] rounded-md py-1.5 px-3.5 cursor-pointer transition-all duration-150 ease-in-out hover:text-white hover:border-white/40 hover:bg-white/[0.08]"
-              >
-                Sign Out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
-
-      {/* ── Tab navigation ─────────────────────────────────── */}
-      <div className="bg-white border-b border-border sticky top-[67px] z-[90] max-[640px]:top-[59px]">
-        <div className="max-w-[1200px] mx-auto px-6 max-[640px]:px-4">
-          <DashboardNav />
-        </div>
-      </div>
-
-      {/* ── Page content ──────────────────────────────────── */}
-      <main className="flex-1 max-w-[1200px] w-full mx-auto py-8 px-6 max-[640px]:py-5 max-[640px]:px-4">
-        {children}
-      </main>
-    </div>
-  );
+  return <ClientShell>{children}</ClientShell>;
 }
-
-// ── Inline SVG ────────────────────────────────────────────────────────────────
-
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} />; }
