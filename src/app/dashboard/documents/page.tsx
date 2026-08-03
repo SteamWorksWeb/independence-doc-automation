@@ -61,7 +61,8 @@ function isRecord(v: unknown): v is JsonRecord {
   return !!v && typeof v === "object" && !Array.isArray(v);
 }
 
-function humanize(value: string): string {
+function humanize(value: unknown): string {
+  if (!value || typeof value !== "string") return "";
   return value
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
@@ -118,6 +119,8 @@ function normalizeRequiredDocuments(payload: unknown): RequiredDocument[] {
 function normalizeUploadedFiles(payload: unknown): UploadedFile[] {
   const arr = extractArray(payload);
   return arr.filter(isRecord).map((item) => ({
+    // Spread extra fields first so our explicit safe defaults always win
+    ...item,
     id:         String(item.id ?? item._id ?? ""),
     s3Key:      String(item.s3Key ?? item.key ?? ""),
     fileName:   String(item.fileName ?? item.name ?? "Unknown"),
@@ -125,7 +128,6 @@ function normalizeUploadedFiles(payload: unknown): UploadedFile[] {
     fileSize:   Number(item.fileSize ?? item.size ?? 0),
     category:   String(item.category ?? "other"),
     uploadedAt: String(item.uploadedAt ?? item.createdAt ?? ""),
-    ...item,
   }));
 }
 
@@ -202,9 +204,15 @@ export default function ClientDocumentsPage() {
     try {
       const res = await fetch("/api/client/documents/list", { cache: "no-store" });
       const payload = await res.json().catch(() => ({}));
-      if (res.ok) setUploadedFiles(normalizeUploadedFiles(payload));
+      if (res.ok) {
+        setUploadedFiles(normalizeUploadedFiles(payload));
+      } else {
+        // Non-ok (404, 401, 502, etc.) — clear the list rather than leaving stale data
+        setUploadedFiles([]);
+      }
     } catch {
-      // Non-fatal — uploaded list is supplementary
+      // Network failure — non-fatal, clear list to avoid stale state
+      setUploadedFiles([]);
     } finally {
       setLoadingUploaded(false);
     }
