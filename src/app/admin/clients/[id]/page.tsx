@@ -30,6 +30,7 @@ interface ClientSummary {
 
 interface CaseDocument {
   id?: string | number;
+  title?: string | null;
   fileName?: string | null;
   filename?: string | null;
   name?: string | null;
@@ -423,9 +424,16 @@ function DocumentsPanel({
             className="flex min-h-[150px] flex-col justify-between rounded-lg border border-border p-4"
           >
             <div>
-              <p className="break-words font-semibold text-text-primary">
-                {document.fileName ?? document.filename ?? document.name ?? "Untitled document"}
+              {/* Primary: custom title (bold). Fallback to filename for legacy docs. */}
+              <p className="break-words font-bold text-text-primary">
+                {document.title?.trim() || document.fileName ?? document.filename ?? document.name ?? "Untitled document"}
               </p>
+              {/* Secondary: actual filename (muted subtitle), shown only when title differs */}
+              {document.title?.trim() && (
+                <p className="mt-1 text-xs text-text-muted break-all">
+                  {document.fileName ?? document.filename ?? document.name}
+                </p>
+              )}
               <p className="mt-2 text-sm text-text-muted">
                 {document.documentType ?? document.type ?? "Document"}
               </p>

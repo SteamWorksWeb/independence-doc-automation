@@ -179,6 +179,7 @@ export default function ClientDocumentsPage() {
   // Upload form state
   const [selectedCategory, setSelectedCategory] = useState<CategoryValue>("tax_returns");
   const [pendingFile,      setPendingFile]       = useState<File | null>(null);
+  const [documentTitle,    setDocumentTitle]     = useState("");
   const [isDragging,       setIsDragging]        = useState(false);
   const [uploadStatus,     setUploadStatus]      = useState<UploadStatus>("idle");
   const [uploadProgress,   setUploadProgress]    = useState(0);
@@ -246,6 +247,12 @@ export default function ClientDocumentsPage() {
     setUploadStatus("idle");
     setUploadProgress(0);
     setPendingFile(file);
+    // Auto-derive a title from the filename as a convenience default
+    if (!documentTitle) {
+      setDocumentTitle(
+        file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim()
+      );
+    }
   }
 
   function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -310,7 +317,7 @@ export default function ClientDocumentsPage() {
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
-    if (!pendingFile || uploadStatus === "uploading") return;
+    if (!pendingFile || !documentTitle.trim() || uploadStatus === "uploading") return;
 
     setUploadStatus("uploading");
     setUploadProgress(0);
@@ -319,12 +326,14 @@ export default function ClientDocumentsPage() {
 
     try {
       const doc = await uploadClientFileToS3(pendingFile, selectedCategory, {
+        title: documentTitle.trim(),
         onProgress: (pct) => setUploadProgress(pct),
       });
 
       setUploadStatus("success");
-      setUploadNotice(`${pendingFile.name} uploaded successfully to ${categoryLabel}.`);
+      setUploadNotice(`"${documentTitle.trim()}" uploaded successfully to ${categoryLabel}.`);
       setPendingFile(null);
+      setDocumentTitle("");
       if (fileInputRef.current) fileInputRef.current.value = "";
 
       // Prepend the newly confirmed document into the local list
@@ -536,6 +545,30 @@ export default function ClientDocumentsPage() {
                 </label>
               </div>
 
+              {/* Document title — shown once a file is staged */}
+              {pendingFile && (
+                <div className="form-group">
+                  <label className="form-label" htmlFor="documentTitle">
+                    Document Title
+                    <span className="ml-1 text-crimson" aria-hidden>*</span>
+                  </label>
+                  <input
+                    id="documentTitle"
+                    type="text"
+                    className="form-input"
+                    placeholder='e.g. “2023 W-2 for John Smith”'
+                    value={documentTitle}
+                    onChange={(e) => setDocumentTitle(e.target.value)}
+                    disabled={uploadStatus === "uploading"}
+                    maxLength={120}
+                    autoFocus
+                  />
+                  <p className="mt-1.5 text-[0.75rem] text-text-muted">
+                    Give this file a clear name your attorney will see.
+                  </p>
+                </div>
+              )}
+
               {/* Progress bar */}
               {uploadStatus === "uploading" && (
                 <div className="flex flex-col gap-2">
@@ -556,7 +589,7 @@ export default function ClientDocumentsPage() {
                 id="doc-upload-btn"
                 className="btn btn--primary btn--full min-h-12"
                 type="submit"
-                disabled={!pendingFile || uploadStatus === "uploading"}
+                disabled={!pendingFile || !documentTitle.trim() || uploadStatus === "uploading"}
               >
                 {uploadStatus === "uploading" ? (
                   <>
@@ -611,7 +644,12 @@ export default function ClientDocumentsPage() {
                         <FileIcon />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="m-0 text-xs font-semibold text-text-primary truncate">{file.fileName}</p>
+                        <p className="m-0 text-xs font-semibold text-text-primary truncate">
+                          {(file as { title?: string | null }).title?.trim() || file.fileName}
+                        </p>
+                        {(file as { title?: string | null }).title?.trim() && (
+                          <p className="m-0 mt-0.5 text-[0.7rem] text-text-muted truncate">{file.fileName}</p>
+                        )}
                         <p className="m-0 mt-0.5 text-[0.7rem] text-text-muted">
                           {DOCUMENT_CATEGORIES.find((c) => c.value === file.category)?.label ?? humanize(file.category)}
                           {file.fileSize ? ` · ${formatBytes(file.fileSize)}` : ""}

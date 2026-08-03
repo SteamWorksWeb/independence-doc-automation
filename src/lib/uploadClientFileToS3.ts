@@ -10,7 +10,7 @@
  *  2. fetch PUT  <url>  (raw File body, matching Content-Type header)
  *       → uploads bytes directly to S3, bypassing Next.js
  *  3. POST /api/client/documents/confirm
- *       Body: { s3Key, fileName, fileType, fileSize, category }
+ *       Body: { s3Key, fileName, fileType, fileSize, category, title }
  *       → { document: ConfirmedDocument }   (persisted in DB)
  *
  * Auth
@@ -45,6 +45,7 @@ export interface ConfirmedDocument {
   fileType: string;
   fileSize: number;
   category: string;
+  title?: string | null;
   uploadedAt: string;
   [key: string]: unknown;
 }
@@ -52,6 +53,12 @@ export interface ConfirmedDocument {
 export interface UploadOptions {
   /** Called with integer 0–100 during the upload phase */
   onProgress?: (percent: number) => void;
+  /**
+   * Custom human-readable title shown to Admins.
+   * Required by the backend /confirm endpoint; falls back to the original
+   * filename when not explicitly provided (e.g. message attachments).
+   */
+  title?: string;
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -135,14 +142,14 @@ async function putToS3(
  *
  * @param file      The browser File object to upload
  * @param category  Document bucket (e.g. "tax_returns", "pay_stubs", "message-attachment")
- * @param options   Optional: onProgress callback (0–100)
+ * @param options   { title (human-readable label; falls back to filename), onProgress (0–100) }
  */
 export async function uploadClientFileToS3(
   file: File,
   category = "other",
   options: UploadOptions = {}
 ): Promise<ConfirmedDocument> {
-  const { onProgress } = options;
+  const { onProgress, title = file.name } = options;
 
   // ── Step 1: Obtain presigned URL ───────────────────────────────────────────
   const presignedRes = await fetch("/api/client/documents/presigned-url", {
@@ -183,6 +190,7 @@ export async function uploadClientFileToS3(
       fileType: file.type || "application/octet-stream",
       fileSize: file.size,
       category,
+      title,
     }),
   });
 
