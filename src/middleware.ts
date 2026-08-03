@@ -13,9 +13,15 @@
  * ── Admin Guard (/admin/*)  ──────────────────────────────────────────────────
  *  Matches: /admin/:path*   Excludes: /admin/login (public auth gateway)
  *  Cookie: "admin_session" (HttpOnly)
- *  Secret: ADMIN_JWT_SECRET env var
- *  Claims: issuer === "independence-law-admin", role === "admin"
+ *  Secret: JWT_SECRET env var
+ *  Claims: role === "LAWYER" | "SUPER_ADMIN"  (backend Prisma AdminRole enum)
  *  On failure: delete stale cookie, redirect to /admin/login (never reveal reason)
+ *
+ * ── RBAC within /admin/* ─────────────────────────────────────────────────────
+ *  General admin routes (/admin/dashboard, /admin/clients, etc.):
+ *    → Accessible to both LAWYER and SUPER_ADMIN roles
+ *  SUPER_ADMIN-only routes (/admin/staff):
+ *    → Redirects LAWYER role to /admin/dashboard
  *
  * ── Client Guard (/dashboard/*)  ────────────────────────────────────────────
  *  Matches: /dashboard/:path*
@@ -63,6 +69,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 // ADMIN GUARD — /admin/*
 // ══════════════════════════════════════════════════════════════════════════════
 
+/** Routes that require the SUPER_ADMIN role (beyond general admin auth) */
+const SUPER_ADMIN_ROUTES = ["/admin/staff"];
+
+/** Normalise the JWT role claim to uppercase for comparison */
+function normaliseRole(raw: unknown): string | null {
+  if (typeof raw !== "string" || !raw) return null;
+  return raw.toUpperCase();
+}
+
 async function handleAdminRoute(
   request: NextRequest,
   pathname: string
@@ -72,17 +87,21 @@ async function handleAdminRoute(
   const secret = process.env.JWT_SECRET;
 
   let isAuthenticated = false;
+  let adminRole: string | null = null;
 
   if (cookie?.value && secret) {
     try {
-      // Backend signs with { sub: lawyerId, email, role: 'lawyer' } — no issuer claim.
+      // Backend signs with { sub: adminId, email, role: "LAWYER" | "SUPER_ADMIN" }
       const { payload } = await jwtVerify(
         cookie.value,
         new TextEncoder().encode(secret),
         { algorithms: ["HS256"] }
       );
-      if (payload.role === "lawyer") {
+      const role = normaliseRole(payload.role);
+      // Accept both roles for general admin access
+      if (role === "LAWYER" || role === "SUPER_ADMIN") {
         isAuthenticated = true;
+        adminRole = role;
       }
     } catch {
       // Token invalid — treat as unauthenticated
@@ -122,11 +141,23 @@ async function handleAdminRoute(
     return denyAdmin(request, cookie?.value ? "invalid_token" : "no_cookie");
   }
 
-  // ── 7. Request is authenticated — pass through ─────────────────────────────
+  // ── 7a. SUPER_ADMIN-only route gate ────────────────────────────────────────
+  //  Redirect LAWYER role away from protected routes to the dashboard.
+  const isSuperAdminRoute = SUPER_ADMIN_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+  if (isSuperAdminRoute && adminRole !== "SUPER_ADMIN") {
+    console.warn(
+      `[middleware] LAWYER tried to access SUPER_ADMIN route: ${pathname}`
+    );
+    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  }
+
+  // ── 7b. Request is authenticated — pass through ────────────────────────────
   const response = NextResponse.next();
-  // Forward admin email as a header so server components can read it
-  try {
-    if (cookie?.value && secret) {
+  // Forward admin identity headers so server components can read them
+  if (cookie?.value && secret) {
+    try {
       const { payload } = await jwtVerify(
         cookie.value,
         new TextEncoder().encode(secret),
@@ -135,8 +166,11 @@ async function handleAdminRoute(
       if (typeof payload.email === "string") {
         response.headers.set("x-admin-email", payload.email);
       }
-    }
-  } catch { /* ignore — already validated above */ }
+      if (adminRole) {
+        response.headers.set("x-admin-role", adminRole);
+      }
+    } catch { /* ignore — already validated above */ }
+  }
 
   return response;
 }

@@ -14,17 +14,26 @@
  *   └──────────────────────────────────────────────────┘
  *
  * To add the shell to any new page: just import AdminShell and wrap children.
+ *
+ * Role-Based UI:
+ *   AdminShell decodes the admin_session cookie server-side and forwards the
+ *   role to AdminSidebar. This controls SUPER_ADMIN-gated navigation sections
+ *   without exposing JWT secrets to the client.
  */
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import ToolNavigationBar from "@/components/admin/ToolNavigationBar";
+import { getAdminSession } from "@/lib/admin-session";
 import type { ReactNode } from "react";
 
-export default function AdminShell({ children }: { children: ReactNode }) {
+export default async function AdminShell({ children }: { children: ReactNode }) {
+  // Decode admin session server-side to extract RBAC role
+  const session = await getAdminSession();
+
   return (
     <div className="flex min-h-dvh bg-[#eef0f5]">
-      {/* Permanent / off-canvas sidebar — manages its own mobile state */}
-      <AdminSidebar />
+      {/* Permanent / off-canvas sidebar — receives role for RBAC nav gating */}
+      <AdminSidebar role={session?.role ?? null} />
 
       {/* Main content column */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
@@ -59,3 +68,4 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

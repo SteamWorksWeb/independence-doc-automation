@@ -37,9 +37,20 @@ const NAV_ITEMS: NavItem[] = [
   { id: "settings",  label: "Settings",  icon: GearIcon,    href: "/admin/settings",         active: true },
 ];
 
-// ── Sidebar component ─────────────────────────────────────────────────────────
+const FIRM_MGMT_ITEMS: NavItem[] = [
+  { id: "staff",          label: "Staff & Invites",  icon: ShieldIcon,   href: "/admin/staff",    active: true },
+  { id: "global-settings",label: "Global Settings",  icon: BuildingIcon, href: "/admin/settings", active: true },
+];
 
-export default function AdminSidebar() {
+// ── Sidebar component ────────────────────────────────────────────────────
+
+interface AdminSidebarProps {
+  /** RBAC role from the decoded admin_session JWT. Controls FIRM MANAGEMENT visibility. */
+  role?: string | null;
+}
+
+export default function AdminSidebar({ role }: AdminSidebarProps = {}) {
+  const isSuperAdmin = role === "SUPER_ADMIN";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -151,6 +162,31 @@ export default function AdminSidebar() {
           </ul>
         </nav>
 
+          {/* ─── FIRM MANAGEMENT section (SUPER_ADMIN only) ──────────── */}
+          {isSuperAdmin && (
+            <div className="mt-5">
+              <p className="font-sans text-[0.6rem] font-bold tracking-[0.18em] uppercase text-[rgba(255,196,100,0.55)] pt-3 px-5 pb-2 border-t border-[rgba(255,255,255,0.06)]">
+                Firm Management
+              </p>
+              <nav className="px-2.5" aria-label="Firm management">
+                <ul className="list-none flex flex-col gap-0.5" role="list">
+                  {FIRM_MGMT_ITEMS.map(({ id, label, icon: Icon, href }) => (
+                    <li key={id}>
+                      <a
+                        href={href}
+                        className="flex items-center gap-2.5 py-[9px] px-3 rounded-md font-sans text-[0.875rem] font-semibold text-[rgba(255,210,120,0.9)] no-underline cursor-pointer select-none bg-[rgba(255,180,60,0.08)] border border-[rgba(255,180,60,0.12)] transition-[background,border-color] duration-fast hover:bg-[rgba(255,180,60,0.16)] hover:border-[rgba(255,180,60,0.22)] hover:no-underline"
+                        onClick={closeMenu}
+                      >
+                        <Icon />
+                        <span>{label}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </div>
+          )}
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -261,3 +297,22 @@ function LogoutIcon() {
     </svg>
   );
 }
+
+function ShieldIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function BuildingIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <path d="M3 9h18" />
+      <path d="M9 21V9" />
+    </svg>
+  );
+}
+
