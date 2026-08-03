@@ -39,6 +39,8 @@ interface CaseDocument {
   uploadedAt?: string | null;
 }
 
+type DocActionState = "idle" | "viewing" | "deleting";
+
 const STAFF_OPTIONS = ["Unassigned", "Lawyer John", "Intake Sally"];
 
 const TABS: Array<{ id: TabId; label: string }> = [
@@ -238,7 +240,7 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
             <IntakeOverview snapshot={profile.intakeSnapshot} />
           )}
           {activeTab === "documents" && (
-            <DocumentsPanel documents={profile.documents} />
+            <DocumentsPanel clientId={id} documents={profile.documents} />
           )}
           {activeTab === "messages" && (
             <PlaceholderPanel title="Secure Messaging UI coming soon." />
@@ -310,7 +312,97 @@ function IntakeOverview({ snapshot }: { snapshot: Record<string, unknown> | null
   );
 }
 
-function DocumentsPanel({ documents }: { documents: CaseDocument[] }) {
+function DocumentsPanel({
+  clientId,
+  documents: initialDocuments,
+}: {
+  clientId: string;
+  documents: CaseDocument[];
+}) {
+  const [documents, setDocuments] = useState<CaseDocument[]>(initialDocuments);
+  const [actionStates, setActionStates] = useState<Record<string, DocActionState>>({});
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+
+  function docId(document: CaseDocument, index: number): string {
+    return String(document.id ?? `${document.fileName ?? document.name}-${index}`);
+  }
+
+  async function handleView(document: CaseDocument, index: number) {
+    const key = docId(document, index);
+    if (!document.id) {
+      setActionErrors((prev) => ({ ...prev, [key]: "Document ID is missing." }));
+      return;
+    }
+
+    setActionStates((prev) => ({ ...prev, [key]: "viewing" }));
+    setActionErrors((prev) => ({ ...prev, [key]: "" }));
+
+    try {
+      const res = await fetch(`/api/admin/documents/${document.id}/view`, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = (typeof data.message === "string" ? data.message : null) ?? `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      const url = typeof data.url === "string" ? data.url : null;
+      if (!url) throw new Error("No URL returned from server.");
+
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setActionErrors((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : "Unable to open document.",
+      }));
+    } finally {
+      setActionStates((prev) => ({ ...prev, [key]: "idle" }));
+    }
+  }
+
+  async function handleDelete(document: CaseDocument, index: number) {
+    const key = docId(document, index);
+    if (!document.id) {
+      setActionErrors((prev) => ({ ...prev, [key]: "Document ID is missing." }));
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this document? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setActionStates((prev) => ({ ...prev, [key]: "deleting" }));
+    setActionErrors((prev) => ({ ...prev, [key]: "" }));
+
+    try {
+      const res = await fetch(`/api/admin/documents/${document.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+
+      if (res.status === 204 || res.ok) {
+        // Optimistically remove the deleted document from local state
+        setDocuments((prev) => prev.filter((_, i) => i !== index));
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const msg = (typeof data.message === "string" ? data.message : null) ?? `Delete failed (${res.status})`;
+      throw new Error(msg);
+    } catch (err) {
+      setActionErrors((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : "Unable to delete document.",
+      }));
+    } finally {
+      setActionStates((prev) => ({ ...prev, [key]: "idle" }));
+    }
+  }
+
   if (documents.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-text-muted">
@@ -321,28 +413,86 @@ function DocumentsPanel({ documents }: { documents: CaseDocument[] }) {
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {documents.map((document, index) => (
-        <article
-          key={String(document.id ?? `${document.fileName ?? document.name}-${index}`)}
-          className="flex min-h-[150px] flex-col justify-between rounded-lg border border-border p-4"
-        >
-          <div>
-            <p className="break-words font-semibold text-text-primary">
-              {document.fileName ?? document.filename ?? document.name ?? "Untitled document"}
-            </p>
-            <p className="mt-2 text-sm text-text-muted">
-              {document.documentType ?? document.type ?? "Document"}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="mt-4 h-9 self-start rounded-md border border-border px-3 text-sm font-bold text-navy transition hover:border-navy hover:bg-bg"
+      {documents.map((document, index) => {
+        const key = docId(document, index);
+        const state = actionStates[key] ?? "idle";
+        const error = actionErrors[key];
+        return (
+          <article
+            key={key}
+            className="flex min-h-[150px] flex-col justify-between rounded-lg border border-border p-4"
           >
-            Download/View
-          </button>
-        </article>
-      ))}
+            <div>
+              <p className="break-words font-semibold text-text-primary">
+                {document.fileName ?? document.filename ?? document.name ?? "Untitled document"}
+              </p>
+              <p className="mt-2 text-sm text-text-muted">
+                {document.documentType ?? document.type ?? "Document"}
+              </p>
+            </div>
+
+            {error && (
+              <p className="mt-2 text-xs font-medium text-red-700" role="alert">
+                {error}
+              </p>
+            )}
+
+            <div className="mt-4 flex items-center gap-2">
+              {/* View/Download button */}
+              <button
+                id={`doc-view-${key}`}
+                type="button"
+                disabled={state !== "idle"}
+                onClick={() => handleView(document, index)}
+                className="h-9 rounded-md border border-border px-3 text-sm font-bold text-navy transition hover:border-navy hover:bg-bg disabled:cursor-wait disabled:opacity-60"
+                aria-label={`View document: ${document.fileName ?? document.name ?? "Untitled"}`}
+              >
+                {state === "viewing" ? "Opening…" : "View / Download"}
+              </button>
+
+              {/* Delete button */}
+              <button
+                id={`doc-delete-${key}`}
+                type="button"
+                disabled={state !== "idle"}
+                onClick={() => handleDelete(document, index)}
+                className="flex h-9 w-9 items-center justify-center rounded-md border border-red-200 text-red-600 transition hover:border-red-500 hover:bg-red-50 disabled:cursor-wait disabled:opacity-60"
+                aria-label={`Delete document: ${document.fileName ?? document.name ?? "Untitled"}`}
+                title="Delete document"
+              >
+                {state === "deleting" ? (
+                  <span className="text-xs font-bold">…</span>
+                ) : (
+                  <TrashIcon />
+                )}
+              </button>
+            </div>
+          </article>
+        );
+      })}
     </div>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
   );
 }
 
