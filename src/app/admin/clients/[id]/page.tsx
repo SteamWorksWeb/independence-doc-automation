@@ -426,7 +426,7 @@ function DocumentsPanel({
             <div>
               {/* Primary: custom title (bold). Fallback to filename for legacy docs. */}
               <p className="break-words font-bold text-text-primary">
-                {document.title?.trim() || document.fileName ?? document.filename ?? document.name ?? "Untitled document"}
+                {document.title?.trim() || (document.fileName ?? document.filename ?? document.name ?? "Untitled document")}
               </p>
               {/* Secondary: actual filename (muted subtitle), shown only when title differs */}
               {document.title?.trim() && (
