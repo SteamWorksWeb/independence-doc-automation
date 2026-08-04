@@ -118,6 +118,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
 
     const payload = {
       ...form,
+      // ── Numbers ──
       outstandingBalance: toNumber(form.outstandingBalance),
       householdSize: toNumber(form.householdSize, 1),
       monthlyGrossIncome: toNumber(form.monthlyGrossIncome),
@@ -126,6 +127,23 @@ export default function EditClientDischargePage({ params }: PageProps) {
       housingExpenses: toNumber(form.housingExpenses),
       transportationExpenses: toNumber(form.transportationExpenses),
       dependentCareExpenses: toNumber(form.dependentCareExpenses),
+      // ── Booleans (Prisma expects real booleans, not "Yes"/"No" strings) ──
+      hasFederalLoans: form.hasFederalLoans === "Yes",
+      currentlyEmployed: form.currentlyEmployed === "Yes",
+      workInFieldOfStudy: form.workInFieldOfStudy === "Yes",
+      unemployed5Years: form.unemployed5Years === "Yes",
+      hasDisability: form.hasDisability === "Yes",
+      didGraduate: form.didGraduate === "Yes",
+      schoolClosed: form.schoolClosed === "Yes",
+      is65OrOlder: form.is65OrOlder === "Yes",
+      appliedForIDR: form.appliedForIDR === "Yes",
+      madePriorPayments: form.madePriorPayments === "Yes",
+      contactedServicer: form.contactedServicer === "Yes",
+      // ── Dates (Prisma expects ISO-8601 DateTime, not YYYY-MM-DD) ──
+      lastAttendedSchool: form.lastAttendedSchool
+        ? new Date(form.lastAttendedSchool).toISOString()
+        : null,
+      // ── Projection ──
       projectedStatus: projection.status,
       status: projection.status,
     };
@@ -152,7 +170,9 @@ export default function EditClientDischargePage({ params }: PageProps) {
       router.refresh();
     } catch (err) {
       console.error("[edit-snapshot/save] Save failed:", err);
-      setSaveError(err instanceof Error ? err.message : "Unable to save changes.");
+      const msg = err instanceof Error ? err.message : "Unable to save changes.";
+      setSaveError(msg);
+      alert(`❌ Save failed:\n${msg}`);
     } finally {
       setIsSaving(false);
     }
@@ -207,7 +227,8 @@ export default function EditClientDischargePage({ params }: PageProps) {
         </div>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="flex flex-col md:flex-row gap-6 relative items-start">
+        <div className="w-full md:w-2/3">
         <form
           id="edit-discharge-snapshot-form"
           className="rounded-lg border border-border bg-white shadow-sm"
@@ -252,8 +273,10 @@ export default function EditClientDischargePage({ params }: PageProps) {
             <Field label="Contacted Servicer"><YesNoSelect value={form.contactedServicer} onChange={set("contactedServicer")} /></Field>
           </Section>
         </form>
+        </div>
 
-        <aside className="self-start h-min rounded-lg border border-border bg-white p-5 shadow-sm lg:sticky lg:top-6">
+        <div className="w-full md:w-1/3 sticky top-6 self-start h-min">
+        <aside className="rounded-lg border border-border bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-text-muted">
@@ -285,6 +308,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
             <strong className="text-text-secondary">{getDischargeVerdictLabel(projection.status)}</strong>.
           </p>
         </aside>
+        </div>
       </div>
     </div>
   );
