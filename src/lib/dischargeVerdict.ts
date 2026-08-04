@@ -4,6 +4,40 @@ export type DischargeVerdictStatus =
   | "LOW_PROBABILITY"
   | "PENDING";
 
+export interface DOJProjectionInput {
+  hasFederalLoans?: string;
+  monthlyGrossIncome?: string;
+  monthlyTakeHomePay?: string;
+  additionalMonthlyIncome?: string;
+  housingExpenses?: string;
+  transportationExpenses?: string;
+  dependentCareExpenses?: string;
+  currentlyEmployed?: string;
+  unemployed5Years?: string;
+  hasDisability?: string;
+  didGraduate?: string;
+  schoolClosed?: string;
+  is65OrOlder?: string;
+  workInFieldOfStudy?: string;
+  appliedForIDR?: string;
+  madePriorPayments?: string;
+  contactedServicer?: string;
+}
+
+export interface DOJProjection {
+  status: Exclude<DischargeVerdictStatus, "PENDING">;
+  disposableIncome: number;
+  totalIncome: number;
+  totalExpenses: number;
+  prongs: {
+    minimalStandard: boolean;
+    additionalCircumstances: boolean;
+    goodFaith: boolean;
+  };
+  goodFaithSignals: number;
+  hardshipSignals: number;
+}
+
 export const DISCHARGE_VERDICT_STATUSES: DischargeVerdictStatus[] = [
   "HIGH_PROBABILITY",
   "BORDERLINE",
@@ -51,4 +85,74 @@ export function getDischargeVerdictActiveClass(status: DischargeVerdictStatus): 
 
 export function isDischargeVerdictStatus(value: unknown): value is DischargeVerdictStatus {
   return typeof value === "string" && DISCHARGE_VERDICT_STATUSES.includes(value as DischargeVerdictStatus);
+}
+
+export function calculateProjectedDOJStatus(formData: DOJProjectionInput): DOJProjection {
+  const baseIncome =
+    parseCurrency(formData.monthlyTakeHomePay) || parseCurrency(formData.monthlyGrossIncome);
+  const additionalIncome = parseCurrency(formData.additionalMonthlyIncome);
+  const totalIncome = baseIncome + additionalIncome;
+  const totalExpenses =
+    parseCurrency(formData.housingExpenses) +
+    parseCurrency(formData.transportationExpenses) +
+    parseCurrency(formData.dependentCareExpenses);
+  const disposableIncome = totalIncome - totalExpenses;
+
+  const hasFederalLoans = isYes(formData.hasFederalLoans);
+  const minimalStandard = hasFederalLoans && disposableIncome <= 0;
+
+  const hardshipSignals = [
+    isYes(formData.unemployed5Years),
+    isYes(formData.hasDisability),
+    isNo(formData.didGraduate),
+    isYes(formData.schoolClosed),
+    isYes(formData.is65OrOlder),
+    isNo(formData.workInFieldOfStudy),
+  ].filter(Boolean).length;
+  const additionalCircumstances = hardshipSignals > 0;
+
+  const goodFaithSignals = [
+    isYes(formData.appliedForIDR),
+    isYes(formData.madePriorPayments),
+    isYes(formData.contactedServicer),
+  ].filter(Boolean).length;
+  const goodFaith = goodFaithSignals >= 2;
+
+  const passedProngs = [minimalStandard, additionalCircumstances, goodFaith].filter(Boolean).length;
+  const status =
+    passedProngs === 3
+      ? "HIGH_PROBABILITY"
+      : passedProngs >= 2
+      ? "BORDERLINE"
+      : "LOW_PROBABILITY";
+
+  return {
+    status,
+    disposableIncome,
+    totalIncome,
+    totalExpenses,
+    prongs: {
+      minimalStandard,
+      additionalCircumstances,
+      goodFaith,
+    },
+    goodFaithSignals,
+    hardshipSignals,
+  };
+}
+
+function parseCurrency(raw?: string): number {
+  if (!raw || raw.trim() === "") return 0;
+  const n = Number.parseFloat(raw.replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function isYes(value?: string): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "yes" || normalized === "true";
+}
+
+function isNo(value?: string): boolean {
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "no" || normalized === "false";
 }

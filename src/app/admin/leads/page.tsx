@@ -17,8 +17,8 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import DischargeSnapshotsTable from "@/components/admin/DischargeSnapshotsTable";
-import type { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 import { isDischargeVerdictStatus, type DischargeVerdictStatus } from "@/lib/dischargeVerdict";
+import type { SnapshotBorrower } from "@/types/snapshot";
 import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
 
 export const metadata: Metadata = {

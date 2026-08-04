@@ -17,7 +17,6 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
 import DischargeVerdictBadge from "@/components/admin/DischargeVerdictBadge";
 import {
   DISCHARGE_VERDICT_STATUSES,
@@ -25,6 +24,7 @@ import {
   getDischargeVerdictLabel,
   type DischargeVerdictStatus,
 } from "@/lib/dischargeVerdict";
+import type { SnapshotBorrower } from "@/types/snapshot";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -150,7 +150,6 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   const [borrowers, setBorrowers] = useState<SnapshotBorrower[]>(initialBorrowers);
 
   const [activeFilter, setActiveFilter] = useState<DischargeFilter>("All");
-  const [editBorrower, setEditBorrower] = useState<SnapshotBorrower | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<DischargeVerdictStatus>("PENDING");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -543,13 +542,6 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
       </div>
 
       {/* ── Edit Modal ─────────────────────────────────────────────────────── */}
-      {editBorrower && (
-        <EditSnapshotModal
-          borrower={editBorrower}
-          onClose={() => setEditBorrower(null)}
-        />
-      )}
-
       {/* ═══════════════════════════════════════════════════════════════════════
           MODALS — rendered at fragment root to escape table overflow entirely
           ═══════════════════════════════════════════════════════════════════════ */}
@@ -588,15 +580,22 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
                 Primary Actions
               </p>
 
-              <ManageActionBtn
-                icon={<EditIcon />}
-                label="Edit Snapshot"
-                color="blue"
-                onClick={() => {
-                  closeModal();
-                  setEditBorrower(activeModal.snapshot);
-                }}
-              />
+              {activeModal.snapshot.client?.id ? (
+                <Link
+                  href={`/admin/clients/${activeModal.snapshot.client.id}/edit`}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[0.875rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-left text-[#2563eb] hover:bg-[#eff4ff]"
+                >
+                  <span className="shrink-0 w-4 flex items-center justify-center"><EditIcon /></span>
+                  Edit Snapshot
+                </Link>
+              ) : (
+                <ManageActionBtn
+                  icon={<EditIcon />}
+                  label="Edit Snapshot Unavailable"
+                  color="default"
+                  onClick={() => alert("This lead does not have a client profile ID yet.")}
+                />
+              )}
               <ManageActionBtn
                 icon={<PrintIcon />}
                 label="Print Snapshot"

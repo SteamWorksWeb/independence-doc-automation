@@ -89,6 +89,78 @@ export function POST(): NextResponse {
   return NextResponse.json({ message: "Method not allowed." }, { status: 405 });
 }
 
-export function PATCH(): NextResponse {
-  return NextResponse.json({ message: "Method not allowed." }, { status: 405 });
+export async function PATCH(
+  req: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  return forwardProfileMutation(req, context, "PATCH");
+}
+
+export async function PUT(
+  req: NextRequest,
+  context: RouteContext
+): Promise<NextResponse> {
+  return forwardProfileMutation(req, context, "PUT");
+}
+
+async function forwardProfileMutation(
+  req: NextRequest,
+  context: RouteContext,
+  method: "PATCH" | "PUT"
+): Promise<NextResponse> {
+  const { id } = await context.params;
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("admin_session");
+
+  if (!sessionCookie?.value) {
+    return NextResponse.json(
+      { message: "Unauthorized: No active admin session." },
+      { status: 401 }
+    );
+  }
+
+  const targetUrl = buildBackendUrl(`/admin/clients/${id}/profile`);
+  if (!targetUrl) {
+    console.error("[proxy/admin/clients/:id/profile] NEXT_PUBLIC_AWS_API_URL is not set.");
+    return NextResponse.json(
+      { message: "Server configuration error." },
+      { status: 503 }
+    );
+  }
+
+  const body = await req.text();
+
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(targetUrl, {
+      method,
+      headers: {
+        Accept: "application/json",
+        "Content-Type": req.headers.get("content-type") ?? "application/json",
+        Authorization: `Bearer ${sessionCookie.value}`,
+      },
+      body,
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error(`[proxy/admin/clients/:id/profile] ${method} network error:`, error);
+    return NextResponse.json(
+      { message: "Unable to reach the backend. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  if (backendRes.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  const data = await backendRes.json().catch(() => null);
+  if (data == null) {
+    return NextResponse.json(
+      { message: "Unexpected response from backend." },
+      { status: 502 }
+    );
+  }
+
+  return NextResponse.json(data, { status: backendRes.status });
 }
