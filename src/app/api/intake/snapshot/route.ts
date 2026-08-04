@@ -93,16 +93,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // ── 5. Relay backend response verbatim ────────────────────────────────────
   let data: unknown;
+  const text = await backendRes.text();
+
   try {
-    data = await backendRes.json();
+    data = text ? JSON.parse(text) : {};
   } catch {
-    console.error(
-      '[proxy/intake/snapshot] Backend returned a non-JSON response.'
-    );
-    return NextResponse.json(
-      { error: 'Unexpected response from backend.' },
-      { status: 502 }
-    );
+    data = {
+      error: text || backendRes.statusText || 'Backend returned a non-JSON response.',
+    };
   }
 
   return NextResponse.json(data, { status: backendRes.status });

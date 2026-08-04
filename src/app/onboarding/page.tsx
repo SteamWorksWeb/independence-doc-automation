@@ -118,11 +118,25 @@ function normalizeDob(value: string): string {
   const trimmed = value.trim();
   const digits = trimmed.replace(/\D/g, "");
 
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split("-");
+    return `${month}/${day}/${year}`;
+  }
+
   if (/^\d{8}$/.test(digits)) {
     return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
   }
 
   return trimmed;
+}
+
+function toInt(value: string, fallback = 0): number {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toOptionalDate(value: string): string | undefined {
+  return normalizeDob(value) || undefined;
 }
 
 function normalizeEmail(value: unknown): string {
@@ -280,6 +294,7 @@ function PrimaryBtn({
 }) {
   return (
     <button
+      type="button"
       id={id}
       onClick={onClick}
       disabled={disabled}
@@ -302,6 +317,7 @@ function ContinueBtn({
 }) {
   return (
     <button
+      type="button"
       id={id}
       onClick={onClick}
       className="w-full max-w-md py-4 bg-[#b31e3c] text-white font-bold text-[0.9375rem] tracking-widest uppercase rounded hover:bg-[#9b1a33] transition-colors duration-150 cursor-pointer shadow-sm"
@@ -387,7 +403,7 @@ export default function OnboardingPage({
         credentials: "same-origin",
         body: JSON.stringify({
           phone: formData.phone || undefined,
-          dob: normalizeDob(formData.dob) || undefined,
+          dob: toOptionalDate(formData.dob),
           ssn: formData.ssn || undefined,
           householdSize: Number.parseInt(formData.householdSize, 10) || 1,
         }),
@@ -422,7 +438,7 @@ export default function OnboardingPage({
     const snapshotPayload = {
       hasFederalLoans: formData.hasFederalLoans,
       principalBalance: formData.principalBalance,
-      householdSize: formData.householdSize,
+      householdSize: toInt(formData.householdSize, 1),
       monthlyGrossIncome: formData.monthlyGrossIncome,
       monthlyTakeHomePay: formData.monthlyTakeHomePay,
       additionalIncome: formData.additionalIncome,
@@ -436,7 +452,7 @@ export default function OnboardingPage({
       didGraduate: formData.didGraduate,
       schoolClosed: formData.schoolClosed,
       is65OrOlder: formData.is65OrOlder,
-      lastAttendedSchool: formData.lastAttendedSchool,
+      lastAttendedSchool: toOptionalDate(formData.lastAttendedSchool),
       appliedForIDR: formData.appliedForIDR,
       madePriorPayments: formData.madePriorPayments,
       contactedServicer: formData.contactedServicer,
@@ -607,6 +623,7 @@ export default function OnboardingPage({
             <div className="space-y-3 max-w-[480px]">
               {(["Yes", "No", "I don't know"] as const).map((option) => (
                 <button
+                  type="button"
                   key={option}
                   id={`intake-loans-${option.toLowerCase().replace(/[\s']/g, "-")}`}
                   onClick={() => handleFederalLoans(option)}
@@ -887,6 +904,7 @@ export default function OnboardingPage({
               )}
 
               <button
+                type="button"
                 id="intake-submit-btn"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
