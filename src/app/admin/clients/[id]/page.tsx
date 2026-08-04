@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactElement } from "react";
 import { use, useEffect, useMemo, useState } from "react";
 
 type TabId = "intake" | "documents" | "messages" | "notes";
@@ -12,6 +13,7 @@ interface PageProps {
 interface CaseProfile {
   client: ClientSummary;
   intakeSnapshot: Record<string, unknown> | null;
+  dischargeSnapshot: Record<string, unknown> | null;
   documents: CaseDocument[];
   assignedTo: string | null;
   assignedToId: string | null;
@@ -49,6 +51,15 @@ interface CaseDocument {
 }
 
 type DocActionState = "idle" | "viewing" | "deleting";
+type DischargeVerdictStatus =
+  | "HIGH_PROBABILITY"
+  | "BORDERLINE"
+  | "LOW_PROBABILITY"
+  | "PENDING";
+type IntakeSection = {
+  title: string;
+  entries: Array<[string, unknown]>;
+};
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "intake", label: "Intake Overview" },
@@ -284,7 +295,10 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
 
         <div className="p-6">
           {activeTab === "intake" && (
-            <IntakeOverview snapshot={profile.intakeSnapshot} />
+            <IntakeOverview
+              snapshot={profile.intakeSnapshot}
+              dischargeSnapshot={profile.dischargeSnapshot}
+            />
           )}
           {activeTab === "documents" && (
             <DocumentsPanel clientId={id} documents={profile.documents} />
@@ -313,23 +327,41 @@ function Breadcrumb({ current }: { current: string }) {
   );
 }
 
-function IntakeOverview({ snapshot }: { snapshot: Record<string, unknown> | null }) {
+function IntakeOverview({
+  snapshot,
+  dischargeSnapshot,
+}: {
+  snapshot: Record<string, unknown> | null;
+  dischargeSnapshot: Record<string, unknown> | null;
+}) {
   if (!snapshot || Object.keys(snapshot).length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-text-muted">
-        No intake snapshot is available for this client yet.
+      <div className="grid gap-5">
+        <DischargeVerdictBanner status={readVerdictStatus(dischargeSnapshot)} />
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-text-muted">
+          No intake snapshot is available for this client yet.
+        </div>
       </div>
     );
   }
 
-  const sections = [
+  const sections: IntakeSection[] = [
     { title: "Military", entries: entriesFor(snapshot, ["military", "militaryStatus", "veteranStatus", "serviceBranch", "activeDuty", "disabledVeteran"]) },
     { title: "Financials", entries: entriesFor(snapshot, ["employment", "isEmployed", "monthlyIncome", "annualIncome", "householdSize", "totalDebt", "studentLoanDebt"]) },
     { title: "Expenses", entries: entriesFor(snapshot, ["expenses", "monthlyExpenses", "expFood", "expHousing", "expUtilities", "expTransportGas", "expCarInsurance"]) },
+    {
+      title: "Prong 3: Good Faith Effort",
+      entries: [
+        ["Applied for IDR", readGoodFaithValue(snapshot, dischargeSnapshot, "appliedForIDR")],
+        ["Made Prior Payments", readGoodFaithValue(snapshot, dischargeSnapshot, "madePriorPayments")],
+        ["Contacted Servicer", readGoodFaithValue(snapshot, dischargeSnapshot, "contactedServicer")],
+      ],
+    },
   ];
 
   return (
     <div className="grid gap-5">
+      <DischargeVerdictBanner status={readVerdictStatus(dischargeSnapshot ?? snapshot)} />
       {sections.map((section) => (
         <section key={section.title} className="rounded-lg border border-border">
           <h2 className="border-b border-border px-5 py-3 font-serif text-base font-bold text-navy">
@@ -356,6 +388,70 @@ function IntakeOverview({ snapshot }: { snapshot: Record<string, unknown> | null
         </section>
       ))}
     </div>
+  );
+}
+
+function DischargeVerdictBanner({ status }: { status: DischargeVerdictStatus }) {
+  const config: Record<
+    DischargeVerdictStatus,
+    {
+      label: string;
+      toneClass: string;
+      description: string;
+      icon: ReactElement;
+    }
+  > = {
+    HIGH_PROBABILITY: {
+      label: "High Probability",
+      toneClass: "border-emerald-200 bg-emerald-50 text-emerald-800",
+      description: "The DOJ analyzer found strong indicators for discharge.",
+      icon: <CheckIcon />,
+    },
+    BORDERLINE: {
+      label: "Borderline",
+      toneClass: "border-amber-200 bg-amber-50 text-amber-800",
+      description: "The DOJ analyzer found mixed indicators. Attorney review is recommended.",
+      icon: <WarningIcon />,
+    },
+    LOW_PROBABILITY: {
+      label: "Low Probability",
+      toneClass: "border-red-200 bg-red-50 text-red-800",
+      description: "The DOJ analyzer found weak indicators for discharge.",
+      icon: <RestrictedIcon />,
+    },
+    PENDING: {
+      label: "Pending",
+      toneClass: "border-slate-200 bg-slate-50 text-slate-700",
+      description: "The DOJ analyzer has not returned a final verdict yet.",
+      icon: <ClockIcon />,
+    },
+  };
+  const verdict = config[status];
+
+  return (
+    <section
+      className={`rounded-lg border px-5 py-4 ${verdict.toneClass}`}
+      aria-labelledby="doj-verdict-title"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/75">
+            {verdict.icon}
+          </span>
+          <div>
+            <p id="doj-verdict-title" className="text-xs font-bold uppercase tracking-[0.08em]">
+              DOJ Discharge Verdict
+            </p>
+            <p className="mt-0.5 font-serif text-xl font-black leading-tight">
+              {verdict.label}
+            </p>
+          </div>
+        </div>
+        <p className="max-w-[520px] text-sm font-medium leading-relaxed opacity-90">
+          {verdict.description}
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -550,6 +646,83 @@ function TrashIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function RestrictedIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.25"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 function PlaceholderPanel({ title }: { title: string }) {
   return (
     <div className="rounded-lg border border-dashed border-border p-10 text-center">
@@ -584,6 +757,10 @@ function normalizeProfile(data: unknown): CaseProfile {
     firstRecord(nestedProfile, ["intakeSnapshot", "intake", "snapshot"]) ??
     firstRecord(client, ["intakeProfile"]) ??
     null;
+  const dischargeSnapshot =
+    firstRecord(nestedProfile, ["dischargeSnapshot", "DischargeSnapshot"]) ??
+    firstRecord(client, ["dischargeSnapshot", "DischargeSnapshot"]) ??
+    (intakeSnapshot && hasVerdictStatus(intakeSnapshot) ? intakeSnapshot : null);
   const documents =
     firstArray(nestedProfile, ["documents", "uploadedDocuments"]) ??
     firstArray(client, ["documents"]) ??
@@ -595,6 +772,7 @@ function normalizeProfile(data: unknown): CaseProfile {
   return {
     client: toClientSummary(client),
     intakeSnapshot,
+    dischargeSnapshot,
     documents: documents.filter(isRecord) as CaseDocument[],
     assignedTo: readAssignment(nestedProfile) ?? readAssignment(client) ?? null,
     assignedToId,
@@ -683,6 +861,40 @@ function entriesFor(
   }
 
   return rows;
+}
+
+function readVerdictStatus(source: Record<string, unknown> | null): DischargeVerdictStatus {
+  if (!source) return "PENDING";
+
+  if (isDischargeVerdictStatus(source.status)) return source.status;
+
+  const nested = source.dischargeSnapshot ?? source.DischargeSnapshot;
+  if (isRecord(nested) && isDischargeVerdictStatus(nested.status)) {
+    return nested.status;
+  }
+
+  return "PENDING";
+}
+
+function readGoodFaithValue(
+  snapshot: Record<string, unknown>,
+  dischargeSnapshot: Record<string, unknown> | null,
+  key: "appliedForIDR" | "madePriorPayments" | "contactedServicer"
+): unknown {
+  return snapshot[key] ?? dischargeSnapshot?.[key];
+}
+
+function hasVerdictStatus(source: Record<string, unknown>): boolean {
+  return isDischargeVerdictStatus(source.status);
+}
+
+function isDischargeVerdictStatus(value: unknown): value is DischargeVerdictStatus {
+  return (
+    value === "HIGH_PROBABILITY" ||
+    value === "BORDERLINE" ||
+    value === "LOW_PROBABILITY" ||
+    value === "PENDING"
+  );
 }
 
 function getClientName(client: ClientSummary): string {
