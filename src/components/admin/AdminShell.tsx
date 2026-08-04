@@ -36,7 +36,7 @@ export default async function AdminShell({ children }: { children: ReactNode }) 
       <AdminSidebar role={session?.role ?? null} />
 
       {/* Main content column */}
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+      <div className="flex flex-1 flex-col min-w-0 overflow-x-clip">
 
         {/* ── Top bar ───────────────────────────────────────────────────── */}
         <header className="h-14 bg-white border-b border-border flex items-center justify-between px-7 max-[900px]:px-4 shrink-0 sticky top-0 z-10">
@@ -68,4 +68,3 @@ export default async function AdminShell({ children }: { children: ReactNode }) 
     </div>
   );
 }
-

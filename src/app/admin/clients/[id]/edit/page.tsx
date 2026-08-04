@@ -116,26 +116,42 @@ export default function EditClientDischargePage({ params }: PageProps) {
     setIsSaving(true);
     setSaveError(null);
 
+    const payload = {
+      ...form,
+      outstandingBalance: toNumber(form.outstandingBalance),
+      householdSize: toNumber(form.householdSize, 1),
+      monthlyGrossIncome: toNumber(form.monthlyGrossIncome),
+      monthlyTakeHomePay: toNumber(form.monthlyTakeHomePay),
+      additionalMonthlyIncome: toNumber(form.additionalMonthlyIncome),
+      housingExpenses: toNumber(form.housingExpenses),
+      transportationExpenses: toNumber(form.transportationExpenses),
+      dependentCareExpenses: toNumber(form.dependentCareExpenses),
+      projectedStatus: projection.status,
+      status: projection.status,
+    };
+
     try {
       const res = await fetch(`/api/admin/clients/${id}/profile`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          ...form,
-          projectedStatus: projection.status,
-          status: projection.status,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
+        console.error("[edit-snapshot/save] API error:", {
+          status: res.status,
+          body: data,
+          payload,
+        });
         throw new Error(readMessage(data) ?? `Save failed (${res.status})`);
       }
 
       router.push(`/admin/clients/${id}`);
       router.refresh();
     } catch (err) {
+      console.error("[edit-snapshot/save] Save failed:", err);
       setSaveError(err instanceof Error ? err.message : "Unable to save changes.");
     } finally {
       setIsSaving(false);
@@ -237,7 +253,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
           </Section>
         </form>
 
-        <aside className="self-start rounded-lg border border-border bg-white p-5 shadow-sm lg:sticky lg:top-6">
+        <aside className="self-start h-min rounded-lg border border-border bg-white p-5 shadow-sm lg:sticky lg:top-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-text-muted">
@@ -486,4 +502,11 @@ function formatMoney(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function toNumber(value: string, fallback = 0): number {
+  const cleaned = value.replace(/[$,\s]/g, "");
+  if (cleaned === "") return fallback;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : fallback;
 }
