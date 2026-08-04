@@ -444,9 +444,12 @@ function EditSkeleton() {
 function extractSnapshotData(data: unknown): unknown {
   if (!isRecord(data)) return data;
 
+  const client = firstRecord(data, ["client", "borrower"]) ?? {};
   const directSnapshot =
     firstRecord(data, ["snapshot", "dischargeSnapshot", "intakeSnapshot"]) ??
-    firstRecord(firstRecord(data, ["client"]) ?? {}, ["dischargeSnapshot", "intakeSnapshot"]);
+    firstArrayRecord(data, ["dischargeSnapshots", "snapshots"]) ??
+    firstRecord(client, ["dischargeSnapshot", "intakeSnapshot"]) ??
+    firstArrayRecord(client, ["dischargeSnapshots", "snapshots"]);
 
   return directSnapshot ? { ...data, snapshot: directSnapshot } : data;
 }
@@ -461,7 +464,9 @@ function hydrateForm(data: unknown): EditFormData {
     {};
   const discharge =
     firstRecord(nestedProfile, ["dischargeSnapshot", "DischargeSnapshot"]) ??
+    firstArrayRecord(nestedProfile, ["dischargeSnapshots", "snapshots"]) ??
     firstRecord(client, ["dischargeSnapshot", "DischargeSnapshot"]) ??
+    firstArrayRecord(client, ["dischargeSnapshots", "snapshots"]) ??
     {};
   const directSnapshot = firstRecord(record, ["snapshot"]);
 
@@ -469,16 +474,18 @@ function hydrateForm(data: unknown): EditFormData {
   const source = (...keys: string[]) => readString(records, keys);
   const yesNo = (keys: string[], fallback = "No", includeUnknown = false) =>
     normalizeYesNo(source(...keys), fallback, includeUnknown);
-  const money = (...keys: string[]) => source(...keys);
+  const money = (...keys: string[]) => normalizeNumberString(source(...keys));
+  const integer = (keys: string[], fallback = 1) =>
+    String(Math.max(1, Math.trunc(toNumber(source(...keys), fallback))));
 
   return {
-    firstName: source("firstName", "borrowerFirstName") || "",
-    lastName: source("lastName", "borrowerLastName") || "",
-    email: source("email", "borrowerEmail") || "",
-    phone: source("phone", "phoneNumber", "borrowerPhone") || "",
+    firstName: source("firstName", "borrowerFirstName", "givenName") || "",
+    lastName: source("lastName", "borrowerLastName", "familyName", "surname") || "",
+    email: source("email", "borrowerEmail", "clientEmail", "emailAddress") || "",
+    phone: source("phone", "phoneNumber", "borrowerPhone", "clientPhone") || "",
     hasFederalLoans: yesNo(["hasFederalLoans", "federalLoans", "hasStudentLoans", "federalStudentLoans"], "", true),
     outstandingBalance: money("outstandingBalance", "studentLoanDebt", "totalDebt", "principalBalance", "loanBalance"),
-    householdSize: source("householdSize") || "1",
+    householdSize: integer(["householdSize"], 1),
     monthlyGrossIncome: money("monthlyGrossIncome", "grossMonthlyIncome", "monthlyIncome", "grossIncome"),
     monthlyTakeHomePay: money("monthlyTakeHomePay", "takeHomePay", "monthlyNetIncome", "netMonthlyIncome"),
     additionalMonthlyIncome: money("additionalMonthlyIncome", "additionalIncome", "otherMonthlyIncome"),
@@ -489,7 +496,7 @@ function hydrateForm(data: unknown): EditFormData {
     dependentCareExpenses: money("dependentCareExpenses", "dependentCare", "childCareExpenses", "familyCareExpenses"),
     currentlyEmployed: yesNo(["currentlyEmployed", "isEmployed", "employed"], "Yes"),
     workInFieldOfStudy: yesNo(["workInFieldOfStudy", "worksInFieldOfStudy"], "Yes"),
-    unemployed5Years: yesNo(["unemployed5Years", "unemployedFiveYears"], "No"),
+    unemployed5Years: yesNo(["unemployed5Years", "unemployed5PlusYears", "unemployedFiveYears"], "No"),
     hasDisability: yesNo(["hasDisability", "disability", "disabledVeteran"], "No"),
     didGraduate: yesNo(["didGraduate", "graduated"], "Yes"),
     schoolClosed: yesNo(["schoolClosed", "isSchoolClosed"], "No"),
@@ -515,7 +522,7 @@ function readString(
   return "";
 }
 
-function collectHydrationRecords(...roots: Record<string, unknown>[]): Record<string, unknown>[] {
+function collectHydrationRecords(...roots: unknown[]): Record<string, unknown>[] {
   const records: Record<string, unknown>[] = [];
   const seen = new Set<Record<string, unknown>>();
   const nestedKeys = [
@@ -528,7 +535,9 @@ function collectHydrationRecords(...roots: Record<string, unknown>[]): Record<st
     "intakeProfile",
     "intake",
     "snapshot",
+    "snapshots",
     "dischargeSnapshot",
+    "dischargeSnapshots",
     "DischargeSnapshot",
     "formData",
     "answers",
@@ -548,19 +557,29 @@ function collectHydrationRecords(...roots: Record<string, unknown>[]): Record<st
     "prong3",
   ];
 
+  function visitValue(value: unknown, depth: number) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        visitValue(item, depth + 1);
+      }
+      return;
+    }
+
+    if (isRecord(value)) visit(value, depth);
+  }
+
   function visit(source: Record<string, unknown>, depth: number) {
     if (seen.has(source) || depth > 4) return;
     seen.add(source);
     records.push(source);
 
     for (const key of nestedKeys) {
-      const value = source[key];
-      if (isRecord(value)) visit(value, depth + 1);
+      visitValue(source[key], depth + 1);
     }
   }
 
   for (const root of roots) {
-    visit(root, 0);
+    visitValue(root, 0);
   }
 
   return records;
@@ -583,12 +602,19 @@ function valueToInputString(value: unknown): string {
 
 function normalizeYesNo(value: string, fallback: string, includeUnknown = false): string {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "yes") return "Yes";
-  if (normalized === "no") return "No";
-  if (includeUnknown && (normalized === "i don't know" || normalized === "unknown")) {
+  if (["yes", "true", "1", "y"].includes(normalized)) return "Yes";
+  if (["no", "false", "0", "n"].includes(normalized)) return "No";
+  if (includeUnknown && ["i don't know", "i dont know", "unknown", "unsure", ""].includes(normalized)) {
     return "I don't know";
   }
   return fallback;
+}
+
+function normalizeNumberString(value: string, fallback = ""): string {
+  const cleaned = stripCurrency(value);
+  if (cleaned === "") return fallback;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? String(n) : fallback;
 }
 
 function normalizeDate(value: string): string {
@@ -613,6 +639,17 @@ function firstRecord(source: Record<string, unknown>, keys: string[]): Record<st
   for (const key of keys) {
     const value = source[key];
     if (isRecord(value)) return value;
+  }
+  return null;
+}
+
+function firstArrayRecord(source: Record<string, unknown>, keys: string[]): Record<string, unknown> | null {
+  for (const key of keys) {
+    const value = source[key];
+    if (Array.isArray(value)) {
+      const first = value.find(isRecord);
+      if (first) return first;
+    }
   }
   return null;
 }
