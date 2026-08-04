@@ -7,6 +7,7 @@ import DischargeVerdictBadge from "@/components/admin/DischargeVerdictBadge";
 import {
   calculateProjectedDOJStatus,
   getDischargeVerdictLabel,
+  type DOJProjection,
   type DOJProjectionInput,
 } from "@/lib/dischargeVerdict";
 
@@ -157,7 +158,9 @@ export default function EditClientDischargePage({ params }: PageProps) {
   }
 
   return (
-    <div className="flex max-w-[1200px] flex-col gap-6 animate-fade-in">
+    <div className="flex max-w-[1200px] flex-col gap-6 pt-24 pb-10 animate-fade-in md:pt-0">
+      <MobileStickyScoreboard projection={projection} />
+
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href={`/admin/clients/${id}`} className="text-sm font-semibold text-text-muted hover:text-navy">
@@ -228,7 +231,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
           </Section>
         </form>
 
-        <aside className="sticky top-6 rounded-lg border border-border bg-white p-5 shadow-sm">
+        <aside className="rounded-lg border border-border bg-white p-5 shadow-sm lg:sticky lg:top-4 lg:self-start">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-text-muted">
@@ -262,6 +265,38 @@ export default function EditClientDischargePage({ params }: PageProps) {
         </aside>
       </div>
     </div>
+  );
+}
+
+function MobileStickyScoreboard({ projection }: { projection: DOJProjection }) {
+  return (
+    <div className="fixed left-0 right-0 top-0 z-50 block border-b border-border bg-white p-3 shadow-md md:hidden">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-text-muted">
+            Projected DOJ Verdict
+          </span>
+          <DischargeVerdictBadge status={projection.status} />
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto [-webkit-overflow-scrolling:touch]">
+          <CompactProng label="P1" passed={projection.prongs.minimalStandard} />
+          <CompactProng label="P2" passed={projection.prongs.additionalCircumstances} />
+          <CompactProng label="P3" passed={projection.prongs.goodFaith} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactProng({ label, passed }: { label: string; passed: boolean }) {
+  return (
+    <span
+      className={`inline-flex min-w-[72px] items-center justify-center rounded-full px-2.5 py-1 text-[0.6875rem] font-bold ${
+        passed ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+      }`}
+    >
+      {label}: {passed ? "Pass" : "Review"}
+    </span>
   );
 }
 
