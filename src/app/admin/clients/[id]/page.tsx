@@ -238,7 +238,7 @@ export default function ClientCaseProfilePage({ params }: PageProps) {
 
           <div className="flex min-w-[220px] flex-col gap-2">
             <Link
-              href={`/admin/clients/${id}/edit`}
+              href={`/admin/leads/${id}/edit`}
               className="inline-flex h-10 items-center justify-center rounded-md border border-[#2563eb] bg-white px-4 text-sm font-bold text-[#2563eb] shadow-sm transition hover:bg-[#eff4ff]"
             >
               Edit Snapshot

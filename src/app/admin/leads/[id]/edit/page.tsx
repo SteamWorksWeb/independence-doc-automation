@@ -166,7 +166,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
         throw new Error(readMessage(data) ?? `Save failed (${res.status})`);
       }
 
-      router.push(`/admin/clients/${id}`);
+      router.push("/admin/leads");
       router.refresh();
     } catch (err) {
       console.error("[edit-snapshot/save] Save failed:", err);
@@ -185,8 +185,8 @@ export default function EditClientDischargePage({ params }: PageProps) {
   if (error) {
     return (
       <div className="flex max-w-[1200px] flex-col gap-4 animate-fade-in">
-        <Link href={`/admin/clients/${id}`} className="text-sm font-semibold text-navy">
-          Back to Client Profile
+        <Link href="/admin/leads" className="text-sm font-semibold text-navy">
+          Back to Leads
         </Link>
         <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700">
           {error}
@@ -201,8 +201,8 @@ export default function EditClientDischargePage({ params }: PageProps) {
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href={`/admin/clients/${id}`} className="text-sm font-semibold text-text-muted hover:text-navy">
-            Back to Client Profile
+          <Link href="/admin/leads" className="text-sm font-semibold text-text-muted hover:text-navy">
+            Back to Leads
           </Link>
           <h1 className="mt-2 font-serif text-[clamp(1.5rem,2.5vw,2rem)] font-black italic leading-tight text-navy">
             Edit Discharge Snapshot

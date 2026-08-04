@@ -582,7 +582,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
               {activeModal.snapshot.client?.id ? (
                 <Link
-                  href={`/admin/clients/${activeModal.snapshot.client.id}/edit`}
+                  href={`/admin/leads/${activeModal.snapshot.client.id}/edit`}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[0.875rem] font-semibold cursor-pointer border-none bg-transparent transition-[background,color] duration-150 text-left text-[#2563eb] hover:bg-[#eff4ff]"
                 >
                   <span className="shrink-0 w-4 flex items-center justify-center"><EditIcon /></span>
