@@ -454,51 +454,142 @@ function hydrateForm(data: unknown): EditFormData {
     firstRecord(client, ["dischargeSnapshot", "DischargeSnapshot"]) ??
     {};
 
-  const source = (...keys: string[]) => readString(intake, discharge, client, keys);
+  const records = collectHydrationRecords(client, intake, discharge, nestedProfile, record);
+  const source = (...keys: string[]) => readString(records, keys);
+  const yesNo = (keys: string[], fallback = "No", includeUnknown = false) =>
+    normalizeYesNo(source(...keys), fallback, includeUnknown);
+  const money = (...keys: string[]) => source(...keys);
 
   return {
-    firstName: source("firstName") || "",
-    lastName: source("lastName") || "",
-    email: source("email") || "",
-    phone: source("phone") || "",
-    hasFederalLoans: source("hasFederalLoans") || "",
-    outstandingBalance: source("outstandingBalance", "studentLoanDebt", "totalDebt") || "",
+    firstName: source("firstName", "borrowerFirstName") || "",
+    lastName: source("lastName", "borrowerLastName") || "",
+    email: source("email", "borrowerEmail") || "",
+    phone: source("phone", "phoneNumber", "borrowerPhone") || "",
+    hasFederalLoans: yesNo(["hasFederalLoans", "federalLoans", "hasStudentLoans", "federalStudentLoans"], "", true),
+    outstandingBalance: money("outstandingBalance", "studentLoanDebt", "totalDebt", "principalBalance", "loanBalance"),
     householdSize: source("householdSize") || "1",
-    monthlyGrossIncome: source("monthlyGrossIncome", "monthlyIncome") || "",
-    monthlyTakeHomePay: source("monthlyTakeHomePay") || "",
-    additionalMonthlyIncome: source("additionalMonthlyIncome") || "",
-    housingExpenses: source("housingExpenses", "expHousing") || "",
-    transportationExpenses: source("transportationExpenses", "expTransportGas", "expCarInsurance") || "",
-    dependentCareExpenses: source("dependentCareExpenses") || "",
-    currentlyEmployed: source("currentlyEmployed", "isEmployed") || "Yes",
-    workInFieldOfStudy: source("workInFieldOfStudy") || "Yes",
-    unemployed5Years: source("unemployed5Years") || "No",
-    hasDisability: source("hasDisability", "disabledVeteran") || "No",
-    didGraduate: source("didGraduate") || "Yes",
-    schoolClosed: source("schoolClosed") || "No",
-    lastAttendedSchool: source("lastAttendedSchool") || "",
-    is65OrOlder: source("is65OrOlder") || "No",
-    appliedForIDR: source("appliedForIDR") || "No",
-    madePriorPayments: source("madePriorPayments") || "No",
-    contactedServicer: source("contactedServicer") || "No",
+    monthlyGrossIncome: money("monthlyGrossIncome", "grossMonthlyIncome", "monthlyIncome", "grossIncome"),
+    monthlyTakeHomePay: money("monthlyTakeHomePay", "takeHomePay", "monthlyNetIncome", "netMonthlyIncome"),
+    additionalMonthlyIncome: money("additionalMonthlyIncome", "additionalIncome", "otherMonthlyIncome"),
+    housingExpenses: money("housingExpenses", "monthlyHousingExpenses", "expHousing", "housing"),
+    transportationExpenses:
+      money("transportationExpenses", "monthlyTransportationExpenses", "transportation") ||
+      sumFields(records, ["expTransportGas", "expCarInsurance"]),
+    dependentCareExpenses: money("dependentCareExpenses", "dependentCare", "childCareExpenses", "familyCareExpenses"),
+    currentlyEmployed: yesNo(["currentlyEmployed", "isEmployed", "employed"], "Yes"),
+    workInFieldOfStudy: yesNo(["workInFieldOfStudy", "worksInFieldOfStudy"], "Yes"),
+    unemployed5Years: yesNo(["unemployed5Years", "unemployedFiveYears"], "No"),
+    hasDisability: yesNo(["hasDisability", "disability", "disabledVeteran"], "No"),
+    didGraduate: yesNo(["didGraduate", "graduated"], "Yes"),
+    schoolClosed: yesNo(["schoolClosed", "isSchoolClosed"], "No"),
+    lastAttendedSchool: normalizeDate(source("lastAttendedSchool", "lastAttendedDate")),
+    is65OrOlder: yesNo(["is65OrOlder", "age65OrOlder", "olderThan65"], "No"),
+    appliedForIDR: yesNo(["appliedForIDR", "appliedForIdr", "idrApplied"], "No"),
+    madePriorPayments: yesNo(["madePriorPayments", "priorPayments"], "No"),
+    contactedServicer: yesNo(["contactedServicer", "servicerContacted"], "No"),
   };
 }
 
 function readString(
-  intake: Record<string, unknown>,
-  discharge: Record<string, unknown>,
-  client: Record<string, unknown>,
+  records: Record<string, unknown>[],
   keys: string[]
 ): string {
   for (const key of keys) {
-    for (const source of [intake, discharge, client]) {
+    for (const source of records) {
       const value = source[key];
-      if (typeof value === "string" && value.trim() !== "") return value;
-      if (typeof value === "boolean") return value ? "Yes" : "No";
-      if (typeof value === "number") return String(value);
+      const normalized = valueToInputString(value);
+      if (normalized !== "") return normalized;
     }
   }
   return "";
+}
+
+function collectHydrationRecords(...roots: Record<string, unknown>[]): Record<string, unknown>[] {
+  const records: Record<string, unknown>[] = [];
+  const seen = new Set<Record<string, unknown>>();
+  const nestedKeys = [
+    "profile",
+    "caseProfile",
+    "data",
+    "client",
+    "borrower",
+    "intakeSnapshot",
+    "intakeProfile",
+    "intake",
+    "snapshot",
+    "dischargeSnapshot",
+    "DischargeSnapshot",
+    "formData",
+    "answers",
+    "financials",
+    "finances",
+    "income",
+    "expenses",
+    "goodFaith",
+    "hardship",
+    "education",
+    "employment",
+  ];
+
+  function visit(source: Record<string, unknown>, depth: number) {
+    if (seen.has(source) || depth > 4) return;
+    seen.add(source);
+    records.push(source);
+
+    for (const key of nestedKeys) {
+      const value = source[key];
+      if (isRecord(value)) visit(value, depth + 1);
+    }
+  }
+
+  for (const root of roots) {
+    visit(root, 0);
+  }
+
+  return records;
+}
+
+function valueToInputString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  if (typeof value !== "string") return "";
+
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "true") return "Yes";
+  if (normalized === "false") return "No";
+  return trimmed;
+}
+
+function normalizeYesNo(value: string, fallback: string, includeUnknown = false): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "yes") return "Yes";
+  if (normalized === "no") return "No";
+  if (includeUnknown && (normalized === "i don't know" || normalized === "unknown")) {
+    return "I don't know";
+  }
+  return fallback;
+}
+
+function normalizeDate(value: string): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function sumFields(records: Record<string, unknown>[], keys: string[]): string {
+  const total = keys.reduce((sum, key) => {
+    const value = readString(records, [key]);
+    return sum + toNumber(value);
+  }, 0);
+
+  return total > 0 ? String(total) : "";
 }
 
 function firstRecord(source: Record<string, unknown>, keys: string[]): Record<string, unknown> | null {
