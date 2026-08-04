@@ -9,7 +9,7 @@
 
 import { NextResponse } from "next/server";
 
-const BORROWER_SESSION_COOKIE_NAMES = ["borrower_session", "client_token"] as const;
+const BORROWER_SESSION_COOKIE_NAMES = ["borrower_session", "client_token", "borrower_email"] as const;
 
 export async function POST() {
   const response = NextResponse.redirect(

@@ -27,6 +27,7 @@ export const metadata: Metadata = {
 export const maxDuration = 60;
 
 const BORROWER_SESSION_COOKIE_NAMES = ["borrower_session", "client_token"] as const;
+const BORROWER_EMAIL_COOKIE_NAME = "borrower_email";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function normalizeEmail(value: unknown): string {
 function extractBorrowerEmail(value: unknown): string {
   if (!isRecord(value)) return "";
 
-  for (const key of ["email", "borrowerEmail", "clientEmail"]) {
+  for (const key of ["email", "borrowerEmail", "clientEmail", "emailAddress", "preferred_username", "username", "sub"]) {
     const email = normalizeEmail(value[key]);
     if (email) return email;
   }
@@ -93,7 +94,7 @@ async function getBorrowerEmailFromSession(token: string): Promise<string> {
       new TextEncoder().encode(jwtSecret),
       { algorithms: ["HS256"] }
     );
-    return normalizeEmail(payload.email);
+    return extractBorrowerEmail(payload);
   } catch {
     return "";
   }
@@ -128,16 +129,17 @@ async function fetchIntakeStatus(): Promise<{
   token: string;
 }> {
   const cookieStore = await cookies();
+  const cookieEmail = normalizeEmail(cookieStore.get(BORROWER_EMAIL_COOKIE_NAME)?.value);
   const token = BORROWER_SESSION_COOKIE_NAMES
     .map((cookieName) => cookieStore.get(cookieName)?.value)
     .find((value): value is string => !!value);
 
   if (!token) {
     console.error("[dashboard] No borrower session cookie found.");
-    return { profile: null, error: "Unauthorized: No active session.", borrowerEmail: "", token: "" };
+    return { profile: null, error: "Unauthorized: No active session.", borrowerEmail: cookieEmail, token: "" };
   }
 
-  const sessionEmail = await getBorrowerEmailFromSession(token);
+  const sessionEmail = cookieEmail || await getBorrowerEmailFromSession(token);
 
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
   if (!backendBase) {

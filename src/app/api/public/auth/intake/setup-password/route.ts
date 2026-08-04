@@ -8,6 +8,29 @@ const setupPasswordSchema = z.object({
 
 type JsonRecord = Record<string, unknown>;
 
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : '';
+}
+
+function extractBorrowerEmail(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const record = value as JsonRecord;
+
+  for (const key of ['email', 'borrowerEmail', 'clientEmail', 'emailAddress', 'preferred_username', 'username', 'sub']) {
+    const email = normalizeEmail(record[key]);
+    if (email) return email;
+  }
+
+  for (const key of ['borrower', 'client', 'user', 'session', 'profile', 'intakeProfile']) {
+    const email = extractBorrowerEmail(record[key]);
+    if (email) return email;
+  }
+
+  return '';
+}
+
 function getBackendUrl(): string | null {
   const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, '');
 
@@ -95,9 +118,20 @@ export async function POST(request: NextRequest) {
 
   const data = await readBackendJson(backendRes);
   const response = NextResponse.json(data, { status: backendRes.status });
+  const borrowerEmail = extractBorrowerEmail(data);
 
   for (const cookie of getSetCookieHeaders(backendRes.headers)) {
     response.headers.append('Set-Cookie', cookie);
+  }
+
+  if (backendRes.ok && borrowerEmail) {
+    response.cookies.set('borrower_email', borrowerEmail, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
   }
 
   return response;

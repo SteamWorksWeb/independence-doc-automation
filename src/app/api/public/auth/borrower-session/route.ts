@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
 const BORROWER_SESSION_COOKIE_NAMES = ['borrower_session', 'client_token'] as const;
+const BORROWER_EMAIL_COOKIE_NAME = 'borrower_email';
 
 function normalizeEmail(value: unknown): string {
   if (typeof value !== 'string') return '';
@@ -11,7 +12,7 @@ function normalizeEmail(value: unknown): string {
 }
 
 function extractEmailFromPayload(payload: Record<string, unknown>): string {
-  for (const key of ['email', 'borrowerEmail', 'clientEmail']) {
+  for (const key of ['email', 'borrowerEmail', 'clientEmail', 'emailAddress', 'preferred_username', 'username', 'sub']) {
     const email = normalizeEmail(payload[key]);
     if (email) return email;
   }
@@ -27,6 +28,11 @@ export async function GET() {
   }
 
   const cookieStore = await cookies();
+  const cookieEmail = normalizeEmail(cookieStore.get(BORROWER_EMAIL_COOKIE_NAME)?.value);
+  if (cookieEmail) {
+    return NextResponse.json({ email: cookieEmail }, { status: 200 });
+  }
+
   const secret = new TextEncoder().encode(jwtSecret);
 
   for (const cookieName of BORROWER_SESSION_COOKIE_NAMES) {

@@ -139,6 +139,14 @@ export async function POST(request: NextRequest) {
     path: "/",
   });
 
+  response.cookies.set("borrower_email", validated.email, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 60 * 60 * 24 * 7,
+    path: "/",
+  });
+
   console.log("[login] Client authenticated successfully");
   return response;
 }

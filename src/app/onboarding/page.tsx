@@ -154,12 +154,12 @@ function isRecord(value: unknown): value is JsonRecord {
 function extractBorrowerEmail(value: unknown): string {
   if (!isRecord(value)) return "";
 
-  for (const key of ["email", "borrowerEmail", "clientEmail"]) {
+  for (const key of ["email", "borrowerEmail", "clientEmail", "emailAddress", "preferred_username", "username", "sub"]) {
     const email = normalizeEmail(value[key]);
     if (email) return email;
   }
 
-  for (const key of ["borrower", "client", "user", "session", "profile"]) {
+  for (const key of ["borrower", "client", "user", "session", "profile", "intakeProfile"]) {
     const nested = value[key];
     if (isRecord(nested)) {
       const email = extractBorrowerEmail(nested);
@@ -232,6 +232,41 @@ function WizardInput({
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+function DateWizardInput({
+  id,
+  label,
+  value,
+  onChange,
+  required = true,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex items-center border border-[#d1d5db] rounded bg-white hover:border-[#9ca3af] focus-within:border-[#1d4ed8] focus-within:ring-2 focus-within:ring-[#1d4ed8]/12 transition-all duration-150 overflow-hidden">
+      <label
+        htmlFor={id}
+        className="px-5 py-4 text-[#9ca3af] text-[0.9375rem] border-r border-[#d1d5db] bg-[#f9fafb] shrink-0"
+      >
+        {label}
+        {required && <span className="text-[#b31e3c] ml-0.5">*</span>}
+      </label>
+      <input
+        id={id}
+        name={id}
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 min-w-0 px-5 py-4 text-[0.9375rem] text-[#1a2744] outline-none bg-transparent"
+        autoComplete="bday"
+      />
     </div>
   );
 }
@@ -608,12 +643,11 @@ export default function OnboardingPage({
                 onChange={set("phone")}
                 type="tel"
               />
-              <WizardInput
+              <DateWizardInput
                 id="dob"
                 label="Birth Date"
                 value={formData.dob}
                 onChange={set("dob")}
-                type="date"
                 required={false}
               />
               <WizardInput
