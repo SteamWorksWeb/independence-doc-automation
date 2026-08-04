@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import ToolNavigationBar from "@/components/admin/ToolNavigationBar";
+import { getAdminSession } from "@/lib/admin-session";
 
 export const metadata: Metadata = {
   title: "Message Center | Admin | Liberty",
@@ -24,11 +25,13 @@ export const metadata: Metadata = {
  * breaks the CRM layout. This inline shell replicates AdminShell exactly
  * but replaces the padded content wrapper with a flex-1 overflow-hidden div.
  */
-export default function MessageCenterLayout({ children }: { children: ReactNode }) {
+export default async function MessageCenterLayout({ children }: { children: ReactNode }) {
+  const session = await getAdminSession();
+
   return (
     <div className="flex min-h-dvh bg-[#eef0f5]">
       {/* Permanent / off-canvas sidebar — manages its own mobile state */}
-      <AdminSidebar />
+      <AdminSidebar role={session?.role ?? null} />
 
       {/* Main content column */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
