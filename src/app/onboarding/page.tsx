@@ -38,8 +38,8 @@ import { useRouter } from "next/navigation";
 const TOTAL_STEPS = 7;
 
 const STEP_LABELS: Record<number, string> = {
-  1: "Your Information",
-  2: "Student Loans",
+  1: "Client Setup",
+  2: "Student Loans Owed",
   3: "Outstanding Balance",
   4: "Monthly Income",
   5: "Monthly Expenses",
@@ -283,11 +283,18 @@ function ContinueBtn({
 
 // ── Main wizard component ──────────────────────────────────────────────────────
 
-export default function OnboardingPage() {
+export default function OnboardingPage({
+  initialEmail = "",
+}: {
+  initialEmail?: string;
+} = {}) {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [showWarning, setShowWarning] = useState(false);
-  const [formData, setFormData] = useState<FormData>(INITIAL_FORM);
+  const [formData, setFormData] = useState<FormData>(() => ({
+    ...INITIAL_FORM,
+    email: initialEmail,
+  }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 

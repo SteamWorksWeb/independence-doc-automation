@@ -12,6 +12,7 @@
 import { type FormEvent, useCallback, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import OnboardingPage from '@/app/onboarding/page';
 import ExpenseStep, {
   type ExpenseFormData,
 } from './steps/ExpenseStep';
@@ -269,6 +270,10 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       setIsSubmitting(false);
     }
   };
+
+  if (!isPublicInviteFlow || currentStep > 0) {
+    return <OnboardingPage initialEmail={form.email || seededEmail} />;
+  }
 
   const savePersonalHouseholdInfo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
