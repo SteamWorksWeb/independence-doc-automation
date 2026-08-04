@@ -208,16 +208,23 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   async function handleDelete() {
     if (!activeModal || isDeleting) return;
     const snapshotId = activeModal.snapshot.id;
+    const clientId = activeModal.snapshot.client?.id;
+    const deleteUrl = clientId
+      ? `/api/admin/leads/${snapshotId}?clientId=${encodeURIComponent(clientId)}`
+      : `/api/admin/leads/${snapshotId}`;
 
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/admin/leads/${snapshotId}`, {
+      const res = await fetch(deleteUrl, {
         method: "DELETE",
+        headers: {
+          Accept: "application/json",
+        },
         cache: "no-store",
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch(() => null);
         console.error("[delete-snapshot] Backend error:", res.status, body);
         throw new Error(readApiMessage(body) ?? `Failed to delete lead (${res.status}).`);
       }
