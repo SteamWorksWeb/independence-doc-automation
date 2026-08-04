@@ -145,6 +145,31 @@ function normalizeEmail(value: unknown): string {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : "";
 }
 
+type JsonRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is JsonRecord {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractBorrowerEmail(value: unknown): string {
+  if (!isRecord(value)) return "";
+
+  for (const key of ["email", "borrowerEmail", "clientEmail"]) {
+    const email = normalizeEmail(value[key]);
+    if (email) return email;
+  }
+
+  for (const key of ["borrower", "client", "user", "session", "profile"]) {
+    const nested = value[key];
+    if (isRecord(nested)) {
+      const email = extractBorrowerEmail(nested);
+      if (email) return email;
+    }
+  }
+
+  return "";
+}
+
 function formatSsn(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 9);
   if (digits.length <= 3) return digits;
@@ -199,7 +224,7 @@ function WizardInput({
         inputMode={inputMode}
         maxLength={maxLength}
       />
-      {!value && (
+      {!value && type !== "date" && (
         <div className="absolute inset-0 flex items-center px-5 pointer-events-none select-none">
           <span className="text-[#9ca3af] text-[0.9375rem]">
             {label}
@@ -348,6 +373,12 @@ export default function OnboardingPage({
     setFormData((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
+    const email = normalizeEmail(initialEmail);
+    if (!email) return;
+    setFormData((prev) => (prev.email ? prev : { ...prev, email }));
+  }, [initialEmail]);
+
+  useEffect(() => {
     if (formData.email) return;
 
     let cancelled = false;
@@ -359,10 +390,19 @@ export default function OnboardingPage({
           credentials: "same-origin",
           cache: "no-store",
         });
-        if (!res.ok) return;
+        const data = res.ok ? await res.json().catch(() => ({})) : {};
+        let email = extractBorrowerEmail(data);
 
-        const data = await res.json().catch(() => ({}));
-        const email = normalizeEmail(data?.email);
+        if (!email) {
+          const intakeRes = await fetch("/api/intake", {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+          });
+          const intakeData = intakeRes.ok ? await intakeRes.json().catch(() => ({})) : {};
+          email = extractBorrowerEmail(intakeData);
+        }
+
         if (!cancelled && email) {
           setFormData((prev) => ({ ...prev, email }));
         }

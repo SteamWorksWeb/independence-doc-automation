@@ -10,6 +10,15 @@ function normalizeEmail(value: unknown): string {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : '';
 }
 
+function extractEmailFromPayload(payload: Record<string, unknown>): string {
+  for (const key of ['email', 'borrowerEmail', 'clientEmail']) {
+    const email = normalizeEmail(payload[key]);
+    if (email) return email;
+  }
+
+  return '';
+}
+
 export async function GET() {
   const jwtSecret = process.env.JWT_SECRET;
   if (!jwtSecret) {
@@ -26,7 +35,7 @@ export async function GET() {
 
     try {
       const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
-      return NextResponse.json({ email: normalizeEmail(payload.email) }, { status: 200 });
+      return NextResponse.json({ email: extractEmailFromPayload(payload) }, { status: 200 });
     } catch {
       // Try the next supported borrower session cookie.
     }
