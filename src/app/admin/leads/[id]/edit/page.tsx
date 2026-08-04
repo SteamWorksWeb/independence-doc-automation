@@ -85,7 +85,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
         }
 
         if (!cancelled) {
-          setForm(hydrateForm(data));
+          setForm(hydrateForm(extractSnapshotData(data)));
         }
       } catch (err) {
         if (!cancelled) {
@@ -121,24 +121,24 @@ export default function EditClientDischargePage({ params }: PageProps) {
       // ── Numbers ──
       outstandingBalance: toNumber(form.outstandingBalance),
       householdSize: toNumber(form.householdSize, 1),
-      monthlyGrossIncome: toNumber(form.monthlyGrossIncome),
-      monthlyTakeHomePay: toNumber(form.monthlyTakeHomePay),
-      additionalMonthlyIncome: toNumber(form.additionalMonthlyIncome),
-      housingExpenses: toNumber(form.housingExpenses),
-      transportationExpenses: toNumber(form.transportationExpenses),
-      dependentCareExpenses: toNumber(form.dependentCareExpenses),
+      monthlyGrossIncome: Number(stripCurrency(form.monthlyGrossIncome)) || 0,
+      monthlyTakeHomePay: Number(stripCurrency(form.monthlyTakeHomePay)) || 0,
+      additionalMonthlyIncome: Number(stripCurrency(form.additionalMonthlyIncome)) || 0,
+      housingExpenses: Number(stripCurrency(form.housingExpenses)) || 0,
+      transportationExpenses: Number(stripCurrency(form.transportationExpenses)) || 0,
+      dependentCareExpenses: Number(stripCurrency(form.dependentCareExpenses)) || 0,
       // ── Booleans (Prisma expects real booleans, not "Yes"/"No" strings) ──
-      hasFederalLoans: form.hasFederalLoans === "Yes",
-      currentlyEmployed: form.currentlyEmployed === "Yes",
-      workInFieldOfStudy: form.workInFieldOfStudy === "Yes",
-      unemployed5Years: form.unemployed5Years === "Yes",
-      hasDisability: form.hasDisability === "Yes",
-      didGraduate: form.didGraduate === "Yes",
-      schoolClosed: form.schoolClosed === "Yes",
-      is65OrOlder: form.is65OrOlder === "Yes",
-      appliedForIDR: form.appliedForIDR === "Yes",
-      madePriorPayments: form.madePriorPayments === "Yes",
-      contactedServicer: form.contactedServicer === "Yes",
+      hasFederalLoans: toBoolean(form.hasFederalLoans),
+      currentlyEmployed: toBoolean(form.currentlyEmployed),
+      workInFieldOfStudy: toBoolean(form.workInFieldOfStudy),
+      unemployed5Years: toBoolean(form.unemployed5Years),
+      hasDisability: toBoolean(form.hasDisability),
+      didGraduate: toBoolean(form.didGraduate),
+      schoolClosed: toBoolean(form.schoolClosed),
+      is65OrOlder: toBoolean(form.is65OrOlder),
+      appliedForIDR: toBoolean(form.appliedForIDR),
+      madePriorPayments: toBoolean(form.madePriorPayments),
+      contactedServicer: toBoolean(form.contactedServicer),
       // ── Dates (Prisma expects ISO-8601 DateTime, not YYYY-MM-DD) ──
       lastAttendedSchool: form.lastAttendedSchool
         ? new Date(form.lastAttendedSchool).toISOString()
@@ -227,7 +227,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row gap-6 relative items-start">
+      <div className="flex flex-col md:flex-row relative items-start gap-6">
         <div className="w-full md:w-2/3">
         <form
           id="edit-discharge-snapshot-form"
@@ -441,6 +441,16 @@ function EditSkeleton() {
   );
 }
 
+function extractSnapshotData(data: unknown): unknown {
+  if (!isRecord(data)) return data;
+
+  const directSnapshot =
+    firstRecord(data, ["snapshot", "dischargeSnapshot", "intakeSnapshot"]) ??
+    firstRecord(firstRecord(data, ["client"]) ?? {}, ["dischargeSnapshot", "intakeSnapshot"]);
+
+  return directSnapshot ? { ...data, snapshot: directSnapshot } : data;
+}
+
 function hydrateForm(data: unknown): EditFormData {
   const record = isRecord(data) ? data : {};
   const nestedProfile = firstRecord(record, ["profile", "caseProfile", "data"]) ?? record;
@@ -453,8 +463,9 @@ function hydrateForm(data: unknown): EditFormData {
     firstRecord(nestedProfile, ["dischargeSnapshot", "DischargeSnapshot"]) ??
     firstRecord(client, ["dischargeSnapshot", "DischargeSnapshot"]) ??
     {};
+  const directSnapshot = firstRecord(record, ["snapshot"]);
 
-  const records = collectHydrationRecords(client, intake, discharge, nestedProfile, record);
+  const records = collectHydrationRecords(directSnapshot ?? {}, discharge, intake, client, nestedProfile, record);
   const source = (...keys: string[]) => readString(records, keys);
   const yesNo = (keys: string[], fallback = "No", includeUnknown = false) =>
     normalizeYesNo(source(...keys), fallback, includeUnknown);
@@ -529,6 +540,12 @@ function collectHydrationRecords(...roots: Record<string, unknown>[]): Record<st
     "hardship",
     "education",
     "employment",
+    "borrowerInfo",
+    "loanInfo",
+    "household",
+    "prong1",
+    "prong2",
+    "prong3",
   ];
 
   function visit(source: Record<string, unknown>, depth: number) {
@@ -620,8 +637,19 @@ function formatMoney(value: number): string {
 }
 
 function toNumber(value: string, fallback = 0): number {
-  const cleaned = value.replace(/[$,\s]/g, "");
+  const cleaned = stripCurrency(value);
   if (cleaned === "") return fallback;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function stripCurrency(value: string): string {
+  return value.replace(/[$,\s]/g, "");
+}
+
+function toBoolean(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "yes" || normalized === "true") return true;
+  if (normalized === "no" || normalized === "false" || normalized === "i don't know") return false;
+  return Boolean(value);
 }

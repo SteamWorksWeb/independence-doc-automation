@@ -206,7 +206,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   }
 
   async function handleDelete() {
-    if (!activeModal) return;
+    if (!activeModal || isDeleting) return;
     const snapshotId = activeModal.snapshot.id;
 
     setIsDeleting(true);
@@ -219,16 +219,16 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         console.error("[delete-snapshot] Backend error:", res.status, body);
-        alert("Failed to delete lead. Please try again.");
-        return;
+        throw new Error(readApiMessage(body) ?? `Failed to delete lead (${res.status}).`);
       }
 
       // Success — optimistic removal + close
       setBorrowers((prev) => prev.filter((b) => b.id !== snapshotId));
       closeModal();
     } catch (err) {
-      console.error("[delete-snapshot] Network error:", err);
-      alert("Failed to delete lead. Please check your connection and try again.");
+      const message = err instanceof Error ? err.message : "Failed to delete lead.";
+      console.error("[delete-snapshot] Delete failed:", err);
+      alert(message);
     } finally {
       setIsDeleting(false);
     }
@@ -822,6 +822,13 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 }
 
 // ── Modal Overlay ─────────────────────────────────────────────────────────────
+
+function readApiMessage(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const record = data as Record<string, unknown>;
+  const message = record.message ?? record.error;
+  return typeof message === "string" && message.trim() ? message : null;
+}
 
 function ModalOverlay({
   children,

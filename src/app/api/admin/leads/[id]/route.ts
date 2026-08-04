@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -19,7 +19,7 @@ function buildBackendUrl(path: string): string | null {
 }
 
 export async function DELETE(
-  _req: Request,
+  _req: NextRequest,
   context: RouteContext
 ): Promise<NextResponse> {
   const { id } = await context.params;
@@ -47,6 +47,7 @@ export async function DELETE(
     backendRes = await fetch(targetUrl, {
       method: "DELETE",
       headers: {
+        Accept: "application/json",
         Authorization: `Bearer ${sessionCookie.value}`,
       },
       cache: "no-store",
@@ -59,7 +60,18 @@ export async function DELETE(
     );
   }
 
-  const data = await backendRes.json().catch(() => ({}));
+  if (backendRes.status === 204) {
+    return new NextResponse(null, { status: 204 });
+  }
+
+  const data = await backendRes.json().catch(() => null);
+  if (data == null) {
+    const fallbackMessage = backendRes.ok
+      ? "Lead deleted."
+      : `Delete failed (${backendRes.status}).`;
+    return NextResponse.json({ message: fallbackMessage }, { status: backendRes.status });
+  }
+
   return NextResponse.json(data, { status: backendRes.status });
 }
 
