@@ -119,9 +119,9 @@ async function forwardProfileMutation(
     );
   }
 
-  const targetUrl = buildBackendUrl(`/admin/clients/${id}/profile`);
+  const targetUrl = buildBackendUrl(`/admin/clients/${id}/snapshot`);
   if (!targetUrl) {
-    console.error("[proxy/admin/clients/:id/profile] NEXT_PUBLIC_AWS_API_URL is not set.");
+    console.error("[proxy/admin/clients/:id/snapshot] NEXT_PUBLIC_AWS_API_URL is not set.");
     return NextResponse.json(
       { message: "Server configuration error." },
       { status: 503 }
@@ -143,7 +143,7 @@ async function forwardProfileMutation(
       cache: "no-store",
     });
   } catch (error) {
-    console.error(`[proxy/admin/clients/:id/profile] ${method} network error:`, error);
+    console.error(`[proxy/admin/clients/:id/snapshot] ${method} network error:`, error);
     return NextResponse.json(
       { message: "Unable to reach the backend. Please try again." },
       { status: 502 }
