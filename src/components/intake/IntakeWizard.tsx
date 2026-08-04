@@ -12,9 +12,6 @@
 import { type FormEvent, useCallback, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
-import PersonalInfoStep, {
-  type PersonalInfoFormData,
-} from './steps/PersonalInfoStep';
 import ExpenseStep, {
   type ExpenseFormData,
 } from './steps/ExpenseStep';
@@ -99,7 +96,7 @@ interface FormData {
 
 const INITIAL: FormData = {
   firstName: '', lastName: '', email: '',
-  dob: '', ssn: '', county: '', phone: '', address: '', householdSize: '',
+  dob: '', ssn: '', county: '', phone: '', address: '', householdSize: '0',
   hasDisability: false, isEmployed: false, unemployed5of10: false, hasCar: false,
   monthlyIncome: '',
   expFood: '', expHousekeeping: '', expApparel: '', expPersonalCare: '',
@@ -112,6 +109,7 @@ const INITIAL: FormData = {
 
 const pf = (s: string) => parseFloat(s) || 0;
 const pi = (s: string) => parseInt(s, 10) || 0;
+const householdSizeForBackend = (additionalMembers: string) => pi(additionalMembers) + 1;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -194,7 +192,6 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     ...INITIAL,
     email: seededEmail,
   }));
-  const [borrowerEmail, setBorrowerEmail] = useState(seededEmail);
   const [password, setPassword]       = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountErrors, setAccountErrors] = useState<AccountSetupErrors>({});
@@ -260,7 +257,6 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       const setupEmail =
         extractBorrowerEmail(data) || await fetchCurrentBorrowerEmail();
       if (setupEmail) {
-        setBorrowerEmail(setupEmail);
         setForm((prev) => ({ ...prev, email: setupEmail }));
       }
 
@@ -274,17 +270,43 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     }
   };
 
-  const handlePersonalInfoNext = (data: PersonalInfoFormData) => {
-    const email = normalizeEmail(data.email);
-    setBorrowerEmail(email);
-    setForm((prev) => ({
-      ...prev,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email,
-      phone: data.phone,
-    }));
-    next();
+  const savePersonalHouseholdInfo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+
+    const payload = {
+      dob: form.dob || undefined,
+      ssn: form.ssn || undefined,
+      address: form.address || undefined,
+      county: form.county || undefined,
+      phone: form.phone || undefined,
+      householdSize: householdSizeForBackend(form.householdSize),
+    };
+
+    try {
+      const res = await fetch('/api/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const message =
+          typeof data.message === 'string' ? data.message :
+          typeof data.error === 'string' ? data.error :
+          'Failed to save your personal information.';
+        throw new Error(message);
+      }
+
+      next();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save your personal information.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleExpenseNext = (data: ExpenseFormData) => {
@@ -312,7 +334,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       county:  form.county  || undefined,
       phone:   form.phone   || undefined,
       address: form.address || undefined,
-      householdSize:   pi(form.householdSize),
+      householdSize:   householdSizeForBackend(form.householdSize),
       hasDisability:   form.hasDisability,
       isEmployed:      form.isEmployed,
       unemployed5of10: form.unemployed5of10,
@@ -372,6 +394,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       <label htmlFor={id} className={labelCls}>{label}</label>
       <input
         id={id}
+        name={id}
         type={opts?.type ?? 'text'}
         className={inputCls}
         value={form[id] as string}
@@ -388,6 +411,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
         <span className="absolute left-4 text-base text-text-muted font-medium pointer-events-none">$</span>
         <input
           id={id}
+          name={id}
           type="number"
           min="0"
           step="1"
@@ -400,17 +424,67 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     </div>
   );
 
-  const checkRow = (id: keyof FormData, label: string) => (
-    <label htmlFor={id} className="flex items-start gap-3 cursor-pointer py-2">
-      <input
-        id={id}
-        type="checkbox"
-        className="w-[18px] h-[18px] shrink-0 mt-0.5 accent-crimson cursor-pointer"
-        checked={form[id] as boolean}
-        onChange={(e) => update(id, e.target.checked as never)}
-      />
-      <span className="text-[0.9375rem] text-text-primary leading-[1.5] cursor-pointer">{label}</span>
-    </label>
+  const yesNoRow = (id: keyof FormData, label: string) => (
+    <div className="flex items-start justify-between gap-6 py-3 border-b border-border last:border-0 max-[540px]:flex-col max-[540px]:gap-2">
+      <label htmlFor={id} className="text-[0.9375rem] text-text-primary leading-[1.5] cursor-pointer">
+        {label}
+      </label>
+      <div className="relative shrink-0">
+        <select
+          id={id}
+          name={id}
+          className="w-32 py-2.5 px-3 border-[1.5px] border-border rounded-md bg-white font-sans text-[0.9375rem] text-text-primary transition-[border-color,box-shadow] duration-fast appearance-none focus:outline-none focus:border-crimson focus:shadow-[0_0_0_3px_rgba(179,30,60,0.1)]"
+          value={(form[id] as boolean) ? 'Yes' : 'No'}
+          onChange={(e) => update(id, (e.target.value === 'Yes') as never)}
+        >
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </div>
+    </div>
+  );
+
+  const personalHouseholdStep = (
+    <form
+      id={PERSONAL_INFO_FORM_ID}
+      onSubmit={savePersonalHouseholdInfo}
+      noValidate
+      className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]"
+    >
+      <div className="mb-6">
+        <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
+          Step 1
+        </p>
+        <h2 className="font-serif text-[1.5rem] text-navy mb-2">
+          Personal &amp; Household Information
+        </h2>
+      </div>
+      <div className="grid grid-cols-2 gap-4 mb-5 max-[540px]:grid-cols-1">
+        {textInput('dob', 'Date of Birth', { placeholder: 'MM/DD/YYYY' })}
+        {textInput('ssn', 'Social Security Number', { type: 'password', placeholder: 'XXX-XX-XXXX' })}
+        {textInput('address', 'Full Address', { colSpan: true, placeholder: '123 Main St, City, State, ZIP' })}
+        {textInput('county', 'County')}
+        {textInput('phone', 'Phone Number', { type: 'tel', placeholder: '(555) 555-5555' })}
+        <div>
+          <label htmlFor="householdSize" className={labelCls}>
+            Additional Household Members
+          </label>
+          <div className="relative flex items-center">
+            <span className="absolute left-4 text-base text-text-muted font-medium pointer-events-none">#</span>
+            <input
+              id="householdSize"
+              name="householdSize"
+              type="number"
+              min="0"
+              className={`${inputCls} pl-8`}
+              value={form.householdSize}
+              onChange={(e) => update('householdSize', e.target.value)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+      </div>
+    </form>
   );
 
   return (
@@ -572,17 +646,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
               )}
 
               {currentStep === 1 && (
-                <PersonalInfoStep
-                  formId={PERSONAL_INFO_FORM_ID}
-                  defaultValues={{
-                    firstName: form.firstName,
-                    lastName: form.lastName,
-                    email: borrowerEmail || form.email,
-                    phone: form.phone,
-                  }}
-                  lockedEmail={borrowerEmail || form.email}
-                  onSubmit={handlePersonalInfoNext}
-                />
+                personalHouseholdStep
               )}
 
               {currentStep === 2 && (
@@ -594,11 +658,11 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                     <h2 className="font-serif text-[1.5rem] text-navy mb-2">Health, Employment &amp; Assets</h2>
                   </div>
                   <div className="flex flex-col gap-5">
-                    <div className="flex flex-col gap-3 mb-2">
-                      {checkRow('hasDisability',   'Do you have a disability or chronic injury impacting income potential?')}
-                      {checkRow('isEmployed',       'Are you currently employed?')}
-                      {checkRow('unemployed5of10',  'Have you been unemployed for at least 5 of the last 10 years?')}
-                      {checkRow('hasCar',           'Do you own a vehicle?')}
+                    <div className="flex flex-col mb-2 rounded-md border border-border bg-white px-4 py-2">
+                      {yesNoRow('hasDisability',   'Do you have a disability or chronic injury impacting income potential?')}
+                      {yesNoRow('isEmployed',       'Are you currently employed?')}
+                      {yesNoRow('unemployed5of10',  'Have you been unemployed for at least 5 of the last 10 years?')}
+                      {yesNoRow('hasCar',           'Do you own a vehicle?')}
                     </div>
                     <div className="flex flex-col gap-2">
                       <label htmlFor="monthlyIncome" className={labelCls}>
@@ -608,6 +672,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                         <span className="absolute left-4 text-base text-text-muted font-medium pointer-events-none">$</span>
                         <input
                           id="monthlyIncome"
+                          name="monthlyIncome"
                           type="number"
                           min="0"
                           step="100"
@@ -664,33 +729,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
           ) : (
             <>
           {step === 1 && (
-            <div key="s1" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
-              <h2 className="font-serif text-[1.375rem] text-navy mb-2">Personal &amp; Household Information</h2>
-              <div className="grid grid-cols-2 gap-4 mb-5 max-[540px]:grid-cols-1">
-                {textInput('dob',  'Date of Birth',          { placeholder: 'MM/DD/YYYY' })}
-                {textInput('ssn',  'Social Security Number', { type: 'password', placeholder: 'XXX-XX-XXXX' })}
-                {textInput('address', 'Full Address',        { colSpan: true, placeholder: '123 Main St, City, State, ZIP' })}
-                {textInput('county', 'County')}
-                {textInput('phone',  'Phone Number',         { type: 'tel', placeholder: '(555) 555-5555' })}
-                <div>
-                  <label htmlFor="householdSize" className={labelCls}>
-                    Additional Household Members
-                  </label>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-4 text-base text-text-muted font-medium pointer-events-none">#</span>
-                    <input
-                      id="householdSize"
-                      type="number"
-                      min="0"
-                      className={`${inputCls} pl-8`}
-                      value={form.householdSize}
-                      onChange={(e) => update('householdSize', e.target.value)}
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
+            personalHouseholdStep
           )}
 
           {/* ── STEP 2: Health, Employment & Assets ───────────────────── */}
@@ -698,11 +737,11 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
             <div key="s2" className="min-h-[280px] animate-[stepEnter_0.35s_cubic-bezier(0.4,0,0.2,1)_both]">
               <h2 className="font-serif text-[1.375rem] text-navy mb-2">Health, Employment &amp; Assets</h2>
               <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-3 mb-2">
-                  {checkRow('hasDisability',   'Do you have a disability or chronic injury impacting income potential?')}
-                  {checkRow('isEmployed',       'Are you currently employed?')}
-                  {checkRow('unemployed5of10',  'Have you been unemployed for at least 5 of the last 10 years?')}
-                  {checkRow('hasCar',           'Do you own a vehicle?')}
+                <div className="flex flex-col mb-2 rounded-md border border-border bg-white px-4 py-2">
+                  {yesNoRow('hasDisability',   'Do you have a disability or chronic injury impacting income potential?')}
+                  {yesNoRow('isEmployed',       'Are you currently employed?')}
+                  {yesNoRow('unemployed5of10',  'Have you been unemployed for at least 5 of the last 10 years?')}
+                  {yesNoRow('hasCar',           'Do you own a vehicle?')}
                 </div>
                 <div className="flex flex-col gap-2">
                   <label htmlFor="monthlyIncome" className={labelCls}>
@@ -712,6 +751,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                     <span className="absolute left-4 text-base text-text-muted font-medium pointer-events-none">$</span>
                     <input
                       id="monthlyIncome"
+                      name="monthlyIncome"
                       type="number"
                       min="0"
                       step="100"
@@ -809,8 +849,9 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                   className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
                   onClick={currentStep === 1 || currentStep === 4 ? undefined : next}
                   type={currentStep === 1 || currentStep === 4 ? 'submit' : 'button'}
+                  disabled={isSubmitting}
                 >
-                  Next
+                  {isSubmitting && currentStep === 1 ? 'Saving...' : 'Next'}
                 </button>
               ) : (
                 <button
@@ -845,12 +886,13 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
           {step < LEGACY_TOTAL_STEPS ? (
             <button
               id="intake-next"
-              form={step === 4 ? EXPENSE_FORM_ID : undefined}
+              form={step === 1 ? PERSONAL_INFO_FORM_ID : step === 4 ? EXPENSE_FORM_ID : undefined}
               className="inline-flex items-center gap-2 py-3 px-7 bg-navy border-none rounded-md font-sans text-[0.9375rem] font-semibold text-white cursor-pointer transition-all duration-fast shadow-sm hover:bg-navy-hover hover:shadow-md hover:-translate-y-px"
-              onClick={step === 4 ? undefined : next}
-              type={step === 4 ? 'submit' : 'button'}
+              onClick={step === 1 || step === 4 ? undefined : next}
+              type={step === 1 || step === 4 ? 'submit' : 'button'}
+              disabled={isSubmitting}
             >
-              Next
+              {isSubmitting && step === 1 ? 'Saving...' : 'Next'}
             </button>
           ) : (
             <button

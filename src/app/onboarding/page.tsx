@@ -55,29 +55,34 @@ interface FormData {
   lastName: string;
   email: string;
   phone: string;
+  dob: string;
+  ssn: string;
   // Step 2
   hasFederalLoans: string;
   // Step 3
-  outstandingBalance: string;
+  principalBalance: string;
   householdSize: string;
   // Step 4
   monthlyGrossIncome: string;
   monthlyTakeHomePay: string;
   // Step 5
-  additionalMonthlyIncome: string;
+  additionalIncome: string;
   housingExpenses: string;
   transportationExpenses: string;
   dependentCareExpenses: string;
   // Step 6
-  currentlyEmployed: string;
+  isEmployed: string;
   workInFieldOfStudy: string;
-  unemployed5Years: string;
+  unemployed5PlusYears: string;
   hasDisability: string;
   // Step 7
   didGraduate: string;
   schoolClosed: string;
   lastAttendedSchool: string;
   is65OrOlder: string;
+  appliedForIDR: string;
+  madePriorPayments: string;
+  contactedServicer: string;
 }
 
 const INITIAL_FORM: FormData = {
@@ -85,23 +90,28 @@ const INITIAL_FORM: FormData = {
   lastName: "",
   email: "",
   phone: "",
+  dob: "",
+  ssn: "",
   hasFederalLoans: "",
-  outstandingBalance: "",
+  principalBalance: "",
   householdSize: "1",
   monthlyGrossIncome: "",
   monthlyTakeHomePay: "",
-  additionalMonthlyIncome: "",
+  additionalIncome: "",
   housingExpenses: "",
   transportationExpenses: "",
   dependentCareExpenses: "",
-  currentlyEmployed: "Yes",
+  isEmployed: "Yes",
   workInFieldOfStudy: "Yes",
-  unemployed5Years: "No",
+  unemployed5PlusYears: "No",
   hasDisability: "No",
   didGraduate: "Yes",
   schoolClosed: "No",
   lastAttendedSchool: "",
   is65OrOlder: "No",
+  appliedForIDR: "No",
+  madePriorPayments: "No",
+  contactedServicer: "No",
 };
 
 // ── Shared field styles ────────────────────────────────────────────────────────
@@ -136,6 +146,7 @@ function WizardInput({
     <div className="relative border border-[#d1d5db] rounded bg-white hover:border-[#9ca3af] focus-within:border-[#1d4ed8] focus-within:ring-2 focus-within:ring-[#1d4ed8]/12 transition-all duration-150">
       <input
         id={id}
+        name={id}
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -175,6 +186,7 @@ function CurrencyWizardInput({
       </span>
       <input
         id={id}
+        name={id}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -208,6 +220,7 @@ function YesNoRow({
       <div className="relative shrink-0">
         <select
           id={id}
+          name={id}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={selectRowCls}
@@ -228,16 +241,19 @@ function PrimaryBtn({
   id,
   label,
   onClick,
+  disabled = false,
 }: {
   id: string;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       id={id}
       onClick={onClick}
-      className="px-8 py-3.5 bg-[#1d4ed8] text-white font-semibold text-[0.9375rem] rounded hover:bg-[#1e40af] transition-colors duration-150 cursor-pointer shadow-sm"
+      disabled={disabled}
+      className="px-8 py-3.5 bg-[#1d4ed8] text-white font-semibold text-[0.9375rem] rounded hover:bg-[#1e40af] disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-150 cursor-pointer shadow-sm"
     >
       {label}
     </button>
@@ -292,16 +308,80 @@ export default function OnboardingPage() {
     }
   }
 
+  async function handleClientSetupContinue() {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await fetch("/api/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          firstName: formData.firstName || undefined,
+          lastName: formData.lastName || undefined,
+          email: formData.email || undefined,
+          phone: formData.phone || undefined,
+          dob: formData.dob || undefined,
+          ssn: formData.ssn || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = `Unable to save client setup (HTTP ${res.status}). Please try again.`;
+        try {
+          const errBody = await res.json();
+          if (errBody?.error) errMsg = errBody.error;
+          if (errBody?.message) errMsg = errBody.message;
+        } catch {
+          // ignore JSON parse failure
+        }
+        setSubmitError(errMsg);
+        return;
+      }
+
+      nextStep();
+    } catch (networkErr) {
+      console.error("[onboarding/client-setup] Network error:", networkErr);
+      setSubmitError("Network error. Please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleSubmit() {
     setIsSubmitting(true);
     setSubmitError(null);
+
+    const snapshotPayload = {
+      hasFederalLoans: formData.hasFederalLoans,
+      principalBalance: formData.principalBalance,
+      householdSize: formData.householdSize,
+      monthlyGrossIncome: formData.monthlyGrossIncome,
+      monthlyTakeHomePay: formData.monthlyTakeHomePay,
+      additionalIncome: formData.additionalIncome,
+      housingExpenses: formData.housingExpenses,
+      transportationExpenses: formData.transportationExpenses,
+      dependentCareExpenses: formData.dependentCareExpenses,
+      isEmployed: formData.isEmployed,
+      workInFieldOfStudy: formData.workInFieldOfStudy,
+      unemployed5PlusYears: formData.unemployed5PlusYears,
+      hasDisability: formData.hasDisability,
+      didGraduate: formData.didGraduate,
+      schoolClosed: formData.schoolClosed,
+      is65OrOlder: formData.is65OrOlder,
+      lastAttendedSchool: formData.lastAttendedSchool,
+      appliedForIDR: formData.appliedForIDR,
+      madePriorPayments: formData.madePriorPayments,
+      contactedServicer: formData.contactedServicer,
+    };
 
     try {
       const res = await fetch("/api/intake/snapshot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(snapshotPayload),
       });
 
       if (res.ok) {
@@ -327,9 +407,9 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc] flex flex-col items-center py-12 px-4">
+    <div className="min-h-screen bg-[#eef1f7] py-12 px-4">
       {/* ── Firm logo strip ─────────────────────────────────────────────────── */}
-      <div className="mb-10 flex items-center gap-3">
+      <div className="hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo.png"
@@ -339,7 +419,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* ── Wizard card ─────────────────────────────────────────────────────── */}
-      <div className="w-full max-w-[700px] bg-white rounded-2xl shadow-lg border border-[#e5e7eb] px-8 py-10">
+      <div className="mx-auto w-full max-w-[1026px]">
 
         {/* ── Progress bar (steps 2–7) ────────────────────────────────────── */}
         {step > 1 && (
@@ -372,46 +452,71 @@ export default function OnboardingPage() {
               id="step1-heading"
               className="text-[1.625rem] font-bold text-[#1d4ed8] mb-2"
             >
-              Your Information
+              Client Setup — Discharge Snapshot
             </h1>
             <p className="text-[0.9375rem] text-[#6b7280] mb-8">
-              Let&apos;s start with some basic information about you.
+              Complete the client information below.
             </p>
 
             <div className="space-y-4">
               <WizardInput
-                id="intake-first-name"
-                label="First Name"
+                id="firstName"
+                label="Borrower First Name"
                 value={formData.firstName}
                 onChange={set("firstName")}
               />
               <WizardInput
-                id="intake-last-name"
-                label="Last Name"
+                id="lastName"
+                label="Borrower Last Name"
                 value={formData.lastName}
                 onChange={set("lastName")}
               />
               <WizardInput
-                id="intake-email"
-                label="Email Address"
+                id="email"
+                label="Borrower Email"
                 value={formData.email}
                 onChange={set("email")}
                 type="email"
               />
               <WizardInput
-                id="intake-phone"
-                label="Phone Number"
+                id="phone"
+                label="Borrower Phone"
                 value={formData.phone}
                 onChange={set("phone")}
                 type="tel"
               />
+              <WizardInput
+                id="dob"
+                label="Birth Date"
+                value={formData.dob}
+                onChange={set("dob")}
+              />
+              <WizardInput
+                id="ssn"
+                label="Social Security Number"
+                value={formData.ssn}
+                onChange={set("ssn")}
+                type="password"
+              />
             </div>
+
+            {submitError && (
+              <div
+                role="alert"
+                className="mt-4 flex items-start gap-3 rounded-lg border border-[#fca5a5] bg-[#fff1f2] px-4 py-3"
+              >
+                <p className="text-[0.875rem] text-[#dc2626] leading-snug">
+                  {submitError}
+                </p>
+              </div>
+            )}
 
             <div className="mt-8">
               <PrimaryBtn
                 id="intake-step1-continue"
-                label="Save and Continue"
-                onClick={nextStep}
+                label={isSubmitting ? "Saving..." : "Save and Continue"}
+                onClick={handleClientSetupContinue}
+                disabled={isSubmitting}
               />
             </div>
           </section>
@@ -470,10 +575,10 @@ export default function OnboardingPage() {
 
             <div className="space-y-4 max-w-[480px]">
               <CurrencyWizardInput
-                id="intake-outstanding-balance"
+                id="principalBalance"
                 placeholder="Outstanding Principal Balance"
-                value={formData.outstandingBalance}
-                onChange={set("outstandingBalance")}
+                value={formData.principalBalance}
+                onChange={set("principalBalance")}
               />
 
               {/* Household size */}
@@ -482,7 +587,8 @@ export default function OnboardingPage() {
                   Household size
                 </span>
                 <select
-                  id="intake-household-size"
+                  id="householdSize"
+                  name="householdSize"
                   value={formData.householdSize}
                   onChange={(e) => set("householdSize")(e.target.value)}
                   className="flex-1 px-4 py-3.5 text-[0.9375rem] text-[#1a2744] outline-none bg-transparent cursor-pointer appearance-none"
@@ -524,13 +630,13 @@ export default function OnboardingPage() {
 
             <div className="space-y-4 max-w-[480px]">
               <CurrencyWizardInput
-                id="intake-gross-income"
+                id="monthlyGrossIncome"
                 placeholder="Monthly Gross Income"
                 value={formData.monthlyGrossIncome}
                 onChange={set("monthlyGrossIncome")}
               />
               <CurrencyWizardInput
-                id="intake-take-home-pay"
+                id="monthlyTakeHomePay"
                 placeholder="Monthly Take-Home Pay"
                 value={formData.monthlyTakeHomePay}
                 onChange={set("monthlyTakeHomePay")}
@@ -555,25 +661,25 @@ export default function OnboardingPage() {
 
             <div className="space-y-4 max-w-[480px]">
               <CurrencyWizardInput
-                id="intake-additional-income"
+                id="additionalIncome"
                 placeholder="Additional Monthly Income (household)"
-                value={formData.additionalMonthlyIncome}
-                onChange={set("additionalMonthlyIncome")}
+                value={formData.additionalIncome}
+                onChange={set("additionalIncome")}
               />
               <CurrencyWizardInput
-                id="intake-housing-expenses"
+                id="housingExpenses"
                 placeholder="Monthly Housing Expenses"
                 value={formData.housingExpenses}
                 onChange={set("housingExpenses")}
               />
               <CurrencyWizardInput
-                id="intake-transportation-expenses"
+                id="transportationExpenses"
                 placeholder="Transportation Expenses"
                 value={formData.transportationExpenses}
                 onChange={set("transportationExpenses")}
               />
               <CurrencyWizardInput
-                id="intake-dependent-care"
+                id="dependentCareExpenses"
                 placeholder="Monthly Dependent Care Expenses"
                 value={formData.dependentCareExpenses}
                 onChange={set("dependentCareExpenses")}
@@ -598,25 +704,25 @@ export default function OnboardingPage() {
 
             <div className="max-w-[600px] bg-white border border-[#e5e7eb] rounded-lg px-6 py-2">
               <YesNoRow
-                id="intake-currently-employed"
+                id="isEmployed"
                 label="Are you currently employed?"
-                value={formData.currentlyEmployed}
-                onChange={set("currentlyEmployed")}
+                value={formData.isEmployed}
+                onChange={set("isEmployed")}
               />
               <YesNoRow
-                id="intake-field-of-study"
+                id="workInFieldOfStudy"
                 label="Do you work in a field for which you went to school?"
                 value={formData.workInFieldOfStudy}
                 onChange={set("workInFieldOfStudy")}
               />
               <YesNoRow
-                id="intake-unemployed-5-years"
+                id="unemployed5PlusYears"
                 label="Have you been unemployed for 5 or more years in the last 10?"
-                value={formData.unemployed5Years}
-                onChange={set("unemployed5Years")}
+                value={formData.unemployed5PlusYears}
+                onChange={set("unemployed5PlusYears")}
               />
               <YesNoRow
-                id="intake-disability"
+                id="hasDisability"
                 label="Do you have a disability or chronic injury which limits your ability to work?"
                 value={formData.hasDisability}
                 onChange={set("hasDisability")}
@@ -641,13 +747,13 @@ export default function OnboardingPage() {
 
             <div className="max-w-[600px] bg-white border border-[#e5e7eb] rounded-lg px-6 py-2">
               <YesNoRow
-                id="intake-did-graduate"
+                id="didGraduate"
                 label="Did you graduate?"
                 value={formData.didGraduate}
                 onChange={set("didGraduate")}
               />
               <YesNoRow
-                id="intake-school-closed"
+                id="schoolClosed"
                 label="Is your school now closed?"
                 value={formData.schoolClosed}
                 onChange={set("schoolClosed")}
@@ -656,13 +762,14 @@ export default function OnboardingPage() {
               {/* Last attended school — date */}
               <div className="flex items-start justify-between gap-8 py-3 border-b border-[#f3f4f6]">
                 <label
-                  htmlFor="intake-last-attended"
+                  htmlFor="lastAttendedSchool"
                   className="text-[0.9375rem] text-[#374151] leading-snug flex-1 pt-0.5 cursor-pointer"
                 >
                   When did you last attend school?
                 </label>
                 <input
-                  id="intake-last-attended"
+                  id="lastAttendedSchool"
+                  name="lastAttendedSchool"
                   type="date"
                   value={formData.lastAttendedSchool}
                   onChange={(e) => set("lastAttendedSchool")(e.target.value)}
@@ -671,7 +778,7 @@ export default function OnboardingPage() {
               </div>
 
               <YesNoRow
-                id="intake-65-or-older"
+                id="is65OrOlder"
                 label="Are you 65 or older?"
                 value={formData.is65OrOlder}
                 onChange={set("is65OrOlder")}
@@ -721,7 +828,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* ── Legal footer ──────────────────────────────────────────────────────── */}
-      <p className="mt-6 text-[0.8125rem] text-[#9ca3af] text-center max-w-md">
+      <p className="hidden">
         All information is protected by attorney-client privilege and 256-bit
         SSL encryption.
       </p>
