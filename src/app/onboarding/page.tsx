@@ -30,7 +30,7 @@
  * <select> dropdowns (Yes/No) or block buttons matching the admin wizard.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -125,6 +125,19 @@ function normalizeDob(value: string): string {
   return trimmed;
 }
 
+function normalizeEmail(value: unknown): string {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? trimmed : "";
+}
+
+function formatSsn(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 9);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
 // ── Shared field styles ────────────────────────────────────────────────────────
 
 const inputCls =
@@ -144,6 +157,8 @@ function WizardInput({
   type = "text",
   required = true,
   disabled = false,
+  inputMode,
+  maxLength,
 }: {
   id: string;
   label: string;
@@ -152,6 +167,8 @@ function WizardInput({
   type?: string;
   required?: boolean;
   disabled?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  maxLength?: number;
 }) {
   return (
     <div className="relative border border-[#d1d5db] rounded bg-white hover:border-[#9ca3af] focus-within:border-[#1d4ed8] focus-within:ring-2 focus-within:ring-[#1d4ed8]/12 transition-all duration-150">
@@ -165,6 +182,8 @@ function WizardInput({
         className={inputCls}
         autoComplete="off"
         disabled={disabled}
+        inputMode={inputMode}
+        maxLength={maxLength}
       />
       {!value && (
         <div className="absolute inset-0 flex items-center px-5 pointer-events-none select-none">
@@ -311,6 +330,37 @@ export default function OnboardingPage({
 
   const set = (key: keyof FormData) => (value: string) =>
     setFormData((prev) => ({ ...prev, [key]: value }));
+
+  useEffect(() => {
+    if (formData.email) return;
+
+    let cancelled = false;
+
+    async function loadBorrowerEmail() {
+      try {
+        const res = await fetch("/api/public/auth/borrower-session", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+
+        const data = await res.json().catch(() => ({}));
+        const email = normalizeEmail(data?.email);
+        if (!cancelled && email) {
+          setFormData((prev) => ({ ...prev, email }));
+        }
+      } catch {
+        // Keep the field locked; the session proxy is the source of truth.
+      }
+    }
+
+    void loadBorrowerEmail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.email]);
 
   const nextStep = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
@@ -491,8 +541,9 @@ export default function OnboardingPage({
                 id="email"
                 label="Borrower Email"
                 value={formData.email}
-                onChange={set("email")}
+                onChange={() => undefined}
                 type="email"
+                disabled={true}
               />
               <WizardInput
                 id="phone"
@@ -506,14 +557,17 @@ export default function OnboardingPage({
                 label="Birth Date"
                 value={formData.dob}
                 onChange={set("dob")}
+                type="date"
                 required={false}
               />
               <WizardInput
                 id="ssn"
                 label="Social Security Number"
                 value={formData.ssn}
-                onChange={set("ssn")}
-                type="password"
+                onChange={(value) => set("ssn")(formatSsn(value))}
+                type="text"
+                inputMode="numeric"
+                maxLength={11}
                 required={false}
               />
             </div>
