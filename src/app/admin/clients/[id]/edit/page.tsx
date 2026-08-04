@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { FormEvent } from "react";
 import { use, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DischargeVerdictBadge from "@/components/admin/DischargeVerdictBadge";
@@ -110,7 +111,8 @@ export default function EditClientDischargePage({ params }: PageProps) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  async function handleSave() {
+  async function handleSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setIsSaving(true);
     setSaveError(null);
 
@@ -174,8 +176,8 @@ export default function EditClientDischargePage({ params }: PageProps) {
           </p>
         </div>
         <button
-          type="button"
-          onClick={handleSave}
+          type="submit"
+          form="edit-discharge-snapshot-form"
           disabled={isSaving}
           className="h-10 rounded-md bg-[#2563eb] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#1d4ed8] disabled:cursor-wait disabled:opacity-60"
         >
@@ -190,7 +192,11 @@ export default function EditClientDischargePage({ params }: PageProps) {
       )}
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <form className="rounded-lg border border-border bg-white shadow-sm" onSubmit={(e) => e.preventDefault()}>
+        <form
+          id="edit-discharge-snapshot-form"
+          className="rounded-lg border border-border bg-white shadow-sm"
+          onSubmit={handleSave}
+        >
           <Section title="Borrower">
             <Field label="First Name"><TextInput value={form.firstName} onChange={set("firstName")} /></Field>
             <Field label="Last Name"><TextInput value={form.lastName} onChange={set("lastName")} /></Field>
@@ -231,7 +237,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
           </Section>
         </form>
 
-        <aside className="rounded-lg border border-border bg-white p-5 shadow-sm lg:sticky lg:top-4 lg:self-start">
+        <aside className="self-start rounded-lg border border-border bg-white p-5 shadow-sm lg:sticky lg:top-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[0.6875rem] font-bold uppercase tracking-[0.07em] text-text-muted">

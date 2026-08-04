@@ -88,14 +88,16 @@ export function isDischargeVerdictStatus(value: unknown): value is DischargeVerd
 }
 
 export function calculateProjectedDOJStatus(formData: DOJProjectionInput): DOJProjection {
-  const baseIncome =
-    parseCurrency(formData.monthlyTakeHomePay) || parseCurrency(formData.monthlyGrossIncome);
+  const takeHome = parseCurrency(formData.monthlyTakeHomePay);
+  const grossIncome = parseCurrency(formData.monthlyGrossIncome);
   const additionalIncome = parseCurrency(formData.additionalMonthlyIncome);
+  const housingExpenses = parseCurrency(formData.housingExpenses);
+  const transportationExpenses = parseCurrency(formData.transportationExpenses);
+  const dependentCareExpenses = parseCurrency(formData.dependentCareExpenses);
+
+  const baseIncome = takeHome || grossIncome;
   const totalIncome = baseIncome + additionalIncome;
-  const totalExpenses =
-    parseCurrency(formData.housingExpenses) +
-    parseCurrency(formData.transportationExpenses) +
-    parseCurrency(formData.dependentCareExpenses);
+  const totalExpenses = housingExpenses + transportationExpenses + dependentCareExpenses;
   const disposableIncome = totalIncome - totalExpenses;
 
   const hasFederalLoans = isYes(formData.hasFederalLoans);
@@ -143,7 +145,7 @@ export function calculateProjectedDOJStatus(formData: DOJProjectionInput): DOJPr
 
 function parseCurrency(raw?: string): number {
   if (!raw || raw.trim() === "") return 0;
-  const n = Number.parseFloat(raw.replace(/[$,\s]/g, ""));
+  const n = Number(raw.replace(/[$,\s]/g, ""));
   return Number.isFinite(n) ? n : 0;
 }
 
