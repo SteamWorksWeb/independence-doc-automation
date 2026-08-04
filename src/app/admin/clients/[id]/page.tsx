@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactElement } from "react";
 import { use, useEffect, useMemo, useState } from "react";
+import { isDischargeVerdictStatus, type DischargeVerdictStatus } from "@/lib/dischargeVerdict";
 
 type TabId = "intake" | "documents" | "messages" | "notes";
 
@@ -51,11 +52,6 @@ interface CaseDocument {
 }
 
 type DocActionState = "idle" | "viewing" | "deleting";
-type DischargeVerdictStatus =
-  | "HIGH_PROBABILITY"
-  | "BORDERLINE"
-  | "LOW_PROBABILITY"
-  | "PENDING";
 type IntakeSection = {
   title: string;
   entries: Array<[string, unknown]>;
@@ -886,15 +882,6 @@ function readGoodFaithValue(
 
 function hasVerdictStatus(source: Record<string, unknown>): boolean {
   return isDischargeVerdictStatus(source.status);
-}
-
-function isDischargeVerdictStatus(value: unknown): value is DischargeVerdictStatus {
-  return (
-    value === "HIGH_PROBABILITY" ||
-    value === "BORDERLINE" ||
-    value === "LOW_PROBABILITY" ||
-    value === "PENDING"
-  );
 }
 
 function getClientName(client: ClientSummary): string {

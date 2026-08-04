@@ -18,12 +18,13 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
-import DischargeVerdictBadge, {
+import DischargeVerdictBadge from "@/components/admin/DischargeVerdictBadge";
+import {
   DISCHARGE_VERDICT_STATUSES,
   getDischargeVerdictActiveClass,
   getDischargeVerdictLabel,
   type DischargeVerdictStatus,
-} from "@/components/admin/DischargeVerdictBadge";
+} from "@/lib/dischargeVerdict";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

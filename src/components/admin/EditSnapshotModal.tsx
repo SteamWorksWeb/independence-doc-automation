@@ -13,7 +13,8 @@
 import React, { useState, useEffect } from "react";
 import StaffMessageThread from "@/components/messaging/StaffMessageThread";
 import AdminFinancialScoreboard from "@/components/admin/AdminFinancialScoreboard";
-import DischargeVerdictBadge, { type DischargeVerdictStatus } from "@/components/admin/DischargeVerdictBadge";
+import DischargeVerdictBadge from "@/components/admin/DischargeVerdictBadge";
+import type { DischargeVerdictStatus } from "@/lib/dischargeVerdict";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
