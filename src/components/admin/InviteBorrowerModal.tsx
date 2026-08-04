@@ -107,12 +107,10 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
       setModalState("loading");
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
-        const res = await fetch(`${apiUrl}/admin/leads/invite`, {
+        const res = await fetch('/api/admin/leads/invite', {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
           },
           body: JSON.stringify({ email: trimmed.toLowerCase() }),
         });
@@ -126,10 +124,10 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
 
         const data = await res.json();
         setResult({
-          token: data.token,
-          inviteLink: data.inviteLink,
-          email: trimmed.toLowerCase(),
-          message: data.message,
+          token:      (data.invitation as Record<string, unknown> | undefined)?.token as string | undefined ?? data.token as string | undefined,
+          inviteLink: data.inviteLink as string | undefined,
+          email:      trimmed.toLowerCase(),
+          message:    data.message as string | undefined,
         });
         setModalState("success");
         // Notify any sibling components that a lead invite was sent
@@ -141,7 +139,7 @@ export default function InviteBorrowerModal({ adminToken, autoOpen, onClose }: I
         setModalState("error");
       }
     },
-    [email, adminToken]
+    [email]
   );
 
   // ── Copy to clipboard ──────────────────────────────────────────────────────
