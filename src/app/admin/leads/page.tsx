@@ -18,6 +18,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import DischargeSnapshotsTable from "@/components/admin/DischargeSnapshotsTable";
 import type { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
+import { isDischargeVerdictStatus, type DischargeVerdictStatus } from "@/components/admin/DischargeVerdictBadge";
 import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
 
 export const metadata: Metadata = {
@@ -32,7 +33,7 @@ interface ApiSnapshot {
   id: string;
   createdAt: string;
   updatedAt: string;
-  isDischargeable: boolean | null;
+  isDischargeable?: boolean | null;
   status?: string;
   lowestMonthlyPayment?: number | string | null;
   /**
@@ -101,12 +102,7 @@ function resolveUserName(
 
 /** Map a raw API snapshot to the SnapshotBorrower shape the UI/modal expect */
 function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
-  let dischargeable: SnapshotBorrower["dischargeable"] = "Incomplete";
-  if (snap.isDischargeable === true || snap.status === "dischargeable") {
-    dischargeable = "Yes";
-  } else if (snap.isDischargeable === false || snap.status === "not_dischargeable") {
-    dischargeable = "No";
-  }
+  const status = resolveDischargeVerdictStatus(snap);
 
   let lowestMonthlyPayment: string | undefined;
   if (snap.lowestMonthlyPayment != null) {
@@ -140,7 +136,7 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
     createdBy: resolveUserName(snap.createdByUser),
     lastUpdated: formatTimestamp(snap.updatedAt),
     lastUpdatedBy: resolveUserName(snap.updatedByUser),
-    dischargeable,
+    status,
     lowestMonthlyPayment,
     client: snap.client
       ? {
@@ -155,6 +151,21 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
         }
       : undefined,
   };
+}
+
+function resolveDischargeVerdictStatus(snap: ApiSnapshot): DischargeVerdictStatus {
+  if (isDischargeVerdictStatus(snap.status)) {
+    return snap.status;
+  }
+
+  // Backward compatibility for records created before the DOJ verdict rollout.
+  if (snap.isDischargeable === true || snap.status === "dischargeable") {
+    return "HIGH_PROBABILITY";
+  }
+  if (snap.isDischargeable === false || snap.status === "not_dischargeable") {
+    return "LOW_PROBABILITY";
+  }
+  return "PENDING";
 }
 
 // ── Secure data fetch (Server-side — token never exposed to browser) ───────────

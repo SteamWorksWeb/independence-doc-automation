@@ -18,10 +18,16 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import EditSnapshotModal, { SnapshotBorrower } from "@/components/admin/EditSnapshotModal";
+import DischargeVerdictBadge, {
+  DISCHARGE_VERDICT_STATUSES,
+  getDischargeVerdictActiveClass,
+  getDischargeVerdictLabel,
+  type DischargeVerdictStatus,
+} from "@/components/admin/DischargeVerdictBadge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type DischargeFilter = "All" | "Incomplete" | "Yes" | "No" | "Archived";
+type DischargeFilter = "All" | DischargeVerdictStatus | "Archived";
 type ModalType = "manage" | "archive" | "delete" | "status";
 
 interface ActiveModal {
@@ -40,17 +46,8 @@ interface Props {
 const FILTER_OPTIONS: { value: DischargeFilter; label: string; icon?: React.ReactElement }[] = [
   { value: "All", label: "All" },
   {
-    value: "Incomplete",
-    label: "Incomplete",
-    icon: (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
-  {
-    value: "Yes",
-    label: "Dischargeable",
+    value: "HIGH_PROBABILITY",
+    label: "High Probability",
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <polyline points="20 6 9 17 4 12" />
@@ -58,11 +55,29 @@ const FILTER_OPTIONS: { value: DischargeFilter; label: string; icon?: React.Reac
     ),
   },
   {
-    value: "No",
-    label: "Not Dischargeable",
+    value: "BORDERLINE",
+    label: "Borderline",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+    ),
+  },
+  {
+    value: "LOW_PROBABILITY",
+    label: "Low Probability",
     icon: (
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    ),
+  },
+  {
+    value: "PENDING",
+    label: "Incomplete/Pending",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
       </svg>
     ),
   },
@@ -81,22 +96,11 @@ const FILTER_OPTIONS: { value: DischargeFilter; label: string; icon?: React.Reac
 
 const ACTIVE_PILL_STYLES: Record<DischargeFilter, string> = {
   All: "bg-navy text-white shadow-sm",
-  Incomplete: "bg-warning text-white shadow-sm",
-  Yes: "bg-success text-white shadow-sm",
-  No: "bg-text-muted text-white shadow-sm",
+  HIGH_PROBABILITY: getDischargeVerdictActiveClass("HIGH_PROBABILITY"),
+  BORDERLINE: getDischargeVerdictActiveClass("BORDERLINE"),
+  LOW_PROBABILITY: getDischargeVerdictActiveClass("LOW_PROBABILITY"),
+  PENDING: getDischargeVerdictActiveClass("PENDING"),
   Archived: "bg-[#6b7280] text-white shadow-sm",
-};
-
-const STATUS_BADGE_STYLES: Record<SnapshotBorrower["dischargeable"], string> = {
-  Incomplete: "bg-warning-bg text-warning",
-  Yes: "bg-success-bg text-success",
-  No: "bg-bg-alt text-text-muted",
-};
-
-const STATUS_BADGE_LABELS: Record<SnapshotBorrower["dischargeable"], string> = {
-  Incomplete: "Incomplete",
-  Yes: "Dischargeable",
-  No: "Not Dischargeable",
 };
 
 // ── Stat pill ─────────────────────────────────────────────────────────────────
@@ -147,7 +151,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   const [activeFilter, setActiveFilter] = useState<DischargeFilter>("All");
   const [editBorrower, setEditBorrower] = useState<SnapshotBorrower | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string>("Incomplete");
+  const [selectedStatus, setSelectedStatus] = useState<DischargeVerdictStatus>("PENDING");
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingStatus, setIsSavingStatus] = useState(false);
 
@@ -158,7 +162,14 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
   // ── Derived counts ──────────────────────────────────────────────────────────
   const counts = useMemo(() => {
-    const map: Record<DischargeFilter, number> = { All: 0, Incomplete: 0, Yes: 0, No: 0, Archived: 0 };
+    const map: Record<DischargeFilter, number> = {
+      All: 0,
+      HIGH_PROBABILITY: 0,
+      BORDERLINE: 0,
+      LOW_PROBABILITY: 0,
+      PENDING: 0,
+      Archived: 0,
+    };
     for (const b of borrowers) {
       if (b.pipelineStatus === "Archived") {
         map.Archived += 1;
@@ -166,9 +177,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
         continue;
       }
       map.All += 1;
-      if (b.dischargeable === "Incomplete") map.Incomplete += 1;
-      else if (b.dischargeable === "Yes") map.Yes += 1;
-      else if (b.dischargeable === "No") map.No += 1;
+      map[b.status] += 1;
     }
     return map;
   }, [borrowers]);
@@ -180,7 +189,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
         ? borrowers.filter((b) => b.pipelineStatus !== "Archived")
         : activeFilter === "Archived"
         ? borrowers.filter((b) => b.pipelineStatus === "Archived")
-        : borrowers.filter((b) => b.dischargeable === activeFilter && b.pipelineStatus !== "Archived"),
+        : borrowers.filter((b) => b.status === activeFilter && b.pipelineStatus !== "Archived"),
     [borrowers, activeFilter]
   );
 
@@ -188,7 +197,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
   // ── Modal helpers ───────────────────────────────────────────────────────────
   function openModal(type: ModalType, snapshot: SnapshotBorrower) {
-    setSelectedStatus(snapshot.dischargeable);
+    setSelectedStatus(snapshot.status);
     setActiveModal({ type, snapshot });
   }
 
@@ -266,13 +275,6 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
     if (!activeModal) return;
     const snapshotId = activeModal.snapshot.id;
 
-    const mapped: SnapshotBorrower["dischargeable"] =
-      selectedStatus === "Complete"
-        ? "Yes"
-        : selectedStatus === "Not Started" || selectedStatus === "Archived"
-        ? "No"
-        : "Incomplete";
-
     setIsSavingStatus(true);
     try {
       const res = await fetch(`/api/admin/leads/${snapshotId}/status`, {
@@ -294,7 +296,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
       // Success — update local state and close
       setBorrowers((prev) =>
         prev.map((b) =>
-          b.id === snapshotId ? { ...b, dischargeable: mapped } : b
+          b.id === snapshotId ? { ...b, status: selectedStatus } : b
         )
       );
       closeModal();
@@ -309,11 +311,12 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
   return (
     <>
       {/* ── Stat pill strip ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-3 max-[1024px]:grid-cols-2 max-[640px]:grid-cols-2 max-[400px]:grid-cols-1 mb-6">
+      <div className="grid grid-cols-5 gap-3 max-[1180px]:grid-cols-3 max-[760px]:grid-cols-2 max-[400px]:grid-cols-1 mb-6">
         <StatPill label="Total Leads" value={fetchError ? "—" : String(counts.All)} color="navy" />
-        <StatPill label="Incomplete" value={fetchError ? "—" : String(counts.Incomplete)} color="warning" />
-        <StatPill label="Dischargeable" value={fetchError ? "—" : String(counts.Yes)} color="success" />
-        <StatPill label="Not Dischargeable" value={fetchError ? "—" : String(counts.No)} color="muted" />
+        <StatPill label="High Probability" value={fetchError ? "—" : String(counts.HIGH_PROBABILITY)} color="success" />
+        <StatPill label="Borderline" value={fetchError ? "—" : String(counts.BORDERLINE)} color="warning" />
+        <StatPill label="Low Probability" value={fetchError ? "—" : String(counts.LOW_PROBABILITY)} color="muted" />
+        <StatPill label="Incomplete/Pending" value={fetchError ? "—" : String(counts.PENDING)} color="info" />
       </div>
 
       {/* ── Main table card ───────────────────────────────────────────────── */}
@@ -487,12 +490,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
                     {/* Status badge */}
                     <td className="py-3.5 px-4 align-middle">
-                      <span
-                        className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-xs font-semibold tracking-[0.02em] whitespace-nowrap ${STATUS_BADGE_STYLES[borrower.dischargeable]}`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-current opacity-80" aria-hidden />
-                        {STATUS_BADGE_LABELS[borrower.dischargeable]}
-                      </span>
+                      <DischargeVerdictBadge status={borrower.status} />
                     </td>
 
                     {/* Action — single Manage button, no dropdown */}
@@ -627,7 +625,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
 
               <ManageActionBtn
                 icon={<StatusIcon />}
-                label="Change Status"
+                label="Change Verdict"
                 color="navy"
                 onClick={() =>
                   setActiveModal({ type: "status", snapshot: activeModal.snapshot })
@@ -763,12 +761,12 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
                 <StatusIcon color="white" />
               </div>
               <h3 className="font-serif font-bold text-white text-[1.0625rem]">
-                Override Pipeline Status
+                Override DOJ Verdict
               </h3>
             </div>
             <div className="px-6 py-5 flex flex-col gap-4">
               <p className="text-[0.9rem] text-text-secondary leading-relaxed">
-                Manually set the pipeline status for{" "}
+                Manually set the DOJ analyzer verdict for{" "}
                 <strong className="text-text-primary">
                   {activeModal.snapshot.firstName} {activeModal.snapshot.lastName}
                 </strong>
@@ -776,19 +774,20 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
               </p>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="ds-status-select" className="text-[0.8125rem] font-semibold text-text-primary">
-                  New Status
+                  New Verdict
                 </label>
                 <div className="relative">
                   <select
                     id="ds-status-select"
                     value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    onChange={(e) => setSelectedStatus(e.target.value as DischargeVerdictStatus)}
                     className="w-full border border-border rounded-lg px-3 py-2.5 text-[0.875rem] text-text-primary bg-white outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 transition-all duration-150 appearance-none cursor-pointer pr-8"
                   >
-                    <option value="Not Started">Not Started</option>
-                    <option value="Incomplete">Incomplete</option>
-                    <option value="Complete">Complete</option>
-                    <option value="Archived">Archived</option>
+                    {DISCHARGE_VERDICT_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {getDischargeVerdictLabel(status)}
+                      </option>
+                    ))}
                   </select>
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -812,7 +811,7 @@ export default function DischargeSnapshotsTable({ initialBorrowers, fetchError, 
                 disabled={isSavingStatus}
                 className="px-5 py-2.5 rounded-lg bg-[#2563eb] text-white text-[0.875rem] font-bold hover:bg-[#1d4ed8] transition-colors duration-150 cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isSavingStatus ? "Saving…" : "Save Status"}
+                {isSavingStatus ? "Saving…" : "Save Verdict"}
               </button>
             </div>
           </div>

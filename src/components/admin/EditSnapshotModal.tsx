@@ -13,6 +13,7 @@
 import React, { useState, useEffect } from "react";
 import StaffMessageThread from "@/components/messaging/StaffMessageThread";
 import AdminFinancialScoreboard from "@/components/admin/AdminFinancialScoreboard";
+import DischargeVerdictBadge, { type DischargeVerdictStatus } from "@/components/admin/DischargeVerdictBadge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ export interface SnapshotBorrower {
   createdBy: string;
   lastUpdated: string;
   lastUpdatedBy: string;
-  dischargeable: "Yes" | "Incomplete" | "No";
+  status: DischargeVerdictStatus;
   lowestMonthlyPayment?: string;
   pipelineStatus?: string; // e.g. "Archived" — separate from discharge eligibility
   client?: {
@@ -267,7 +268,10 @@ export default function EditSnapshotModal({
                   <span className="text-[#9ca3af]">N/A</span>
                 )}
               </div>
-              <div><span className="font-semibold">Dischargeable?:</span> {borrower.dischargeable}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">DOJ Verdict:</span>
+                <DischargeVerdictBadge status={borrower.status} />
+              </div>
               <div><span className="font-semibold">Lowest Monthly Payment:</span> {borrower.lowestMonthlyPayment ?? "$314.25"}</div>
             </div>
 
