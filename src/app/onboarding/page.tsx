@@ -31,7 +31,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -394,7 +394,6 @@ export default function OnboardingPage({
 }: {
   initialEmail?: string;
 } = {}) {
-  const router = useRouter();
   const [step, setStep] = useState(1);
   const [showWarning, setShowWarning] = useState(false);
   const [formData, setFormData] = useState<FormData>(() => ({
@@ -402,6 +401,7 @@ export default function OnboardingPage({
     email: initialEmail,
   }));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const set = (key: keyof FormData) => (value: string) =>
@@ -511,6 +511,8 @@ export default function OnboardingPage({
     setSubmitError(null);
 
     const snapshotPayload = {
+      firstName: formData.firstName.trim(),
+      lastName: formData.lastName.trim(),
       hasFederalLoans: formData.hasFederalLoans,
       principalBalance: formData.principalBalance,
       householdSize: toInt(formData.householdSize, 1),
@@ -542,7 +544,7 @@ export default function OnboardingPage({
       });
 
       if (res.ok) {
-        router.push("/dashboard");
+        setIsSubmitted(true);
         return;
       }
 
@@ -561,6 +563,50 @@ export default function OnboardingPage({
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-[#eef1f7] px-4 py-12">
+        <div className="mx-auto flex min-h-[70vh] w-full max-w-[680px] items-center justify-center">
+          <section
+            aria-labelledby="intake-complete-heading"
+            className="w-full rounded-lg border border-[#d1d5db] bg-white px-8 py-10 text-center shadow-sm"
+          >
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-[#dcfce7] text-[#15803d]">
+              <svg
+                width="34"
+                height="34"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
+            <h1
+              id="intake-complete-heading"
+              className="mb-3 text-[2rem] font-bold text-[#1a2744]"
+            >
+              Intake Complete
+            </h1>
+            <p className="mx-auto mb-8 max-w-[460px] text-[1rem] leading-relaxed text-[#6b7280]">
+              Your information has been securely submitted to your attorney.
+            </p>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded bg-[#1d4ed8] px-8 py-3.5 text-[0.9375rem] font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-[#1e40af] hover:no-underline"
+            >
+              Go to My Dashboard
+            </Link>
+          </section>
+        </div>
+      </div>
+    );
   }
 
   return (
