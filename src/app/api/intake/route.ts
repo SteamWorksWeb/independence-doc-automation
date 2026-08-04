@@ -75,7 +75,13 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { error: text || response.statusText || 'Backend returned a non-JSON response' };
+    }
 
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status });

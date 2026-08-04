@@ -114,6 +114,17 @@ const INITIAL_FORM: FormData = {
   contactedServicer: "No",
 };
 
+function normalizeDob(value: string): string {
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (/^\d{8}$/.test(digits)) {
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  }
+
+  return trimmed;
+}
+
 // ── Shared field styles ────────────────────────────────────────────────────────
 
 const inputCls =
@@ -325,12 +336,10 @@ export default function OnboardingPage({
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          firstName: formData.firstName || undefined,
-          lastName: formData.lastName || undefined,
-          email: formData.email || undefined,
           phone: formData.phone || undefined,
-          dob: formData.dob || undefined,
+          dob: normalizeDob(formData.dob) || undefined,
           ssn: formData.ssn || undefined,
+          householdSize: Number.parseInt(formData.householdSize, 10) || 1,
         }),
       });
 
@@ -497,6 +506,7 @@ export default function OnboardingPage({
                 label="Birth Date"
                 value={formData.dob}
                 onChange={set("dob")}
+                required={false}
               />
               <WizardInput
                 id="ssn"
@@ -504,6 +514,7 @@ export default function OnboardingPage({
                 value={formData.ssn}
                 onChange={set("ssn")}
                 type="password"
+                required={false}
               />
             </div>
 
