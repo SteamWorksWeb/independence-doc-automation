@@ -531,6 +531,7 @@ export default function OnboardingPage({
     setSubmitError(null);
 
     const snapshotPayload = {
+      email: formData.email.trim() || undefined,
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       hasFederalLoans: formData.hasFederalLoans,

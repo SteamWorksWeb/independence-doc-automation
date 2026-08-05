@@ -22,7 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const CLIENT_COOKIE_NAMES = ['client_token', 'borrower_session'] as const;
+const CLIENT_COOKIE_NAMES = ['borrower_session', 'client_token'] as const;
 
 function getBackendUrl(): string | null {
   const base = process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, '');
