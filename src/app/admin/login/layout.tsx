@@ -1,18 +1,13 @@
 /**
  * src/app/admin/login/layout.tsx
  *
- * Isolated layout for the admin login route.
- * Completely separate from the client portal layout — no shared nav,
- * no shared session context, no marketing copy.
+ * Minimal pass-through layout for the admin login route.
  *
- * Renders:
- *   - Brand mark fixed top-left (logo + firm name only)
- *   - Full-viewport textured background
- *   - Children (the admin form) are centered via CSS grid
+ * The visual layout (sidebar, background, centering) is now handled
+ * entirely by AuthLayout + AuthSidebar in admin/login/page.tsx.
  */
 
 import type { Metadata } from "next";
-import styles from "./layout.module.css";
 
 export const metadata: Metadata = {
   title: "Administration | Liberty",
@@ -29,23 +24,5 @@ export default function AdminLoginLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className={styles.root}>
-      {/* ── Brand mark: top-left only ─────────────────────── */}
-      <header className={styles.brand} aria-label="Firm identity">
-        <ScalesIcon />
-
-      </header>
-
-      {/* ── Centered content slot ─────────────────────────── */}
-      <main className={styles.center}>{children}</main>
-
-      {/* ── Discreet version stamp ────────────────────────── */}
-      <footer className={styles.footer} aria-hidden>
-        Admin Console
-      </footer>
-    </div>
-  );
+  return <>{children}</>;
 }
-
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} /> }

@@ -1,25 +1,21 @@
 /**
  * src/app/login/layout.tsx
  *
- * Isolated layout for the client login route.
- * Completely separate from the admin login — no shared session context.
+ * Minimal pass-through layout for the client login route.
  *
- * Renders:
- *   - Brand mark fixed top-left (logo + firm name)
- *   - Full-viewport textured background (matches admin vault aesthetic)
- *   - Children (the login form) centered via CSS grid
- *   - Footer stamp: "Client Portal"
+ * The visual layout (sidebar, background, centering) is now handled
+ * entirely by AuthLayout + AuthSidebar in login/page.tsx — this layout
+ * exists only to set the route metadata and import globals.css.
  */
 
 import type { Metadata } from "next";
-import styles from "./layout.module.css";
+import "../globals.css";
 
 export const metadata: Metadata = {
   title: "Client Sign In — Liberty",
   description:
     "Securely sign in to the Liberty Client Portal to access your case documents.",
   robots: {
-    // Indexable — clients need to be able to find this page
     index: true,
     follow: false,
   },
@@ -30,23 +26,5 @@ export default function ClientLoginLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className={styles.root}>
-      {/* ── Brand mark: top-left only ─────────────────────── */}
-      <header className={styles.brand} aria-label="Firm identity">
-        <ScalesIcon />
-
-      </header>
-
-      {/* ── Centered content slot ─────────────────────────── */}
-      <main className={styles.center}>{children}</main>
-
-      {/* ── Discreet footer stamp ─────────────────────────── */}
-      <footer className={styles.footer} aria-hidden>
-        Client Portal
-      </footer>
-    </div>
-  );
+  return <>{children}</>;
 }
-
-function ScalesIcon() { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "200px", objectFit: "contain" }} /> }

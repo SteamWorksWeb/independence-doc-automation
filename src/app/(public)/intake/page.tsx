@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import IntakeWizard from '@/components/intake/IntakeWizard';
+import {
+  AuthLayout,
+  AuthSidebar,
+  AuthWizardPanel,
+} from '@/components/auth/AuthSidebar';
 
 export const metadata: Metadata = {
   title: 'Borrower Intake | Liberty',
@@ -29,7 +33,14 @@ export default async function IntakePage({ searchParams }: IntakePageProps) {
     return <InvalidInvitationLink />;
   }
 
-  return <IntakeWizard token={token} />;
+  return (
+    <AuthLayout>
+      <AuthSidebar />
+      <AuthWizardPanel>
+        <IntakeWizard token={token} />
+      </AuthWizardPanel>
+    </AuthLayout>
+  );
 }
 
 function InvalidInvitationLink() {
@@ -48,12 +59,12 @@ function InvalidInvitationLink() {
         <p className="text-[0.9375rem] text-text-muted leading-relaxed mb-6">
           This intake invitation link is missing its secure token. Please use the latest link from your email or contact your legal team for a new invitation.
         </p>
-        <Link
+        <a
           href="/login"
           className="inline-flex items-center justify-center rounded-md bg-navy px-5 py-3 text-[0.9375rem] font-semibold text-white shadow-sm transition-all duration-fast hover:-translate-y-px hover:bg-navy-hover hover:no-underline"
         >
           Go to Portal Sign In
-        </Link>
+        </a>
       </section>
     </main>
   );

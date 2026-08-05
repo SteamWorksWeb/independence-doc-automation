@@ -1,17 +1,20 @@
 /**
  * src/app/login/page.tsx
  *
- * Client Login Page — thin page that renders the ClientLoginForm component.
+ * Client Login Page — two-column layout with brand sidebar.
  *
- * The <Suspense> boundary is required by Next.js App Router whenever a
- * client component calls useSearchParams(). Without it, the component is
- * statically rendered and never sees the ?token= query parameter, leaving
- * the form stuck in "Welcome Back" mode even when an invite token is present.
+ * Left:  AuthSidebar (logo + navy/gradient background)
+ * Right: ClientLoginForm (Welcome Back card)
  */
 
 import { Suspense } from "react";
 import "../globals.css";
 import ClientLoginForm from "@/components/auth/ClientLoginForm";
+import {
+  AuthLayout,
+  AuthSidebar,
+  AuthFormPanel,
+} from "@/components/auth/AuthSidebar";
 
 /** Minimal skeleton shown while the form suspends during hydration */
 function LoginSkeleton() {
@@ -19,11 +22,10 @@ function LoginSkeleton() {
     <div
       style={{
         width: "100%",
-        maxWidth: "420px",
-        margin: "0 auto",
+        maxWidth: "460px",
         minHeight: "420px",
-        borderRadius: "16px",
-        background: "rgba(255,255,255,0.04)",
+        borderRadius: "12px",
+        background: "rgba(255,255,255,0.06)",
         animation: "pulse 1.5s ease-in-out infinite",
       }}
       aria-hidden
@@ -33,8 +35,13 @@ function LoginSkeleton() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoginSkeleton />}>
-      <ClientLoginForm />
-    </Suspense>
+    <AuthLayout>
+      <AuthSidebar />
+      <AuthFormPanel>
+        <Suspense fallback={<LoginSkeleton />}>
+          <ClientLoginForm />
+        </Suspense>
+      </AuthFormPanel>
+    </AuthLayout>
   );
 }

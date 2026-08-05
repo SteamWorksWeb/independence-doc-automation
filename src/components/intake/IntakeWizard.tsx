@@ -516,8 +516,8 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
   );
 
   return (
-    <div className="min-h-dvh bg-bg flex flex-col items-center justify-start pt-10 px-4 pb-16">
-      <header className="text-center mb-8">
+    <div className="w-full flex flex-col items-center">
+      <header className="text-center mb-8 w-full max-w-[640px]">
         <p className="font-sans text-xs font-semibold tracking-[0.14em] uppercase text-crimson mb-2">
           Liberty
         </p>

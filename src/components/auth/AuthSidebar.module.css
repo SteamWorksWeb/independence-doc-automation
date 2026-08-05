@@ -1,0 +1,89 @@
+/*
+ * src/components/auth/AuthSidebar.module.css
+ *
+ * Shared brand sidebar for auth pages:
+ *   /login, /admin/login, /intake
+ *
+ * Logo-only — no text, no footer links.
+ * Navy background with radial crimson/indigo gradient overlay.
+ */
+
+/* ── Two-column auth shell ─────────────────────────────────────────────────── */
+.root {
+  min-height: 100dvh;
+  display: flex;
+  align-items: stretch;
+}
+
+/* ── Brand panel (left sidebar) ────────────────────────────────────────────── */
+.panel {
+  position: relative;
+  flex: 0 0 320px;
+  background: var(--color-navy, #0d1b2a);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 2.5rem;
+  overflow: hidden;
+}
+
+/* Radial gradient overlay — same as /register brand panel */
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(179,30,60,0.22) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 80%, rgba(45,61,107,0.55) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Logo ──────────────────────────────────────────────────────────────────── */
+.logo {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 180px;
+}
+
+.logo img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ── Form panel (right column) — centered card variant ─────────────────────── */
+.formPanel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  background: var(--color-bg, #f4f1ec);
+  min-height: 100dvh;
+}
+
+/* ── Wizard panel (right column) — top-aligned scrollable variant ───────────── */
+/* Used by /intake where the wizard is tall multi-step content.                  */
+.wizardPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1.5rem 3rem;
+  background: var(--color-bg, #f4f1ec);
+  min-height: 100dvh;
+  overflow-y: auto;
+}
+
+/* ── Mobile: hide sidebar ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .panel {
+    display: none;
+  }
+
+  .formPanel {
+    padding: 2rem 1rem;
+  }
+}
