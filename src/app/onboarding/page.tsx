@@ -32,6 +32,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -394,6 +395,7 @@ export default function OnboardingPage({
 }: {
   initialEmail?: string;
 } = {}) {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [showWarning, setShowWarning] = useState(false);
   const [formData, setFormData] = useState<FormData>(() => ({
@@ -545,6 +547,8 @@ export default function OnboardingPage({
 
       if (res.ok) {
         setIsSubmitted(true);
+        // Auto-redirect to dashboard after 2s; user can also click the link
+        setTimeout(() => router.push("/dashboard"), 2000);
         return;
       }
 

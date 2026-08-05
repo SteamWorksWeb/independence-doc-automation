@@ -123,15 +123,16 @@ export default function EditClientDischargePage({ params }: PageProps) {
       householdSize: toNumber(form.householdSize, 1),
       monthlyGrossIncome: Number(stripCurrency(form.monthlyGrossIncome)) || 0,
       monthlyTakeHomePay: Number(stripCurrency(form.monthlyTakeHomePay)) || 0,
-      additionalMonthlyIncome: Number(stripCurrency(form.additionalMonthlyIncome)) || 0,
+      additionalIncome: Number(stripCurrency(form.additionalMonthlyIncome)) || 0,
       housingExpenses: Number(stripCurrency(form.housingExpenses)) || 0,
       transportationExpenses: Number(stripCurrency(form.transportationExpenses)) || 0,
       dependentCareExpenses: Number(stripCurrency(form.dependentCareExpenses)) || 0,
-      // ── Booleans (Prisma expects real booleans, not "Yes"/"No" strings) ──
-      hasFederalLoans: toBoolean(form.hasFederalLoans),
+      // ── hasFederalLoans is a DB string enum, NOT a boolean ──
+      hasFederalLoans: normalizeFederalLoansForApi(form.hasFederalLoans),
+      // ── Booleans (backend toSnapshotBool accepts both booleans and strings) ──
       currentlyEmployed: toBoolean(form.currentlyEmployed),
       workInFieldOfStudy: toBoolean(form.workInFieldOfStudy),
-      unemployed5Years: toBoolean(form.unemployed5Years),
+      unemployed5PlusYears: toBoolean(form.unemployed5Years),
       hasDisability: toBoolean(form.hasDisability),
       didGraduate: toBoolean(form.didGraduate),
       schoolClosed: toBoolean(form.schoolClosed),
@@ -689,4 +690,17 @@ function toBoolean(value: string): boolean {
   if (normalized === "yes" || normalized === "true") return true;
   if (normalized === "no" || normalized === "false" || normalized === "i don't know") return false;
   return Boolean(value);
+}
+
+/**
+ * Translates the UI Yes/No/Unknown select value to the DB string enum
+ * that DischargeSnapshot.hasFederalLoans expects ("yes" | "no" | "unsure").
+ * Unlike other boolean fields, hasFederalLoans is stored as a plain String
+ * column — NOT a Boolean — so it must never be sent as true/false.
+ */
+function normalizeFederalLoansForApi(value: string): "yes" | "no" | "unsure" {
+  const v = value.trim().toLowerCase();
+  if (v === "yes" || v === "true") return "yes";
+  if (v === "no" || v === "false") return "no";
+  return "unsure";
 }
