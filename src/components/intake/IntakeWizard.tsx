@@ -314,7 +314,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       const res = await fetch('/api/intake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -351,47 +351,47 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
     setIsSubmitting(true);
     setError('');
 
+    // ── Send all accumulated intake data to the upsert endpoint with isCompleted: true ──
+    // POST /api/intake → backend POST /api/v1/intake (upsert)
+    // Field names must match IntakePayload / INTAKE_*_FIELDS in intake.ts
     const payload = {
-      firstName: form.firstName || undefined,
-      lastName:  form.lastName  || undefined,
-      email:     form.email     || undefined,
+      // Personal & Household (text fields)
       dob:     form.dob     || undefined,
       ssn:     form.ssn     || undefined,
       county:  form.county  || undefined,
       phone:   form.phone   || undefined,
       address: form.address || undefined,
+      // Number fields
       householdSize:   householdSizeForBackend(form.householdSize),
-      hasDisability:   form.hasDisability,
-      isEmployed:      form.isEmployed,
-      unemployed5of10: form.unemployed5of10,
-      hasCar:          form.hasCar,
       monthlyIncome:   pf(form.monthlyIncome),
       expFood:         pf(form.expFood),
       expHousekeeping: pf(form.expHousekeeping),
       expApparel:      pf(form.expApparel),
       expPersonalCare: pf(form.expPersonalCare),
-      rentExpense: form.rentExpense,
-      medicalExpense: form.medicalExpense,
-      utilitiesExpense: form.utilitiesExpense,
-      homeMaintenanceExpense: form.homeMaintenanceExpense,
-      carInsuranceExpense: form.carInsuranceExpense,
-      gasExpense: form.gasExpense,
-      expHousing:      pf(form.expHousing),
-      expUtilities:    pf(form.expUtilities),
-      expTransportGas: pf(form.expTransportGas),
-      expCarInsurance: pf(form.expCarInsurance),
-      unmetBasicNeeds: form.unmetBasicNeeds || undefined,
+      expHousing:      pf(form.expHousing) || form.rentExpense,
+      expUtilities:    pf(form.expUtilities) || form.utilitiesExpense,
+      expTransportGas: pf(form.expTransportGas) || form.gasExpense,
+      expCarInsurance: pf(form.expCarInsurance) || form.carInsuranceExpense,
       totalDebt:       pf(form.totalDebt),
       studentLoanDebt: pf(form.studentLoanDebt),
+      // Boolean fields (backend expects true/false, not strings)
+      hasDisability:   form.hasDisability,
+      isEmployed:      form.isEmployed,
+      unemployed5of10: form.unemployed5of10,
+      hasCar:          form.hasCar,
+      // Text (long-form)
       schoolsHistory:  form.schoolsHistory  || undefined,
       hardshipNotes:   form.hardshipNotes   || undefined,
+      unmetBasicNeeds: form.unmetBasicNeeds || undefined,
+      // Mark intake complete
       isCompleted: true,
     };
 
     try {
-      const res = await fetch('/api/intake/complete', {
+      const res = await fetch('/api/intake', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body:    JSON.stringify(payload),
       });
 
@@ -406,6 +406,7 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
       setIsSubmitting(false);
     }
   };
+
 
   const isAccountSetupStep = isPublicInviteFlow && currentStep === 0;
   const displayedStep = isPublicInviteFlow ? Math.max(currentStep, 1) : currentStep;
