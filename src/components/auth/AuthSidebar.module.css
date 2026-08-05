@@ -77,13 +77,35 @@
   overflow-y: auto;
 }
 
-/* ── Mobile: hide sidebar ──────────────────────────────────────────────────── */
+/* ── Mobile: sidebar becomes slim top banner ───────────────────────────────── */
 @media (max-width: 768px) {
-  .panel {
-    display: none;
+  /* Stack vertically instead of side-by-side */
+  .root {
+    flex-direction: column;
   }
 
-  .formPanel {
+  /* Sidebar → slim top banner */
+  .panel {
+    flex: none;
+    width: 100%;
+    height: 80px;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0 1.5rem;
+  }
+
+  /* Logo smaller in banner mode */
+  .logo {
+    max-width: 120px;
+  }
+
+  /* Form panels take full width */
+  .formPanel,
+  .wizardPanel {
+    min-height: unset;
+    flex: 1;
     padding: 2rem 1rem;
   }
 }
+
