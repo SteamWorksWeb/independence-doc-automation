@@ -65,6 +65,10 @@ export interface Lead {
   assigneeName?: string | null;
   intakeProfile?: {
     isCompleted: boolean;
+    firstName?: string | null;
+    lastName?: string | null;
+    fullName?: string | null;
+    name?: string | null;
     phone?: string | null;
     householdSize?: number | null;
     monthlyIncome?: number | null;
@@ -179,6 +183,49 @@ function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
   };
 }
 
+function mapLead(lead: Lead): SnapshotBorrower {
+  const intakeName = splitName(
+    lead.intakeProfile?.fullName ??
+      lead.intakeProfile?.name ??
+      lead.name
+  );
+
+  const firstName =
+    lead.intakeProfile?.firstName?.trim() ||
+    intakeName.firstName ||
+    "Unknown";
+
+  const lastName =
+    lead.intakeProfile?.lastName?.trim() ||
+    intakeName.lastName ||
+    "Lead";
+
+  const isComplete =
+    lead.intakeProfile?.isCompleted ||
+    lead.intakeStatus?.toLowerCase() === "complete";
+
+  return {
+    id: lead.id,
+    firstName,
+    lastName,
+    created: formatTimestamp(lead.createdAt),
+    createdBy: "-",
+    lastUpdated: formatTimestamp(lead.updatedAt),
+    lastUpdatedBy: "-",
+    status: isDischargeVerdictStatus(lead.status)
+      ? lead.status
+      : isComplete
+      ? "BORDERLINE"
+      : "PENDING",
+    pipelineStatus: lead.status === "Archived" ? "Archived" : undefined,
+    client: {
+      id: lead.id,
+      email: lead.email,
+      phone: lead.intakeProfile?.phone ?? lead.phone ?? undefined,
+    },
+  };
+}
+
 async function getInternalApiUrl(path: string): Promise<string> {
   const headerStore = await headers();
   const host = headerStore.get("host");
@@ -229,14 +276,20 @@ async function fetchSnapshots(): Promise<{
     }
 
     const data = await res.json();
-    const raw: ApiSnapshot[] = Array.isArray(data)
+    const rawSnapshots: ApiSnapshot[] = Array.isArray(data)
       ? data
       : Array.isArray(data.snapshots)
       ? data.snapshots
       : [];
+    const rawLeads: Lead[] =
+      !Array.isArray(data) && Array.isArray(data.leads) ? data.leads : [];
+    const borrowers =
+      rawSnapshots.length > 0
+        ? rawSnapshots.map(mapSnapshot)
+        : rawLeads.map(mapLead);
 
-    console.log(`[leads] SUCCESS: Loaded ${raw.length} snapshots from backend.`);
-    return { borrowers: raw.map(mapSnapshot), error: null, adminToken: token };
+    console.log(`[leads] SUCCESS: Loaded ${borrowers.length} lead row(s) from backend.`);
+    return { borrowers, error: null, adminToken: token };
   } catch (err) {
     console.error("[leads] FETCH EXCEPTION:", err);
     return {
