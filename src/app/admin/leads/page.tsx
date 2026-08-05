@@ -1,29 +1,56 @@
-﻿/**
+/**
  * src/app/admin/leads/page.tsx
  *
- * Leads Directory — shows all invited borrowers who have NOT yet been promoted
- * to Client (userType === 'LEAD' on the backend).
+ * "View Existing" page for the Leads tool.
+ * Route: /admin/leads
  *
- * A Lead is created when a borrower accepts a borrower invite and sets their
- * password via the intake flow. They remain a Lead until a lawyer or admin
- * manually promotes them via "Promote to Client".
+ * Auth pattern:
+ *   React Server Component reads the HttpOnly admin_session cookie and calls
+ *   the local Next.js proxy so browser-side code never needs the admin token.
  *
- * Auth: React Server Component → reads HttpOnly `admin_session` cookie →
- *       sends as Authorization: Bearer to Render backend.
+ * Interactive UI is delegated to DischargeSnapshotsTable, which owns the
+ * status filters, Manage button, and action modals.
  */
 
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import DischargeSnapshotsTable from "@/components/admin/DischargeSnapshotsTable";
+import { isDischargeVerdictStatus, type DischargeVerdictStatus } from "@/lib/dischargeVerdict";
+import type { SnapshotBorrower } from "@/types/snapshot";
 import InviteBorrowerModal from "@/components/admin/InviteBorrowerModal";
-import LeadsTable from "@/components/admin/LeadsTable";
 
 export const metadata: Metadata = {
-  title: "Leads | Independence Law",
+  title: "Leads",
 };
 
 export const maxDuration = 60;
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+interface ApiSnapshot {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  isDischargeable?: boolean | null;
+  status?: string;
+  lowestMonthlyPayment?: number | string | null;
+  pipelineStatus?: string | null;
+  client?: {
+    id?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    intakeProfile?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      fullName?: string | null;
+      name?: string | null;
+      phone?: string | null;
+    } | null;
+  } | null;
+  createdByUser?: { firstName?: string; lastName?: string; name?: string } | null;
+  updatedByUser?: { firstName?: string; lastName?: string; name?: string } | null;
+}
 
 export interface Lead {
   id: string;
@@ -44,10 +71,128 @@ export interface Lead {
   } | null;
 }
 
-// ── Data fetch ────────────────────────────────────────────────────────────────
+function formatTimestamp(iso: string): string {
+  if (!iso) return "-";
+  try {
+    const d = new Date(iso);
+    return (
+      d
+        .toLocaleString("en-US", {
+          timeZone: "America/New_York",
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+        .replace(",", "") + " (ET)"
+    );
+  } catch {
+    return iso;
+  }
+}
 
-async function fetchLeads(): Promise<{
-  leads: Lead[];
+function resolveUserName(
+  userObj?: { firstName?: string; lastName?: string; name?: string } | null
+): string {
+  if (!userObj) return "-";
+  if (userObj.firstName || userObj.lastName) {
+    return [userObj.firstName, userObj.lastName].filter(Boolean).join(" ");
+  }
+  return userObj.name ?? "-";
+}
+
+function splitName(name?: string | null): { firstName?: string; lastName?: string } {
+  const trimmed = name?.trim();
+  if (!trimmed) return {};
+
+  const parts = trimmed.split(/\s+/);
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
+function resolveDischargeVerdictStatus(snap: ApiSnapshot): DischargeVerdictStatus {
+  if (isDischargeVerdictStatus(snap.status)) {
+    return snap.status;
+  }
+
+  if (snap.isDischargeable === true || snap.status === "dischargeable") {
+    return "HIGH_PROBABILITY";
+  }
+  if (snap.isDischargeable === false || snap.status === "not_dischargeable") {
+    return "LOW_PROBABILITY";
+  }
+  return "PENDING";
+}
+
+function mapSnapshot(snap: ApiSnapshot): SnapshotBorrower {
+  const status = resolveDischargeVerdictStatus(snap);
+
+  let lowestMonthlyPayment: string | undefined;
+  if (snap.lowestMonthlyPayment != null) {
+    const raw = Number(snap.lowestMonthlyPayment);
+    lowestMonthlyPayment = Number.isFinite(raw)
+      ? `$${raw.toFixed(2)}`
+      : String(snap.lowestMonthlyPayment);
+  }
+
+  const intakeName = splitName(
+    snap.client?.intakeProfile?.fullName ??
+      snap.client?.intakeProfile?.name ??
+      snap.client?.name
+  );
+
+  const firstName =
+    snap.client?.intakeProfile?.firstName?.trim() ||
+    snap.client?.firstName?.trim() ||
+    intakeName.firstName ||
+    "Unknown";
+
+  const lastName =
+    snap.client?.intakeProfile?.lastName?.trim() ||
+    snap.client?.lastName?.trim() ||
+    intakeName.lastName ||
+    "Lead";
+
+  return {
+    id: snap.id,
+    firstName,
+    lastName,
+    created: formatTimestamp(snap.createdAt),
+    createdBy: resolveUserName(snap.createdByUser),
+    lastUpdated: formatTimestamp(snap.updatedAt),
+    lastUpdatedBy: resolveUserName(snap.updatedByUser),
+    status,
+    lowestMonthlyPayment,
+    pipelineStatus: snap.pipelineStatus ?? undefined,
+    client: snap.client
+      ? {
+          id: snap.client.id ?? undefined,
+          email: snap.client.email ?? undefined,
+          phone: snap.client.intakeProfile?.phone ?? snap.client.phone ?? undefined,
+        }
+      : undefined,
+  };
+}
+
+async function getInternalApiUrl(path: string): Promise<string> {
+  const headerStore = await headers();
+  const host = headerStore.get("host");
+
+  if (!host) {
+    throw new Error("Missing host header.");
+  }
+
+  const proto = headerStore.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}${path}`;
+}
+
+async function fetchSnapshots(): Promise<{
+  borrowers: SnapshotBorrower[];
   error: string | null;
   adminToken: string;
 }> {
@@ -55,116 +200,75 @@ async function fetchLeads(): Promise<{
   const token = cookieStore.get("admin_session")?.value;
 
   if (!token) {
-    return { leads: [], error: "Unauthorized: No active admin session.", adminToken: "" };
+    console.error("[leads] FAIL: No admin_session cookie found in Server Component.");
+    return { borrowers: [], error: "Unauthorized: No active admin session.", adminToken: "" };
   }
 
-  const backendBase = process.env.NEXT_PUBLIC_AWS_API_URL;
-  if (!backendBase) {
-    return { leads: [], error: "Server configuration error.", adminToken: token };
-  }
-
-  const url = `${backendBase.replace(/\/+$/, "")}/admin/leads`;
+  const targetUrl = await getInternalApiUrl("/api/admin/leads");
+  console.log(`[leads] Fetching through Next proxy: ${targetUrl}`);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(targetUrl, {
       method: "GET",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+        Cookie: `admin_session=${token}`,
       },
       cache: "no-store",
     });
 
+    console.log(`[leads] Backend responded: ${res.status} ${res.statusText}`);
+
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      console.error(`[leads] Backend ${res.status}: ${text.slice(0, 400)}`);
-      return { leads: [], error: "Failed to load leads.", adminToken: token };
+      const errorText = await res.text().catch(() => "(could not read response body)");
+      console.error(
+        `[leads] FAIL: Backend returned ${res.status}`,
+        `| URL: ${targetUrl}`,
+        `| Body: ${errorText.slice(0, 500)}`
+      );
+      return { borrowers: [], error: "Failed to load leads.", adminToken: token };
     }
 
     const data = await res.json();
-    const leads: Lead[] = Array.isArray(data.leads) ? data.leads : [];
-    console.log(`[leads] Loaded ${leads.length} lead(s).`);
-    return { leads, error: null, adminToken: token };
+    const raw: ApiSnapshot[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data.snapshots)
+      ? data.snapshots
+      : [];
+
+    console.log(`[leads] SUCCESS: Loaded ${raw.length} snapshots from backend.`);
+    return { borrowers: raw.map(mapSnapshot), error: null, adminToken: token };
   } catch (err) {
-    console.error("[leads] fetch error:", err);
+    console.error("[leads] FETCH EXCEPTION:", err);
     return {
-      leads: [],
-      error: `Network error: ${err instanceof Error ? err.message : "Unknown"}`,
+      borrowers: [],
+      error: `Network error: ${err instanceof Error ? err.message : "Unknown error"}`,
       adminToken: token,
     };
   }
 }
 
-// ── Stat pill sub-component ───────────────────────────────────────────────────
-
-function StatPill({ label, value, color }: { label: string; value: string; color: string }) {
-  const borderMap: Record<string, string> = {
-    navy:    "border-l-navy",
-    warning: "border-l-warning",
-    success: "border-l-success",
-  };
-  const valueMap: Record<string, string> = {
-    navy:    "text-navy",
-    warning: "text-warning",
-    success: "text-success",
-  };
-  return (
-    <div
-      className={`bg-white border border-border rounded-lg py-4 px-5 flex flex-col gap-1 shadow-sm border-l-[3px] ${
-        borderMap[color] ?? "border-l-navy"
-      }`}
-    >
-      <span
-        className={`font-serif text-[1.875rem] font-black leading-none ${
-          valueMap[color] ?? "text-navy"
-        }`}
-      >
-        {value}
-      </span>
-      <span className="text-xs font-semibold tracking-[0.05em] uppercase text-text-muted">
-        {label}
-      </span>
-    </div>
-  );
-}
-
-// ── Page component ────────────────────────────────────────────────────────────
-
-export default async function LeadsPage() {
-  const { leads, error, adminToken } = await fetchLeads();
-
-  const total      = leads.length;
-  const incomplete = leads.filter(
-    (l) => l.intakeStatus !== "Complete" && !l.intakeProfile?.isCompleted
-  ).length;
-  const complete = total - incomplete;
+export default async function DischargeSnapshotsPage() {
+  const { borrowers, error, adminToken } = await fetchSnapshots();
 
   return (
     <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
-
-      {/* ── Page header ─────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap max-[640px]:flex-col">
         <div>
           <h1 className="font-serif text-[clamp(1.375rem,2.5vw,1.75rem)] font-black italic text-navy mb-1 leading-[1.1]">
             Leads
           </h1>
           <p className="text-sm text-text-muted">
-            Invited borrowers pending promotion to Client
+            Manage lead discharge eligibility assessments
           </p>
         </div>
         <InviteBorrowerModal adminToken={adminToken} />
       </div>
 
-      {/* ── Stat strip ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3 max-[640px]:grid-cols-1">
-        <StatPill label="Total Leads"   value={error ? "—" : String(total)}     color="navy"    />
-        <StatPill label="Incomplete"    value={error ? "—" : String(incomplete)} color="warning" />
-        <StatPill label="Form Complete" value={error ? "—" : String(complete)}   color="success" />
-      </div>
-
-      {/* ── Leads table ─────────────────────────────────────────────────── */}
-      <LeadsTable leads={leads} fetchError={error} adminToken={adminToken} />
-
+      <DischargeSnapshotsTable
+        initialBorrowers={borrowers}
+        fetchError={error}
+        adminToken={adminToken}
+      />
     </div>
   );
 }
