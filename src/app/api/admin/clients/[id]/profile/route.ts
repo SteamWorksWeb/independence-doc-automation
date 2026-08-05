@@ -119,8 +119,8 @@ async function forwardProfileMutation(
     );
   }
 
-  const targetUrl = buildBackendUrl(`/admin/clients/${id}/snapshot`);
-  if (!targetUrl) {
+  const snapshotUrl = buildBackendUrl(`/admin/clients/${id}/snapshot`);
+  if (!snapshotUrl) {
     console.error("[proxy/admin/clients/:id/snapshot] NEXT_PUBLIC_AWS_API_URL is not set.");
     return NextResponse.json(
       { message: "Server configuration error." },
@@ -132,16 +132,7 @@ async function forwardProfileMutation(
 
   let backendRes: Response;
   try {
-    backendRes = await fetch(targetUrl, {
-      method,
-      headers: {
-        Accept: "application/json",
-        "Content-Type": req.headers.get("content-type") ?? "application/json",
-        Authorization: `Bearer ${sessionCookie.value}`,
-      },
-      body,
-      cache: "no-store",
-    });
+    backendRes = await forwardJsonMutation(snapshotUrl, method, sessionCookie.value, body, req);
   } catch (error) {
     console.error(`[proxy/admin/clients/:id/snapshot] ${method} network error:`, error);
     return NextResponse.json(
@@ -154,7 +145,35 @@ async function forwardProfileMutation(
     return new NextResponse(null, { status: 204 });
   }
 
-  const data = await backendRes.json().catch(() => null);
+  let data = await backendRes.json().catch(() => null);
+
+  if (
+    backendRes.status === 404 &&
+    readApiMessage(data)?.toLowerCase().includes("snapshot not found")
+  ) {
+    const profileUrl = buildBackendUrl(`/admin/clients/${id}/profile`);
+    if (!profileUrl) {
+      return NextResponse.json(
+        { message: "Server configuration error." },
+        { status: 503 }
+      );
+    }
+
+    try {
+      backendRes = await forwardJsonMutation(profileUrl, method, sessionCookie.value, body, req);
+      if (backendRes.status === 204) {
+        return new NextResponse(null, { status: 204 });
+      }
+      data = await backendRes.json().catch(() => null);
+    } catch (error) {
+      console.error(`[proxy/admin/clients/:id/profile] ${method} fallback network error:`, error);
+      return NextResponse.json(
+        { message: "Unable to reach the backend. Please try again." },
+        { status: 502 }
+      );
+    }
+  }
+
   if (data == null) {
     return NextResponse.json(
       { message: "Unexpected response from backend." },
@@ -163,4 +182,30 @@ async function forwardProfileMutation(
   }
 
   return NextResponse.json(data, { status: backendRes.status });
+}
+
+function forwardJsonMutation(
+  targetUrl: string,
+  method: "PATCH" | "PUT",
+  token: string,
+  body: string,
+  req: NextRequest
+): Promise<Response> {
+  return fetch(targetUrl, {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": req.headers.get("content-type") ?? "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body,
+    cache: "no-store",
+  });
+}
+
+function readApiMessage(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const record = data as Record<string, unknown>;
+  const message = record.message ?? record.error;
+  return typeof message === "string" && message.trim() ? message : null;
 }
