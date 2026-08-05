@@ -124,14 +124,26 @@ export async function POST(request: NextRequest) {
     response.headers.append('Set-Cookie', cookie);
   }
 
-  if (backendRes.ok && borrowerEmail) {
-    response.cookies.set('borrower_email', borrowerEmail, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/',
-    });
+  if (backendRes.ok) {
+    if (borrowerEmail) {
+      response.cookies.set('borrower_email', borrowerEmail, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/',
+      });
+    }
+
+    if (data.token && typeof data.token === 'string') {
+      response.cookies.set('borrower_session', data.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/',
+      });
+    }
   }
 
   return response;
