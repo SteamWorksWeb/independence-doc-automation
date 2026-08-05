@@ -34,9 +34,9 @@ import styles from "./register.module.css";
 type PageState = "idle" | "loading" | "pending";
 
 interface FieldErrors {
-  name?: string;
   email?: string;
   password?: string;
+  confirmPassword?: string;
   general?: string;
 }
 
@@ -44,13 +44,13 @@ interface FieldErrors {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function validateFields(name: string, email: string, password: string): FieldErrors {
+function validateFields(email: string, password: string, confirmPassword: string): FieldErrors {
   const err: FieldErrors = {};
-  if (!name.trim() || name.trim().length < 2) err.name = "Full name is required (min. 2 characters).";
   if (!email.trim()) err.email = "Email address is required.";
   else if (!EMAIL_RE.test(email.trim())) err.email = "Please enter a valid email address.";
   if (!password) err.password = "Password is required.";
   else if (password.length < 8) err.password = "Password must be at least 8 characters.";
+  if (password && confirmPassword !== password) err.confirmPassword = "Passwords do not match.";
   return err;
 }
 
@@ -134,9 +134,9 @@ function RegisterPageInner() {
   const [isPending, startTransition] = useTransition();
 
   // Form fields
-  const [name, setName]         = useState("");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw]     = useState(false);
 
   // UI state
@@ -154,7 +154,7 @@ function RegisterPageInner() {
       e.preventDefault();
 
       // Client-side validation first
-      const fieldErrors = validateFields(name, email, password);
+      const fieldErrors = validateFields(email, password, confirmPassword);
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         return;
@@ -163,8 +163,15 @@ function RegisterPageInner() {
       setErrors({});
       setPageState("loading");
 
+      // Derive a display name from the email prefix (backend also does this as fallback)
+      const derivedName = email
+        .split("@")[0]
+        .replace(/[._-]/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .trim() || email;
+
       startTransition(async () => {
-        const result = await registerClient({ name, email, password, token: token || undefined });
+        const result = await registerClient({ name: derivedName, email, password, token: token || undefined });
 
         if (result.ok) {
           setRegisteredEmail(result.email);
@@ -184,7 +191,7 @@ function RegisterPageInner() {
         }
       });
     },
-    [name, email, password, token]
+    [email, password, confirmPassword, token]
   );
 
   // ── Pending (Success) State ──────────────────────────────────────────────────
@@ -385,36 +392,7 @@ function RegisterPageInner() {
                 </div>
               )}
 
-              {/* Full Name */}
-              <div className="form-group">
-                <label htmlFor={`${uid}-name`} className="form-label">
-                  Full Name
-                </label>
-                <input
-                  id={`${uid}-name`}
-                  name="name"
-                  type="text"
-                  autoComplete="name"
-                  spellCheck={false}
-                  className={`form-input${errors.name ? " is-error" : ""}`}
-                  placeholder="Jane Smith"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
-                  }}
-                  aria-describedby={errors.name ? `${uid}-name-error` : undefined}
-                  aria-invalid={!!errors.name}
-                  disabled={isLoading}
-                />
-                {errors.name && (
-                  <span id={`${uid}-name-error`} className="form-error" role="alert">
-                    {errors.name}
-                  </span>
-                )}
-              </div>
-
-              {/* Email */}
+              {/* Email (locked — pre-populated from invitation) */}
               <div className="form-group">
                 <label htmlFor={`${uid}-email`} className="form-label">
                   Email Address
@@ -434,7 +412,7 @@ function RegisterPageInner() {
                   }}
                   aria-describedby={errors.email ? `${uid}-email-error` : undefined}
                   aria-invalid={!!errors.email}
-                  disabled={isLoading}
+                  disabled={true}
                 />
                 {errors.email && (
                   <span id={`${uid}-email-error`} className="form-error" role="alert">
@@ -499,6 +477,34 @@ function RegisterPageInner() {
                     </div>
                     <span className={styles.strengthLabel}>{strength.label}</span>
                   </div>
+                )}
+              </div>
+
+              {/* Confirm Password */}
+              <div className="form-group">
+                <label htmlFor={`${uid}-confirm-password`} className="form-label">
+                  Confirm Password
+                </label>
+                <input
+                  id={`${uid}-confirm-password`}
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  className={`form-input${errors.confirmPassword ? " is-error" : ""}`}
+                  placeholder="Re-enter your password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    if (errors.confirmPassword) setErrors((p) => ({ ...p, confirmPassword: undefined }));
+                  }}
+                  aria-describedby={errors.confirmPassword ? `${uid}-confirm-error` : undefined}
+                  aria-invalid={!!errors.confirmPassword}
+                  disabled={isLoading}
+                />
+                {errors.confirmPassword && (
+                  <span id={`${uid}-confirm-error`} className="form-error" role="alert">
+                    {errors.confirmPassword}
+                  </span>
                 )}
               </div>
 

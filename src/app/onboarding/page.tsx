@@ -178,6 +178,19 @@ function formatSsn(value: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
 }
 
+/** Strip $, commas, and whitespace so "$50,000" → "50000" before sending to backend. */
+function stripCurrency(value: string): string {
+  return value.replace(/[$,\s]/g, "");
+}
+
+/** Auto-format a phone string as XXX-XXX-XXXX while the user types. */
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 // ── Shared field styles ────────────────────────────────────────────────────────
 
 const inputCls =
@@ -516,14 +529,14 @@ export default function OnboardingPage({
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       hasFederalLoans: formData.hasFederalLoans,
-      principalBalance: formData.principalBalance,
+      principalBalance: stripCurrency(formData.principalBalance),
       householdSize: toInt(formData.householdSize, 1),
-      monthlyGrossIncome: formData.monthlyGrossIncome,
-      monthlyTakeHomePay: formData.monthlyTakeHomePay,
-      additionalIncome: formData.additionalIncome,
-      housingExpenses: formData.housingExpenses,
-      transportationExpenses: formData.transportationExpenses,
-      dependentCareExpenses: formData.dependentCareExpenses,
+      monthlyGrossIncome: stripCurrency(formData.monthlyGrossIncome),
+      monthlyTakeHomePay: stripCurrency(formData.monthlyTakeHomePay),
+      additionalIncome: stripCurrency(formData.additionalIncome),
+      housingExpenses: stripCurrency(formData.housingExpenses),
+      transportationExpenses: stripCurrency(formData.transportationExpenses),
+      dependentCareExpenses: stripCurrency(formData.dependentCareExpenses),
       isEmployed: formData.isEmployed,
       workInFieldOfStudy: formData.workInFieldOfStudy,
       unemployed5PlusYears: formData.unemployed5PlusYears,
@@ -690,7 +703,7 @@ export default function OnboardingPage({
                 id="phone"
                 label="Borrower Phone"
                 value={formData.phone}
-                onChange={set("phone")}
+                onChange={(v) => set("phone")(formatPhone(v))}
                 type="tel"
               />
               <DateWizardInput

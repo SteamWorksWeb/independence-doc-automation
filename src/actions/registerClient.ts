@@ -57,8 +57,6 @@ function getEnv(): { apiUrl: string; secret: string } {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validate(input: RegisterInput): string | null {
-  if (!input.name.trim() || input.name.trim().length < 2)
-    return "Full name must be at least 2 characters.";
   if (!input.email.trim() || !EMAIL_RE.test(input.email.trim()))
     return "A valid email address is required.";
   if (!input.password || input.password.length < 8)

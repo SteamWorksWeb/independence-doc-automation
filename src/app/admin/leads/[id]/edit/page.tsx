@@ -239,7 +239,7 @@ export default function EditClientDischargePage({ params }: PageProps) {
             <Field label="First Name"><TextInput value={form.firstName} onChange={set("firstName")} /></Field>
             <Field label="Last Name"><TextInput value={form.lastName} onChange={set("lastName")} /></Field>
             <Field label="Email"><TextInput type="email" value={form.email} onChange={set("email")} /></Field>
-            <Field label="Phone"><TextInput type="tel" value={form.phone} onChange={set("phone")} /></Field>
+            <Field label="Phone"><TextInput type="tel" value={form.phone} onChange={(v) => set("phone")(formatPhone(v))} /></Field>
           </Section>
 
           <Section title="Loans And Household">
@@ -683,6 +683,14 @@ function toNumber(value: string, fallback = 0): number {
 
 function stripCurrency(value: string): string {
   return value.replace(/[$,\s]/g, "");
+}
+
+/** Auto-format a phone string as XXX-XXX-XXXX while the user types. */
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
 function toBoolean(value: string): boolean {

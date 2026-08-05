@@ -37,17 +37,17 @@ export async function POST(request: NextRequest) {
   const { fullName, name, email, password } = body as Record<string, unknown>;
 
   // Support both `name` (new) and `fullName` (legacy AuthForm field)
+  // Name is optional — auto-derived from email if not provided.
   const resolvedName = (typeof name === "string" ? name : null)
     ?? (typeof fullName === "string" ? fullName : null)
     ?? "";
 
   if (
-    typeof resolvedName !== "string" ||
     typeof email !== "string" ||
     typeof password !== "string"
   ) {
     return NextResponse.json(
-      { message: "Missing required fields: name, email, password." },
+      { message: "Missing required fields: email, password." },
       { status: 400 }
     );
   }
