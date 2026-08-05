@@ -485,11 +485,11 @@ function hydrateForm(data: unknown): EditFormData {
     email: source("email", "borrowerEmail", "clientEmail", "emailAddress") || "",
     phone: source("phone", "phoneNumber", "borrowerPhone", "clientPhone") || "",
     hasFederalLoans: yesNo(["hasFederalLoans", "federalLoans", "hasStudentLoans", "federalStudentLoans"], "", true),
-    outstandingBalance: money("outstandingBalance", "studentLoanDebt", "totalDebt", "principalBalance", "loanBalance"),
+    outstandingBalance: money("principalBalance", "outstandingBalance", "studentLoanDebt", "totalDebt", "loanBalance"),
     householdSize: integer(["householdSize"], 1),
     monthlyGrossIncome: money("monthlyGrossIncome", "grossMonthlyIncome", "monthlyIncome", "grossIncome"),
     monthlyTakeHomePay: money("monthlyTakeHomePay", "takeHomePay", "monthlyNetIncome", "netMonthlyIncome"),
-    additionalMonthlyIncome: money("additionalMonthlyIncome", "additionalIncome", "otherMonthlyIncome"),
+    additionalMonthlyIncome: money("additionalIncome", "additionalMonthlyIncome", "otherMonthlyIncome"),
     housingExpenses: money("housingExpenses", "monthlyHousingExpenses", "expHousing", "housing"),
     transportationExpenses:
       money("transportationExpenses", "monthlyTransportationExpenses", "transportation") ||

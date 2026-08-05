@@ -45,7 +45,7 @@ const STEP_LABELS: Record<number, string> = {
   4: "Monthly Income",
   5: "Monthly Expenses",
   6: "Employment & Health",
-  7: "Education & Age",
+  7: "Education, Age & Good Faith",
 };
 
 // ── Form state — field names match Prisma DischargeSnapshot exactly ───────────
@@ -995,6 +995,33 @@ export default function OnboardingPage({
                 label="Are you 65 or older?"
                 value={formData.is65OrOlder}
                 onChange={set("is65OrOlder")}
+              />
+            </div>
+
+            {/* Good Faith (Prong 3) */}
+            <h3
+              className="text-[1.25rem] font-bold text-[#1a2744] mt-10 mb-4 leading-tight"
+            >
+              Good Faith Efforts
+            </h3>
+            <div className="max-w-[600px] bg-white border border-[#e5e7eb] rounded-lg px-6 py-2">
+              <YesNoRow
+                id="appliedForIDR"
+                label="Have you applied for an Income-Driven Repayment (IDR) plan?"
+                value={formData.appliedForIDR}
+                onChange={set("appliedForIDR")}
+              />
+              <YesNoRow
+                id="madePriorPayments"
+                label="Have you made any prior payments on your student loans?"
+                value={formData.madePriorPayments}
+                onChange={set("madePriorPayments")}
+              />
+              <YesNoRow
+                id="contactedServicer"
+                label="Have you contacted your loan servicer about repayment options?"
+                value={formData.contactedServicer}
+                onChange={set("contactedServicer")}
               />
             </div>
 
