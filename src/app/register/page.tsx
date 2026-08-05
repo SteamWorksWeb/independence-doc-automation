@@ -152,12 +152,9 @@ function RegisterPageInner() {
   useEffect(() => {
     if (!token) return;
 
-    const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/$/, "");
-    if (!apiUrl) return;
-
     let cancelled = false;
 
-    fetch(`${apiUrl}/api/v1/auth/invite/verify?token=${encodeURIComponent(token)}`, {
+    fetch(`/api/auth/invite/verify?token=${encodeURIComponent(token)}`, {
       headers: { Accept: "application/json" },
       cache: "no-store",
     })
