@@ -286,7 +286,13 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
 
       setPassword('');
       setConfirmPassword('');
-      setCurrentStep(1);
+      // ── Redirect to the discharge snapshot intake form ──────────────────────
+      // The OnboardingPage (/onboarding) is the correct 7-step borrower form:
+      // federal loans → balance → income → expenses → employment → education.
+      // The borrower_session cookie set by setup-password is now active, so
+      // the OnboardingPage proxy (/api/intake/snapshot) will have auth.
+      router.push('/onboarding');
+
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unable to set up your account. Please try again.');
     } finally {
