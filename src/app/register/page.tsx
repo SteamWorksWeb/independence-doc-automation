@@ -19,7 +19,7 @@ import { Suspense } from "react";
  * lawyerId is injected by the Server Action from process.env.DEFAULT_LAWYER_ID.
  */
 
-import { useState, useCallback, useId, useTransition } from "react";
+import { useState, useCallback, useEffect, useId, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Metadata } from "next";
 import { registerClient } from "@/actions/registerClient";
@@ -147,6 +147,32 @@ function RegisterPageInner() {
   const isLoading = pageState === "loading" || isPending;
 
   const strength = passwordStrength(password);
+
+  // ── Hydrate email from invitation token on mount ─────────────────────────────
+  useEffect(() => {
+    if (!token) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/$/, "");
+    if (!apiUrl) return;
+
+    let cancelled = false;
+
+    fetch(`${apiUrl}/api/v1/auth/invite/verify?token=${encodeURIComponent(token)}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.valid && typeof data.email === "string") {
+          setEmail(data.email);
+        }
+      })
+      .catch(() => {
+        // Silently ignore — user can still submit; backend validates token + email match
+      });
+
+    return () => { cancelled = true; };
+  }, [token]);
 
   // ── Handle Submit ────────────────────────────────────────────────────────────
   const handleSubmit = useCallback(
@@ -419,6 +445,16 @@ function RegisterPageInner() {
                     {errors.email}
                   </span>
                 )}
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "#6b7280",
+                    marginTop: "0.25rem",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Your email address cannot be changed at this stage.
+                </p>
               </div>
 
               {/* Password */}
