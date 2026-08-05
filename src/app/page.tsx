@@ -1,141 +1,102 @@
 /**
  * src/app/page.tsx
  *
- * Authentication gateway — the sole entry point to the client portal.
- * Distraction-free, mobile-first design matching Liberty brand.
+ * Root landing page — apply.theindependencelaw.com
  *
- * Layout: Full-viewport split
- *   Left  (desktop): Brand panel with firm identity, trust signals, firm description
- *   Right (desktop): Centered auth card
- *   Mobile: Stacked — brand strip + auth card
+ * Intentionally minimal: logo + two login buttons.
+ * No marketing copy, no trust signals, no distractions.
  */
 
 import type { Metadata } from "next";
-import AuthForm from "@/components/auth/AuthForm";
-import styles from "./page.module.css";
+import Link from "next/link";
+import Image from "next/image";
 
 export const metadata: Metadata = {
-  title: "Secure Client Portal | Liberty",
-  description:
-    "Access your legal documents, case status, and communications through Liberty's secure client portal.",
+  title: "Liberty Law",
+  description: "Secure access portal for Liberty Law clients and staff.",
+  robots: { index: false, follow: false },
 };
 
-export default function HomePage() {
+export default function RootPage() {
   return (
-    <main className={styles.root}>
-      {/* ── Left: Brand Panel ─────────────────────────────────── */}
-      <aside className={styles.brandPanel} aria-label="Firm information">
-        {/* Overlay gradient on top of dark bg */}
-        <div className={styles.brandOverlay} aria-hidden />
-
-        {/* Logo & firm name */}
-        <div className={styles.brandLogo}>
-          <ScalesIcon />
-
-        </div>
-
-        {/* Hero statement */}
-        <div className={styles.brandHero}>
-          <h2 className={styles.brandHeadline}>
-            <em>Your Case.</em>
-            <br />
-            Your Documents.
-            <br />
-            Your Relief.
-          </h2>
-          <p className={styles.brandBody}>
-            This secure portal gives you 24/7 access to your case documents,
-            case status updates, and direct communication with your legal team.
-          </p>
-        </div>
-
-        {/* Trust statistics */}
-        <div className={styles.brandStats} role="list" aria-label="Firm credentials">
-          <div className={styles.stat} role="listitem">
-            <span className={styles.statNumber}>5★</span>
-            <span className={styles.statLabel}>Google Rating</span>
-          </div>
-          <div className={styles.statDivider} aria-hidden />
-          <div className={styles.stat} role="listitem">
-            <span className={styles.statNumber}>A+</span>
-            <span className={styles.statLabel}>BBB Rating</span>
-          </div>
-          <div className={styles.statDivider} aria-hidden />
-          <div className={styles.stat} role="listitem">
-            <span className={styles.statNumber}>24/7</span>
-            <span className={styles.statLabel}>Portal Access</span>
-          </div>
-        </div>
-
-        {/* Firm values strip */}
-        <div className={styles.values}>
-          {["Integrity", "Compassion", "Results"].map((v) => (
-            <span key={v} className={styles.valueTag}>
-              <CheckmarkIcon />
-              {v}
-            </span>
-          ))}
-        </div>
-
-        {/* Footer link */}
-        <div className={styles.brandFooter}>
-          <a
-            href="https://theindependencelaw.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.brandLink}
-          >
-            ← Return to main website
-          </a>
-        </div>
-      </aside>
-
-      {/* ── Right: Auth Form ──────────────────────────────────── */}
-      <section className={styles.authPanel} aria-label="Sign in or create account">
-        {/* Mobile-only firm name strip */}
-        <div className={styles.mobileHeader} aria-hidden>
-          <ScalesIcon size={28} />
-
-        </div>
-
-        <div className={styles.authInner}>
-          <AuthForm />
-
-          <p className={styles.legalNote}>
-            By accessing this portal, you agree to our{" "}
-            <a href="#" className={styles.legalLink}>
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href="#" className={styles.legalLink}>
-              Privacy Policy
-            </a>
-            . All communications are protected by attorney-client privilege.
-          </p>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-// ── Inline SVG Icons ──────────────────────────────────────────────────────────
-
-function ScalesIcon({ size }: { size?: number }) { return <img src="/logo.png" alt="Liberty Logo" style={{ width: "100%", height: "auto", minWidth: "140px", maxWidth: "220px", objectFit: "contain" }} /> }
-
-function CheckmarkIcon() {
-  return (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
+    <main
+      style={{
+        minHeight: "100dvh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(160deg, #1A2744 0%, #0f1a33 100%)",
+        padding: "2rem 1rem",
+      }}
     >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
+      {/* Logo */}
+      <div style={{ marginBottom: "3rem" }}>
+        <Image
+          src="/logo.png"
+          alt="Liberty Law"
+          width={200}
+          height={80}
+          style={{ objectFit: "contain", display: "block" }}
+          priority
+        />
+      </div>
+
+      {/* Buttons */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "1rem",
+          width: "100%",
+          maxWidth: "280px",
+        }}
+      >
+        {/* Client Login */}
+        <Link
+          href="/login"
+          style={{
+            display: "block",
+            textAlign: "center",
+            padding: "14px 24px",
+            backgroundColor: "#B31E3C",
+            color: "#FFFFFF",
+            fontFamily: "Arial, Helvetica, sans-serif",
+            fontSize: "14px",
+            fontWeight: "700",
+            letterSpacing: "1.5px",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            borderRadius: "4px",
+            border: "2px solid #B31E3C",
+            transition: "background-color 150ms, border-color 150ms",
+          }}
+        >
+          Client Login
+        </Link>
+
+        {/* Admin Login */}
+        <Link
+          href="/admin/login"
+          style={{
+            display: "block",
+            textAlign: "center",
+            padding: "14px 24px",
+            backgroundColor: "transparent",
+            color: "rgba(255,255,255,0.75)",
+            fontFamily: "Arial, Helvetica, sans-serif",
+            fontSize: "14px",
+            fontWeight: "600",
+            letterSpacing: "1.5px",
+            textTransform: "uppercase",
+            textDecoration: "none",
+            borderRadius: "4px",
+            border: "2px solid rgba(255,255,255,0.25)",
+          }}
+        >
+          Administration
+        </Link>
+      </div>
+    </main>
   );
 }
