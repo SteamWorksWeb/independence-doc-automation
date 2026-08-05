@@ -57,6 +57,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
   const [errorMessage, setErrorMessage] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
 
   useEffect(() => {
@@ -118,7 +119,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
   // ── Copy invite link ──────────────────────────────────────────────────────
 
   const handleCopyLink = useCallback(async (invite: Invitation) => {
-    const url = `${window.location.origin}/register?token=${invite.token}`;
+    const url = `${window.location.origin}/login?token=${invite.token}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(invite.id);
@@ -163,6 +164,41 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
       setRevokingId(null);
     }
   }, [adminToken, revokingId]);
+
+  // ── Resend invitation ─────────────────────────────────────────────────────
+
+  const handleResend = useCallback(async (invite: Invitation) => {
+    if (resendingId) return;
+    setResendingId(invite.id);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
+      const res = await fetch(`${apiUrl}/admin/invites/${invite.id}/resend`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          body.error || body.message || `Server responded with ${res.status}`
+        );
+      }
+
+      // Refresh the list so the updated expiresAt is reflected
+      await fetchInvites();
+      setToast({ message: `Invitation resent to ${invite.email}.`, type: "success" });
+    } catch (err) {
+      setToast({
+        message: err instanceof Error ? err.message : "Failed to resend invitation.",
+        type: "error",
+      });
+    } finally {
+      setResendingId(null);
+    }
+  }, [adminToken, resendingId, fetchInvites]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -258,7 +294,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
                                 : "border-border bg-white text-text-primary hover:bg-bg hover:border-navy hover:text-navy"
                             }`}
                             onClick={() => handleCopyLink(invite)}
-                            disabled={revokingId === invite.id}
+                            disabled={revokingId === invite.id || resendingId === invite.id}
                             aria-label={`Copy registration link for ${invite.email}`}
                           >
                             {copiedId === invite.id ? (
@@ -269,9 +305,22 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
                           </button>
                           <button
                             type="button"
+                            className="inline-flex items-center gap-[5px] font-sans text-xs font-semibold py-[5px] px-3 rounded-md border border-transparent bg-[rgba(26,39,68,0.07)] text-navy cursor-pointer whitespace-nowrap transition-[background,border-color,color] duration-150 ease-in-out hover:bg-navy hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={() => handleResend(invite)}
+                            disabled={revokingId === invite.id || resendingId === invite.id}
+                            aria-label={`Resend invitation to ${invite.email}`}
+                          >
+                            {resendingId === invite.id ? (
+                              <><span className="w-3 h-3 border-2 border-border border-t-navy rounded-full animate-spin shrink-0" aria-hidden /> Resending…</>
+                            ) : (
+                              <><SendIcon /> Resend</>
+                            )}
+                          </button>
+                          <button
+                            type="button"
                             className="inline-flex items-center gap-[5px] font-sans text-xs font-semibold py-[5px] px-3 rounded-md border border-transparent bg-[rgba(179,30,60,0.08)] text-crimson cursor-pointer whitespace-nowrap transition-[background,border-color,color] duration-150 ease-in-out hover:bg-crimson hover:border-crimson hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                             onClick={() => handleRevoke(invite)}
-                            disabled={revokingId === invite.id}
+                            disabled={revokingId === invite.id || resendingId === invite.id}
                             aria-label={`Revoke invitation for ${invite.email}`}
                           >
                             {revokingId === invite.id ? (
@@ -317,6 +366,10 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
 }
 
 // ── Inline SVG Icons ────────────────────────────────────────────────────────
+
+function SendIcon() {
+  return (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>);
+}
 
 function CopyIcon() {
   return (<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>);
