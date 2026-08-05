@@ -9,7 +9,7 @@
 // Migrated from CSS Modules → Tailwind CSS (Phase 2).
 // =============================================================================
 
-import { type FormEvent, useCallback, useId, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import OnboardingPage from '@/app/onboarding/page';
@@ -204,8 +204,31 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
   const update = useCallback(
     <K extends keyof FormData>(field: K, value: FormData[K]) =>
       setForm((prev) => ({ ...prev, [field]: value })),
-    []
+    [],
   );
+
+  // ── Hydrate email from invitation token on mount ──────────────────────────
+  useEffect(() => {
+    if (!inviteToken) return;
+
+    let cancelled = false;
+
+    fetch(`/api/auth/invite/verify?token=${encodeURIComponent(inviteToken)}`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.valid && typeof data.email === 'string') {
+          setForm((prev) => ({ ...prev, email: data.email }));
+        }
+      })
+      .catch(() => {
+        // Silently ignore — email will be resolved later from session
+      });
+
+    return () => { cancelled = true; };
+  }, [inviteToken]);
 
   const next = () => {
     setError('');
@@ -561,6 +584,26 @@ export default function IntakeWizard({ token = '', initialEmail = '' }: IntakeWi
                     </h2>
                     <p className="text-[0.9375rem] text-text-muted leading-relaxed">
                       Your email address is your username. Choose a password you can use for future portal logins.
+                    </p>
+                  </div>
+
+                  {/* Email (locked — hydrated from invitation token) */}
+                  <div className="flex flex-col gap-2 mb-1">
+                    <label htmlFor={`${uid}-email`} className={labelCls}>
+                      Email Address
+                    </label>
+                    <input
+                      id={`${uid}-email`}
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      className={`${inputCls} bg-gray-50 text-text-muted cursor-not-allowed`}
+                      value={form.email}
+                      disabled
+                      readOnly
+                    />
+                    <p className="text-[0.8125rem] text-text-muted">
+                      Your email address is your username and cannot be changed.
                     </p>
                   </div>
 
