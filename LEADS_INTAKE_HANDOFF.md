@@ -7,6 +7,62 @@ Current frontend branch at time of writing: `fix/leads-intake-save-snapshot-upse
 
 This file is a recovery/handoff note for continuing the Leads intake/admin work if the AI session or credits run out.
 
+## Latest Update: Phase 1 Complete
+
+Phase 1 is now deployed and manually verified in production.
+
+Backend:
+
+- Backend branch `fix/leads-intake-save-snapshot-upsert` was merged/deployed first.
+- Backend commit reported by backend agent: `62ef61927965caa4a054c29ccde4693e722aa256 Fix admin snapshot save for leads`.
+- Backend route changed: `PATCH /api/v1/admin/clients/:id/snapshot`.
+- New backend behavior:
+  - Finds client by `:id`.
+  - Uses existing normalized snapshot data.
+  - Updates latest `DischargeSnapshot` if present.
+  - Creates first `DischargeSnapshot` if missing.
+  - Preserves status/verdict recalculation.
+  - Returns `200 { snapshot }`.
+- Backend verification reported:
+  - `npm run lint` passed.
+  - `npm run build` passed.
+  - No pending migrations.
+  - Manual API test for client `2c079ae9-f8be-4bdb-9ce8-bd9bb9c5bcfd` created snapshot `aeacbf2b-ebdb-42c5-a679-7d39df7ce818`, then a second PATCH updated the same snapshot without duplication.
+
+Frontend:
+
+- Frontend branch `fix/leads-intake-save-snapshot-upsert` was fast-forward merged into `main`.
+- Frontend `main` was pushed and deployed.
+- Frontend deployed commit: `cf3539a Prepare frontend leads intake save fixes`.
+- Frontend verification before merge:
+  - `npx tsc --noEmit` passed.
+  - `npm run build` passed.
+
+Production manual verification:
+
+- `/admin/leads` still shows the old Leads UX: filters, `Manage` button, modal actions, and `DischargeSnapshotsTable`.
+- Manage modal opens for `Test Account`.
+- Edit page opens at `/admin/leads/2c079ae9-f8be-4bdb-9ce8-bd9bb9c5bcfd/edit`.
+- Save now succeeds.
+- Reopening/hydration shows saved values persisted.
+- Example persisted values seen after save:
+  - First Name: `Test`
+  - Last Name: `Account`
+  - Email: `support@steamworks.io`
+  - Phone: `888-888-8888`
+  - Federal Student Loans: `Yes`
+  - Outstanding Principal Balance: `10000`
+  - Household Size: `3`
+  - Monthly Gross Income: `4300`
+  - Monthly Take-Home Pay: `1000`
+  - Scoreboard recalculated to `Borderline`.
+
+Remaining follow-up:
+
+- If a separate completed snapshot/client exists, still test that existing snapshot save path works normally.
+- Next likely task is Phase 2: partial intake persistence before final submit.
+- Do not replace the restored Leads UX while working on Phase 2.
+
 ## Current Goal
 
 Restore and preserve the original Admin Leads workflow while fixing admin edit hydration/save behavior.
@@ -273,4 +329,5 @@ After Phase 1:
 ## Security Note
 
 An `admin_session` cookie appeared in a screenshot during debugging. After this stabilizes, log out and log back in to rotate the session.
+
 
