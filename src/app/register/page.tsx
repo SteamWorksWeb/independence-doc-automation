@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Suspense } from "react";
 
@@ -20,7 +20,7 @@ import { Suspense } from "react";
  */
 
 import { useState, useCallback, useEffect, useId, useTransition } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { Metadata } from "next";
 import { registerClient } from "@/actions/registerClient";
 import styles from "./register.module.css";
@@ -131,6 +131,7 @@ function RegisterPageInner() {
   const token = searchParams.get("token");
 
   const uid = useId();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   // Form fields
@@ -197,8 +198,14 @@ function RegisterPageInner() {
         const result = await registerClient({ name: derivedName, email, password, token: token || undefined });
 
         if (result.ok) {
-          setRegisteredEmail(result.email);
-          setPageState("pending");
+          if (result.tokenized) {
+            // Invite-token flow: account is already verified — go straight to onboarding.
+            router.push("/onboarding");
+          } else {
+            // Self-registration: show "check your email" pending screen.
+            setRegisteredEmail(result.email);
+            setPageState("pending");
+          }
         } else {
           setPageState("idle");
 

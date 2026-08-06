@@ -19,6 +19,8 @@
 
 "use server";
 
+import { cookies } from "next/headers";
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type RegisterInput = {
@@ -29,7 +31,7 @@ export type RegisterInput = {
 };
 
 export type ActionResult =
-  | { ok: true; email: string }
+  | { ok: true; email: string; tokenized: boolean }
   | { ok: false; code: "VALIDATION" | "DUPLICATE_EMAIL" | "INVALID_TOKEN" | "SERVER_ERROR"; message: string };
 
 // ── Environment guard ─────────────────────────────────────────────────────────
@@ -122,8 +124,32 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
 
   // 201 — Client Created Successfully
   if (response.status === 201) {
-    console.log(`[registerClient] Registration succeeded for ${input.email}`);
-    return { ok: true, email: input.email.trim().toLowerCase() };
+    const normalizedEmail = input.email.trim().toLowerCase();
+    console.log(`[registerClient] Registration succeeded for ${normalizedEmail}`);
+
+    // Write borrower_email cookie so /api/public/auth/borrower-session can
+    // immediately resolve the correct email for the onboarding form.
+    // This is a plain (non-httpOnly) cookie because borrower-session reads it
+    // server-side anyway, and it only contains a non-sensitive email address.
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set("borrower_email", normalizedEmail, {
+        httpOnly: false,   // borrower-session reads it via cookies() server-side
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7,  // 7 days — mirrors JWT lifetime
+      });
+    } catch (cookieErr) {
+      // Non-fatal: onboarding will still work via JWT fallback path
+      console.warn("[registerClient] Failed to set borrower_email cookie:", cookieErr);
+    }
+
+    return {
+      ok: true,
+      email: normalizedEmail,
+      tokenized: !!input.token,  // true = invite-token flow, skip verify screen
+    };
   }
 
   // Parse error body — capture raw text first so we never lose the backend message
