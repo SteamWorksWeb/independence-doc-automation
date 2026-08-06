@@ -145,34 +145,7 @@ async function forwardProfileMutation(
     return new NextResponse(null, { status: 204 });
   }
 
-  let data = await backendRes.json().catch(() => null);
-
-  if (
-    backendRes.status === 404 &&
-    readApiMessage(data)?.toLowerCase().includes("snapshot not found")
-  ) {
-    const profileUrl = buildBackendUrl(`/admin/clients/${id}/profile`);
-    if (!profileUrl) {
-      return NextResponse.json(
-        { message: "Server configuration error." },
-        { status: 503 }
-      );
-    }
-
-    try {
-      backendRes = await forwardJsonMutation(profileUrl, method, sessionCookie.value, body, req);
-      if (backendRes.status === 204) {
-        return new NextResponse(null, { status: 204 });
-      }
-      data = await backendRes.json().catch(() => null);
-    } catch (error) {
-      console.error(`[proxy/admin/clients/:id/profile] ${method} fallback network error:`, error);
-      return NextResponse.json(
-        { message: "Unable to reach the backend. Please try again." },
-        { status: 502 }
-      );
-    }
-  }
+  const data = await backendRes.json().catch(() => null);
 
   if (data == null) {
     return NextResponse.json(

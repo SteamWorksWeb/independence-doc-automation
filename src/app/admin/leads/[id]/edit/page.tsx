@@ -497,7 +497,7 @@ function hydrateForm(data: unknown): EditFormData {
     dependentCareExpenses: money("dependentCareExpenses", "dependentCare", "childCareExpenses", "familyCareExpenses"),
     currentlyEmployed: yesNo(["currentlyEmployed", "isEmployed", "employed"], "Yes"),
     workInFieldOfStudy: yesNo(["workInFieldOfStudy", "worksInFieldOfStudy"], "Yes"),
-    unemployed5Years: yesNo(["unemployed5Years", "unemployed5PlusYears", "unemployedFiveYears"], "No"),
+    unemployed5Years: yesNo(["unemployed5Years", "unemployed5PlusYears", "unemployed5of10", "unemployedFiveYears"], "No"),
     hasDisability: yesNo(["hasDisability", "disability", "disabledVeteran"], "No"),
     didGraduate: yesNo(["didGraduate", "graduated"], "Yes"),
     schoolClosed: yesNo(["schoolClosed", "isSchoolClosed"], "No"),
