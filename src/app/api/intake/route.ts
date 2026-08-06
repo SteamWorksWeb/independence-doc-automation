@@ -1,132 +1,103 @@
-// =============================================================================
-// THE INDEPENDENCE LAW FIRM — INTAKE API PROXY
-// src/app/api/intake/route.ts
-//
-// This proxy is the ONLY correct way to call the Render backend's
-// /api/v1/intake endpoint from the client-side wizard.
-//
-// Why a proxy?
-//   The borrower session token is stored as an HttpOnly cookie.
-//   Browser JS cannot read HttpOnly cookies, so the wizard component
-//   cannot attach it to a fetch() call directly.
-//   This server-side route reads it from the cookie jar and forwards it
-//   as a Bearer token in the Authorization header to Render.
-//
-// Routes:
-//   POST /api/intake  — Forward intake payload to Render (create/update)
-//   GET  /api/intake  — Forward intake fetch to Render (retrieve profile)
-// =============================================================================
-
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-
-const BORROWER_SESSION_COOKIE_NAMES = ['borrower_session', 'client_token'] as const;
-
-/**
- * Resolve the Render backend intake URL.
+﻿/**
+ * src/app/api/intake/route.ts
  *
- * NEXT_PUBLIC_AWS_API_URL is set to https://<host>/api/v1
- * The intake endpoint lives at /api/v1/intake, so we simply append /intake.
+ * Server-side proxy for the client intake profile endpoints:
+ *   GET  /api/v1/intake  — retrieve the authenticated client's intake profile
+ *   POST /api/v1/intake  — create/update intake profile (Step 1 of onboarding)
+ *
+ * Why a proxy?
+ *   The onboarding wizard is a "use client" component. It cannot read the
+ *   HttpOnly `client_token` cookie directly. This Route Handler runs on the
+ *   Next.js server, reads the cookie, and forwards requests to the backend
+ *   with a Bearer Authorization header — eliminating CORS issues on localhost
+ *   and hiding the session cookie from browser JS.
  */
-function getIntakeUrl(): string | null {
-  const base = process.env.NEXT_PUBLIC_AWS_API_URL;
+
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+
+function buildBackendUrl(path: string): string | null {
+  const base = process.env.NEXT_PUBLIC_AWS_API_URL?.replace(/\/+$/, "");
   if (!base) return null;
-  return `${base.replace(/\/+$/, '')}/intake`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
 }
 
-function getBorrowerSessionToken(cookieStore: Awaited<ReturnType<typeof cookies>>): string | undefined {
-  for (const cookieName of BORROWER_SESSION_COOKIE_NAMES) {
-    const token = cookieStore.get(cookieName)?.value;
-    if (token) return token;
-  }
-
-  return undefined;
-}
-
-// ── POST /api/intake ─────────────────────────────────────────────────────────
-export async function POST(req: NextRequest) {
+async function getClientToken(): Promise<string | null> {
   const cookieStore = await cookies();
-  const token = getBorrowerSessionToken(cookieStore);
+  return (
+    cookieStore.get("client_token")?.value ??
+    cookieStore.get("borrower_session")?.value ??
+    null
+  );
+}
 
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// -- GET /api/intake ----------------------------------------------------------
+export async function GET(): Promise<NextResponse> {
+  const clientToken = await getClientToken();
+  if (!clientToken) {
+    return NextResponse.json({ message: "Unauthorized: No active client session." }, { status: 401 });
   }
 
-  const intakeUrl = getIntakeUrl();
-  if (!intakeUrl) {
-    console.error('[intake proxy] NEXT_PUBLIC_AWS_API_URL is not configured');
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
+  const targetUrl = buildBackendUrl("/intake");
+  if (!targetUrl) {
+    console.error("[proxy/intake GET] NEXT_PUBLIC_AWS_API_URL is not set.");
+    return NextResponse.json({ message: "Server configuration error." }, { status: 503 });
+  }
+
+  let backendRes: Response;
+  try {
+    backendRes = await fetch(targetUrl, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${clientToken}` },
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error("[proxy/intake GET] Network error:", err);
+    return NextResponse.json({ message: "Unable to reach the backend. Please try again." }, { status: 502 });
+  }
+
+  const data = await backendRes.json().catch(() => null);
+  if (data == null) {
+    return NextResponse.json({ message: "Unexpected response from backend." }, { status: 502 });
+  }
+  return NextResponse.json(data, { status: backendRes.status });
+}
+
+// -- POST /api/intake ---------------------------------------------------------
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const clientToken = await getClientToken();
+  if (!clientToken) {
+    return NextResponse.json({ message: "Unauthorized: No active client session." }, { status: 401 });
+  }
+
+  const targetUrl = buildBackendUrl("/intake");
+  if (!targetUrl) {
+    console.error("[proxy/intake POST] NEXT_PUBLIC_AWS_API_URL is not set.");
+    return NextResponse.json({ message: "Server configuration error." }, { status: 503 });
   }
 
   let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ message: "Invalid JSON body." }, { status: 400 });
   }
 
+  let backendRes: Response;
   try {
-    const response = await fetch(intakeUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+    backendRes = await fetch(targetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${clientToken}` },
       body: JSON.stringify(body),
+      cache: "no-store",
     });
-
-    const text = await response.text();
-    let data: unknown;
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch {
-      data = { error: text || response.statusText || 'Backend returned a non-JSON response' };
-    }
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    return NextResponse.json(data, { status: 200 });
   } catch (err) {
-    console.error('[intake proxy] POST error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// ── GET /api/intake ──────────────────────────────────────────────────────────
-export async function GET() {
-  const cookieStore = await cookies();
-  const token = getBorrowerSessionToken(cookieStore);
-
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    console.error("[proxy/intake POST] Network error:", err);
+    return NextResponse.json({ message: "Unable to reach the backend. Please try again." }, { status: 502 });
   }
 
-  const intakeUrl = getIntakeUrl();
-  if (!intakeUrl) {
-    console.error('[intake proxy] NEXT_PUBLIC_AWS_API_URL is not configured');
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 503 });
+  const data = await backendRes.json().catch(() => null);
+  if (data == null) {
+    return NextResponse.json({ message: "Unexpected response from backend." }, { status: 502 });
   }
-
-  try {
-    const response = await fetch(intakeUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      cache: 'no-store',
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    return NextResponse.json(data, { status: 200 });
-  } catch (err) {
-    console.error('[intake proxy] GET error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+  return NextResponse.json(data, { status: backendRes.status });
 }
