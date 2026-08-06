@@ -304,7 +304,7 @@ export default async function DischargeSnapshotsPage() {
   const { borrowers, error, adminToken } = await fetchSnapshots();
 
   return (
-    <div className="flex flex-col gap-6 max-w-[1200px] animate-fade-in">
+    <div className="max-w-[1100px] mx-auto px-6 py-8">
       <div className="flex items-start justify-between gap-4 flex-wrap max-[640px]:flex-col">
         <div>
           <h1 className="font-serif text-[clamp(1.375rem,2.5vw,1.75rem)] font-black italic text-navy mb-1 leading-[1.1]">

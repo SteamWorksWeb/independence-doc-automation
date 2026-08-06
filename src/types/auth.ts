@@ -16,6 +16,7 @@ export interface ClientSession {
   name: string;
   email: string;
   lawyerId: string;
+  userType: string;  // 'LEAD' | 'CLIENT' — drives post-login routing
 }
 
 // ── Server Action result union ────────────────────────────────────────────────

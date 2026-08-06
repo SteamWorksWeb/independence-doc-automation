@@ -189,8 +189,9 @@ export default function ClientLoginForm() {
         const result = await loginClient(email.trim(), password);
 
         if (result.ok) {
-          // Cookie is already set by the server action — navigate directly
-          router.push("/dashboard");
+          // Cookie is already set by the server action — route based on user type
+          const destination = result.client.userType === 'LEAD' ? '/onboarding' : '/dashboard';
+          router.push(destination);
           return;
         }
 

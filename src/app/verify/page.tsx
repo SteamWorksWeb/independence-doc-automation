@@ -147,9 +147,9 @@ function SuccessCard({ message }: { message: string }) {
         </h1>
         <p className={styles.subtitle}>{message}</p>
         <div className={`alert alert--success ${styles.redirectAlert}`} role="status" aria-live="polite">
-          <RedirectCountdown seconds={3} href="/login" />
+          <RedirectCountdown seconds={3} href="/login?verified=success" />
         </div>
-        <Link href="/login" className={`btn btn--primary ${styles.cta}`} id="verify-login-link">
+        <Link href="/login?verified=success" className={`btn btn--primary ${styles.cta}`} id="verify-login-link">
           Sign In Now
         </Link>
       </div>
