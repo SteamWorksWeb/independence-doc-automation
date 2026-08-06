@@ -127,12 +127,50 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
     const normalizedEmail = input.email.trim().toLowerCase();
     console.log(`[registerClient] Registration succeeded for ${normalizedEmail}`);
 
-    // Write borrower_email cookie so /api/public/auth/borrower-session can
-    // immediately resolve the correct email for the onboarding form.
-    // This is a plain (non-httpOnly) cookie because borrower-session reads it
-    // server-side anyway, and it only contains a non-sensitive email address.
+    const cookieStore = await cookies();
+
+    // ── Auto-login: obtain a JWT so /api/intake proxy routes work immediately ──
+    //
+    // The registration endpoint returns the new client record but NO token.
+    // Without a token, the user lands on /onboarding with no session cookie
+    // and every POST /api/intake call returns 401.
+    // Fix: immediately call /clients/login with the same credentials to get
+    // a JWT, then write client_token the same way loginClient.ts does.
+    //
     try {
-      const cookieStore = await cookies();
+      const loginRes = await fetch(`${apiUrl}/clients/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password: input.password }),
+        cache: "no-store",
+      });
+
+      if (loginRes.ok) {
+        const loginBody = await loginRes.json().catch(() => ({})) as Record<string, unknown>;
+        const jwt = typeof loginBody.token === "string" ? loginBody.token : null;
+
+        if (jwt) {
+          cookieStore.set("client_token", jwt, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,  // 7 days — mirrors JWT_EXPIRES_IN
+          });
+          console.log(`[registerClient] Auto-login succeeded — client_token set for ${normalizedEmail}`);
+        } else {
+          console.warn("[registerClient] Auto-login response had no token field:", loginBody);
+        }
+      } else {
+        console.warn(`[registerClient] Auto-login failed (HTTP ${loginRes.status}) — user will need to log in manually`);
+      }
+    } catch (autoLoginErr) {
+      // Non-fatal: registration succeeded, user can log in manually
+      console.warn("[registerClient] Auto-login network error:", autoLoginErr);
+    }
+
+    // ── Write borrower_email cookie for borrower-session email resolution ─────
+    try {
       cookieStore.set("borrower_email", normalizedEmail, {
         httpOnly: false,   // borrower-session reads it via cookies() server-side
         secure: process.env.NODE_ENV === "production",
@@ -151,6 +189,7 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
       tokenized: !!input.token,  // true = invite-token flow, skip verify screen
     };
   }
+
 
   // Parse error body — capture raw text first so we never lose the backend message
   const rawErrorText = await response.text().catch(() => "");
