@@ -15,7 +15,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import AdminShell from "@/components/admin/AdminShell";
 import PendingInvitesTable from "@/components/admin/PendingInvitesTable";
 import InviteClientModal from "@/components/admin/InviteClientModal";
 
@@ -34,8 +33,7 @@ export default async function InviteManagementPage() {
   }
 
   return (
-    <AdminShell>
-      <div className="max-w-[1100px] mx-auto px-6 py-8">
+    <div className="max-w-[1100px] mx-auto px-6 py-8">
 
         {/* ── Page header ──────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4 mb-8 flex-wrap">
@@ -91,7 +89,6 @@ export default async function InviteManagementPage() {
         </div>
 
       </div>
-    </AdminShell>
   );
 }
 

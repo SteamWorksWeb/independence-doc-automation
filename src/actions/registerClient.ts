@@ -88,9 +88,11 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
   const { apiUrl, secret } = env;
 
   // ── POST /api/v1/clients ──────────────────────────────────────────────────
+  //
+  // NOTE: apiUrl is already "https://.../api/v1" — do NOT add /api/v1 again.
   let response: Response;
   try {
-    response = await fetch(`${apiUrl}/api/v1/clients`, {
+    response = await fetch(`${apiUrl}/clients`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -99,7 +101,7 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
         Accept: "application/json",
       },
       body: JSON.stringify({
-        name:     input.name.trim(),
+        name:     (input.name?.trim()) || input.email.split("@")[0],  // fallback if empty
         email:    input.email.trim().toLowerCase(),
         password: input.password,   // backend hashes this with bcrypt cost 12
         ...(input.token ? { token: input.token } : {}),  // Velvet Rope invitation token
@@ -124,12 +126,18 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
     return { ok: true, email: input.email.trim().toLowerCase() };
   }
 
-  // Parse error body for all non-201 responses
-  let errorBody: { error?: string } = {};
+  // Parse error body — capture raw text first so we never lose the backend message
+  const rawErrorText = await response.text().catch(() => "");
+  console.error(
+    `[BACKEND REJECTION] POST /clients → HTTP ${response.status} | URL: ${apiUrl}/clients`,
+    "\nRaw body:", rawErrorText || "(empty)"
+  );
+
+  let errorBody: { error?: string; message?: string } = {};
   try {
-    errorBody = await response.json();
+    errorBody = JSON.parse(rawErrorText);
   } catch {
-    // Ignore parse failure — we'll fall through to a generic message
+    // Non-JSON body (plain text error) — already logged above
   }
 
   // 409 — Duplicate email
@@ -146,7 +154,7 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
     return {
       ok: false,
       code: "VALIDATION",
-      message: errorBody.error ?? "Invalid registration data. Please check your details.",
+      message: errorBody.error ?? errorBody.message ?? "Invalid registration data. Please check your details.",
     };
   }
 
@@ -155,7 +163,7 @@ export async function registerClient(input: RegisterInput): Promise<ActionResult
     return {
       ok: false,
       code: "INVALID_TOKEN",
-      message: errorBody.error ?? "This invitation link is invalid or has expired. Please contact your attorney for a new invitation.",
+      message: errorBody.error ?? errorBody.message ?? "This invitation link is invalid or has expired. Please contact your attorney for a new invitation.",
     };
   }
 

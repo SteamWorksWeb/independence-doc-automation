@@ -73,13 +73,10 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
     setErrorMessage("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
-      const res = await fetch(`${apiUrl}/admin/invites`, {
+      // Use Next.js proxy route — avoids direct browser→Render CORS
+      const res = await fetch("/api/admin/invites", {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!res.ok) {
@@ -102,7 +99,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
       );
       setFetchState("error");
     }
-  }, [adminToken]);
+  }, []);
 
   useEffect(() => {
     fetchInvites();
@@ -119,7 +116,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
   // ── Copy invite link ──────────────────────────────────────────────────────
 
   const handleCopyLink = useCallback(async (invite: Invitation) => {
-    const url = `${window.location.origin}/login?token=${invite.token}`;
+    const url = `${window.location.origin}/register?token=${invite.token}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopiedId(invite.id);
@@ -137,13 +134,9 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
 
     setRevokingId(invite.id);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
-      const res = await fetch(`${apiUrl}/admin/invites/${invite.id}`, {
+      const res = await fetch(`/api/admin/invites/${invite.id}`, {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!res.ok) {
@@ -163,7 +156,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
     } finally {
       setRevokingId(null);
     }
-  }, [adminToken, revokingId]);
+  }, [revokingId]);
 
   // ── Resend invitation ─────────────────────────────────────────────────────
 
@@ -171,13 +164,9 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
     if (resendingId) return;
     setResendingId(invite.id);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_AWS_API_URL;
-      const res = await fetch(`${apiUrl}/admin/invites/${invite.id}/resend`, {
+      const res = await fetch(`/api/admin/invites/${invite.id}/resend`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
+        headers: { "Content-Type": "application/json" },
       });
 
       if (!res.ok) {
@@ -198,7 +187,7 @@ export default function PendingInvitesTable({ adminToken }: PendingInvitesTableP
     } finally {
       setResendingId(null);
     }
-  }, [adminToken, resendingId, fetchInvites]);
+  }, [resendingId, fetchInvites]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
